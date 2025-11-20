@@ -14,6 +14,7 @@ import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,6 +37,7 @@ fun SettingsScreen(
     var hasNotificationPermission by remember { mutableStateOf(isNotificationServiceEnabled(context)) }
     val alarmAppPackage by favoritesRepository.alarmAppPackage.collectAsState()
     val calendarAppPackage by favoritesRepository.calendarAppPackage.collectAsState()
+    val isHomeLocked by favoritesRepository.isHomeLocked.collectAsState()
 
     val favoriteCount by favoritesRepository.favoriteCount.collectAsState()
     var sliderPosition by remember(favoriteCount) { mutableStateOf(favoriteCount.toFloat()) }
@@ -132,25 +134,43 @@ fun SettingsScreen(
             Text(calendarAppName)
         }
 
+        if (!isHomeLocked) {
+            Divider(color = Color.Black)
+
+            Column(modifier = Modifier.padding(vertical = 16.dp)) {
+                Text("Favorite App Slots: ${sliderPosition.roundToInt()}", fontSize = 18.sp)
+                Slider(
+                    value = sliderPosition,
+                    onValueChange = { sliderPosition = it },
+                    valueRange = 1f..20f,
+                    steps = 18,
+                    onValueChangeFinished = {
+                        favoritesRepository.saveFavoriteCount(sliderPosition.roundToInt())
+                    },
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color.Black,
+                        activeTrackColor = Color.Black,
+                        inactiveTrackColor = Color.Black,
+                        activeTickColor = Color.White,
+                        inactiveTickColor = Color.White
+                    )
+                )
+            }
+        }
+
         Divider(color = Color.Black)
 
-        Column(modifier = Modifier.padding(vertical = 16.dp)) {
-            Text("Favorite App Slots: ${sliderPosition.roundToInt()}", fontSize = 18.sp)
-            Slider(
-                value = sliderPosition,
-                onValueChange = { sliderPosition = it },
-                valueRange = 1f..20f,
-                steps = 18,
-                onValueChangeFinished = {
-                    favoritesRepository.saveFavoriteCount(sliderPosition.roundToInt())
-                },
-                colors = SliderDefaults.colors(
-                    thumbColor = Color.Black,
-                    activeTrackColor = Color.Black,
-                    inactiveTrackColor = Color.Black,
-                    activeTickColor = Color.White,
-                    inactiveTickColor = Color.White
-                )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Lock homescreen", fontSize = 18.sp)
+            Switch(
+                checked = isHomeLocked,
+                onCheckedChange = { favoritesRepository.saveHomeLocked(it) }
             )
         }
     }

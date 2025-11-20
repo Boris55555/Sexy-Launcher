@@ -19,6 +19,7 @@ private const val KEY_FAVORITES = "favorite_apps"
 private const val KEY_FAVORITE_COUNT = "favorite_app_count"
 private const val KEY_ALARM_APP = "alarm_app_package"
 private const val KEY_CALENDAR_APP = "calendar_app_package"
+private const val KEY_HOME_LOCKED = "home_locked"
 private const val DEFAULT_FAVORITE_COUNT = 4
 
 class FavoritesRepository(private val context: Context) {
@@ -36,6 +37,9 @@ class FavoritesRepository(private val context: Context) {
     private val _calendarAppPackage = MutableStateFlow(prefs.getString(KEY_CALENDAR_APP, null))
     val calendarAppPackage = _calendarAppPackage.asStateFlow()
 
+    private val _isHomeLocked = MutableStateFlow(prefs.getBoolean(KEY_HOME_LOCKED, false))
+    val isHomeLocked = _isHomeLocked.asStateFlow()
+
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
             KEY_FAVORITE_COUNT, KEY_FAVORITES -> {
@@ -47,6 +51,9 @@ class FavoritesRepository(private val context: Context) {
             }
             KEY_CALENDAR_APP -> {
                 _calendarAppPackage.value = prefs.getString(KEY_CALENDAR_APP, null)
+            }
+            KEY_HOME_LOCKED -> {
+                _isHomeLocked.value = prefs.getBoolean(KEY_HOME_LOCKED, false)
             }
         }
     }
@@ -103,6 +110,10 @@ class FavoritesRepository(private val context: Context) {
 
     fun saveCalendarApp(packageName: String?) {
         prefs.edit().putString(KEY_CALENDAR_APP, packageName).apply()
+    }
+
+    fun saveHomeLocked(isLocked: Boolean) {
+        prefs.edit().putBoolean(KEY_HOME_LOCKED, isLocked).apply()
     }
 }
 

@@ -21,7 +21,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -93,6 +92,7 @@ fun MainHomeScreen(
     val favoriteCount by favoritesRepository.favoriteCount.collectAsState()
     val alarmAppPackage by favoritesRepository.alarmAppPackage.collectAsState()
     val calendarAppPackage by favoritesRepository.calendarAppPackage.collectAsState()
+    val isHomeLocked by favoritesRepository.isHomeLocked.collectAsState()
 
     val favoriteApps = remember(favoritePackages) {
         favoritePackages.map { pkgName ->
@@ -193,15 +193,12 @@ fun MainHomeScreen(
 
     val batteryLevel by context.batteryLevel().collectAsState(initial = null)
 
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-
     Box(
         modifier = Modifier
             .fillMaxSize()
             .pointerInput(Unit) {
                 detectTapGestures(
-                    onLongPress = { onShowSettingsClicked() },
+                    onLongPress = { if (!isHomeLocked) onShowSettingsClicked() },
                     onDoubleTap = {
                         showRefreshOverlay = true
                         try {
@@ -330,7 +327,7 @@ fun MainHomeScreen(
                     for (i in pageStart until pageEnd) {
                         val app = favoriteApps.getOrNull(i)
                         if (app != null) {
-                            FavoriteAppItem(app = app, notifications = notifications.filter { it.packageName == app.packageName }, onLongClick = { onEditFavorite(i) }) {
+                            FavoriteAppItem(app = app, notifications = notifications.filter { it.packageName == app.packageName }, onLongClick = { if (!isHomeLocked) onEditFavorite(i) }) {
                                 val appNotifications = notifications.filter { it.packageName == app.packageName }
                                 appNotifications.forEach { sbn ->
                                     NotificationListener.instance?.dismissNotification(sbn.key)
@@ -347,7 +344,7 @@ fun MainHomeScreen(
                                 horizontalArrangement = Arrangement.Center,
                                 modifier = Modifier
                                     .padding(8.dp)
-                                    .clickable { onEditFavorite(i) }
+                                    .clickable { if (!isHomeLocked) onEditFavorite(i) }
                             ) {
                                 Text(
                                     text = "[Press here + ]",
@@ -361,26 +358,24 @@ fun MainHomeScreen(
             }
         }
 
-        val backgroundColor = if (isPressed) Color.Black else Color.White
-        val iconColor = if (isPressed) Color.White else Color.Black
-
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
+                .padding(bottom = 80.dp) // Pushed the button up
                 .size(width = 32.dp, height = 100.dp)
-                .background(backgroundColor)
+                .background(Color.White)
                 .border(
                     BorderStroke(2.dp, Color.Black),
                     RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50)
                 )
                 .clip(RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50))
-                .clickable(interactionSource = interactionSource, indication = null) { onShowAllAppsClicked() }
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onShowAllAppsClicked() }
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Show all apps",
-                tint = iconColor
+                tint = Color.Black
             )
         }
     }
