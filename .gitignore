@@ -32,3 +32,6 @@ local.properties
 # Keystore files
 *.jks
 *.keystore
+
+# Properties files
+keystore.properties
