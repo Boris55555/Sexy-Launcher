@@ -328,10 +328,6 @@ fun MainHomeScreen(
                         val app = favoriteApps.getOrNull(i)
                         if (app != null) {
                             FavoriteAppItem(app = app, notifications = notifications.filter { it.packageName == app.packageName }, onLongClick = { if (!isHomeLocked) onEditFavorite(i) }) {
-                                val appNotifications = notifications.filter { it.packageName == app.packageName }
-                                appNotifications.forEach { sbn ->
-                                    NotificationListener.instance?.dismissNotification(sbn.key)
-                                }
                                 val launchIntent = packageManager.getLaunchIntentForPackage(app.packageName)
                                 if (launchIntent != null) {
                                     launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
