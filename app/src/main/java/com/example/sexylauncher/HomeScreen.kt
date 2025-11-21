@@ -37,7 +37,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessAlarm
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -127,6 +135,9 @@ fun MainHomeScreen(
 
             override fun onPlaybackStateChanged(state: PlaybackState?) {
                 playbackState = state
+                if (state?.state == PlaybackState.STATE_STOPPED) {
+                    mediaController = null
+                }
             }
         }
     }
@@ -140,7 +151,12 @@ fun MainHomeScreen(
         val componentName = ComponentName(context, NotificationListener::class.java)
 
         val sessionListener = MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
-            val newController = controllers?.firstOrNull()
+            val newController = controllers?.firstOrNull { 
+                // We only care about sessions that are currently playing or paused
+                val state = it.playbackState?.state
+                state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_PAUSED
+            }
+
             if (newController?.packageName != mediaController?.packageName) {
                 mediaController?.unregisterCallback(controllerCallback)
                 mediaController = newController
@@ -152,7 +168,12 @@ fun MainHomeScreen(
 
         mediaSessionManager.addOnActiveSessionsChangedListener(sessionListener, componentName)
 
-        val initialController = mediaSessionManager.getActiveSessions(componentName)?.firstOrNull()
+        // Set initial controller
+        val initialControllers = mediaSessionManager.getActiveSessions(componentName)
+        val initialController = initialControllers?.firstOrNull { 
+            val state = it.playbackState?.state
+            state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_PAUSED
+        }
         if (initialController != null) {
             mediaController = initialController
             initialController.registerCallback(controllerCallback)
@@ -374,8 +395,89 @@ fun MainHomeScreen(
                 tint = Color.Black
             )
         }
+
+        if (mediaController != null) {
+             Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+                MiniPlayer(
+                    mediaMetadata = mediaMetadata,
+                    playbackState = playbackState,
+                    mediaController = mediaController,
+                    onClose = { 
+                        mediaController?.transportControls?.stop()
+                        mediaController = null 
+                    }
+                )
+            }
+        }
     }
 }
+
+@Composable
+fun MiniPlayer(
+    mediaMetadata: MediaMetadata?,
+    playbackState: PlaybackState?,
+    mediaController: MediaController?,
+    onClose: () -> Unit
+) {
+    val isPlaying = playbackState?.state == PlaybackState.STATE_PLAYING
+    val title = mediaMetadata?.description?.title?.toString() ?: "Unknown Title"
+    val artist = mediaMetadata?.description?.subtitle?.toString() ?: "Unknown Artist"
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .border(BorderStroke(2.dp, Color.Black), shape = RoundedCornerShape(12.dp)),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(text = title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color.Black)
+                Text(text = artist, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color.Black)
+            }
+            
+            Spacer(Modifier.height(4.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { mediaController?.transportControls?.skipToPrevious() }) {
+                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous", tint = Color.Black)
+                }
+                IconButton(onClick = {
+                    if (isPlaying) {
+                        mediaController?.transportControls?.pause()
+                    } else {
+                        mediaController?.transportControls?.play()
+                    }
+                }) {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = "Play/Pause",
+                        tint = Color.Black
+                    )
+                }
+                IconButton(onClick = { mediaController?.transportControls?.skipToNext() }) {
+                    Icon(Icons.Filled.SkipNext, contentDescription = "Next", tint = Color.Black)
+                }
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.Black)
+                }
+            }
+        }
+    }
+}
+
 
 @Composable
 fun DateText() {

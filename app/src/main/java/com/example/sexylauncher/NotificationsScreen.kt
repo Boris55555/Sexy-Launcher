@@ -11,9 +11,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.Button
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,14 +39,16 @@ fun NotificationsScreen(onDismiss: () -> Unit) {
         notifications.sortedByDescending { it.postTime }
     }
 
-    Box(modifier = Modifier.fillMaxSize().pointerInput(Unit) {
-        detectHorizontalDragGestures { change, dragAmount ->
-            if (dragAmount > 50) { // Swipe Right
-                onDismiss()
-                change.consume()
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .pointerInput(Unit) {
+            detectHorizontalDragGestures { change, dragAmount ->
+                if (dragAmount > 50) { // Swipe Right
+                    onDismiss()
+                    change.consume()
+                }
             }
-        }
-    }) {
+        }) {
         Column(modifier = Modifier.fillMaxSize()) {
             Text(
                 text = "Notifications",
@@ -51,29 +56,20 @@ fun NotificationsScreen(onDismiss: () -> Unit) {
                 modifier = Modifier.padding(16.dp)
             )
             LazyColumn(modifier = Modifier.weight(1f)) {
-                itemsIndexed(sortedNotifications) { index, sbn ->
-                    if (index > 0 && sbn.packageName != sortedNotifications[index - 1].packageName) {
-                        Divider(color = Color.Black, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                    }
+                items(sortedNotifications, key = { it.key }) { sbn ->
                     NotificationItem(
                         sbn = sbn,
-                        onDismiss = { NotificationListener.instance?.dismissNotification(sbn.key) },
                         onClick = {
                             try {
                                 sbn.notification.contentIntent.send()
                             } catch (e: Exception) {
                                 // Could not send pending intent
                             }
-                            NotificationListener.instance?.dismissNotification(sbn.key)
-                        }
+                        },
+                        onDismiss = { NotificationListener.instance?.dismissNotification(sbn.key) }
                     )
+                    Divider(color = Color.Black, modifier = Modifier.padding(horizontal = 16.dp))
                 }
-            }
-            Button(
-                onClick = { NotificationListener.instance?.dismissAllNotifications() },
-                modifier = Modifier.fillMaxWidth().padding(16.dp)
-            ) {
-                Text("Clear all")
             }
         }
     }
@@ -114,8 +110,8 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss:
                 Text(text = text, fontSize = 14.sp)
             }
         }
-        Button(onClick = onDismiss) {
-            Text("X")
+        IconButton(onClick = onDismiss) {
+            Icon(Icons.Default.Close, contentDescription = "Dismiss Notification")
         }
     }
 }
