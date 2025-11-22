@@ -2,8 +2,10 @@ package com.example.sexylauncher
 
 import android.content.Intent
 import android.content.pm.ResolveInfo
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,13 +47,16 @@ fun AppListScreen(
     isPickerMode: Boolean = false,
     onAppSelected: ((AppInfo?) -> Unit)? = null,
     onDismiss: (() -> Unit)? = null,
-    onShowSettingsClicked: (() -> Unit)? = null
+    onShowSettingsClicked: (() -> Unit)? = null,
+    favoritesRepository: FavoritesRepository
 ) {
     val context = LocalContext.current
     val packageManager = context.packageManager
     val notifications by NotificationListener.notifications.collectAsState()
+    val customNames by favoritesRepository.customNames.collectAsState()
+    var appToRename by remember { mutableStateOf<AppInfo?>(null) }
 
-    val apps = remember(isPickerMode) {
+    val apps = remember(isPickerMode, customNames) {
         val intent = Intent(Intent.ACTION_MAIN, null).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
         }
@@ -71,15 +76,29 @@ fun AppListScreen(
         )
 
         resolveInfoList.map {
+            val originalName = it.loadLabel(packageManager).toString()
+            val customName = customNames[it.activityInfo.packageName]
             AppInfo(
-                name = it.loadLabel(packageManager).toString(),
-                packageName = it.activityInfo.packageName
+                name = customName ?: originalName,
+                packageName = it.activityInfo.packageName,
+                customName = customName
             )
         }.filter {
             it.packageName !in hiddenPackages &&
             // Don't show the launcher itself in picker mode
             (!isPickerMode || it.packageName != context.packageName)
         }.sortedBy { it.name }
+    }
+
+    if (appToRename != null) {
+        RenameAppDialog(
+            appInfo = appToRename!!,
+            onDismiss = { appToRename = null },
+            onRename = { newName ->
+                favoritesRepository.saveCustomName(appToRename!!.packageName, newName)
+                appToRename = null
+            }
+        )
     }
 
     val groupedApps = remember(apps) {
@@ -149,27 +168,31 @@ fun AppListScreen(
                             )
                         }
                         is AppInfo -> {
-                            AppListItem(app = item) {
-                                if (isPickerMode) {
-                                    onAppSelected?.invoke(item)
-                                } else {
-                                    if (item.packageName == context.packageName) {
-                                        onShowSettingsClicked?.invoke()
+                            AppListItem(
+                                app = item, 
+                                onLongClick = { appToRename = item },
+                                onClick = {
+                                    if (isPickerMode) {
+                                        onAppSelected?.invoke(item)
                                     } else {
-                                        notifications
-                                            .filter { it.packageName == item.packageName }
-                                            .forEach { sbn ->
-                                                NotificationListener.instance?.dismissNotification(sbn.key)
+                                        if (item.packageName == context.packageName) {
+                                            onShowSettingsClicked?.invoke()
+                                        } else {
+                                            notifications
+                                                .filter { it.packageName == item.packageName }
+                                                .forEach { sbn ->
+                                                    NotificationListener.instance?.dismissNotification(sbn.key)
+                                                }
+                                            val launchIntent =
+                                                packageManager.getLaunchIntentForPackage(item.packageName)
+                                            if (launchIntent != null) {
+                                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                context.startActivity(launchIntent)
                                             }
-                                        val launchIntent =
-                                            packageManager.getLaunchIntentForPackage(item.packageName)
-                                        if (launchIntent != null) {
-                                            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                            context.startActivity(launchIntent)
                                         }
                                     }
                                 }
-                            }
+                            )
                         }
                     }
                 }
@@ -244,12 +267,13 @@ fun AlphabetScroller(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun AppListItem(app: AppInfo, onClick: () -> Unit) {
+fun AppListItem(app: AppInfo, onClick: () -> Unit, onLongClick: () -> Unit) {
     Text(
         text = app.name,
         modifier = Modifier
-            .clickable { onClick() }
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(8.dp),
         textAlign = TextAlign.Center,
         fontSize = 24.sp,

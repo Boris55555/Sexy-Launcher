@@ -34,6 +34,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessAlarm
@@ -42,11 +44,16 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +62,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -95,14 +103,16 @@ fun MainHomeScreen(
     val context = LocalContext.current
     val packageManager = context.packageManager
     var showRefreshOverlay by remember { mutableStateOf(false) }
+    var appToRename by remember { mutableStateOf<AppInfo?>(null) }
 
     val favoritePackages by favoritesRepository.favorites.collectAsState()
     val favoriteCount by favoritesRepository.favoriteCount.collectAsState()
     val alarmAppPackage by favoritesRepository.alarmAppPackage.collectAsState()
     val calendarAppPackage by favoritesRepository.calendarAppPackage.collectAsState()
     val isHomeLocked by favoritesRepository.isHomeLocked.collectAsState()
+    val customNames by favoritesRepository.customNames.collectAsState()
 
-    val favoriteApps = remember(favoritePackages) {
+    val favoriteApps = remember(favoritePackages, customNames) {
         favoritePackages.map { pkgName ->
             if (pkgName == null) null
             else {
@@ -111,9 +121,12 @@ fun MainHomeScreen(
                     `package` = pkgName
                 }
                 packageManager.queryIntentActivities(intent, 0).firstOrNull()?.let {
+                    val originalName = it.loadLabel(packageManager).toString()
+                    val customName = customNames[pkgName]
                     AppInfo(
-                        name = it.loadLabel(packageManager).toString(),
-                        packageName = it.activityInfo.packageName
+                        name = customName ?: originalName,
+                        packageName = it.activityInfo.packageName,
+                        customName = customName
                     )
                 }
             }
@@ -212,6 +225,17 @@ fun MainHomeScreen(
         currentPage = 0
     }
 
+    if (appToRename != null) {
+        RenameAppDialog(
+            appInfo = appToRename!!,
+            onDismiss = { appToRename = null },
+            onRename = { newName ->
+                favoritesRepository.saveCustomName(appToRename!!.packageName, newName)
+                appToRename = null
+            }
+        )
+    }
+
     val batteryLevel by context.batteryLevel().collectAsState(initial = null)
 
     Box(
@@ -264,7 +288,7 @@ fun MainHomeScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Icon(Icons.Filled.AccessAlarm, contentDescription = "Next Alarm", tint = Color.Black)
-                        Text(text = nextAlarm!!, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(text = nextAlarm!!, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
                     }
                 }
                 Column(
@@ -288,7 +312,8 @@ fun MainHomeScreen(
                         text = "Battery: $batteryLevel%",
                         modifier = Modifier.align(Alignment.TopEnd),
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
                     )
                 }
             }
@@ -348,13 +373,22 @@ fun MainHomeScreen(
                     for (i in pageStart until pageEnd) {
                         val app = favoriteApps.getOrNull(i)
                         if (app != null) {
-                            FavoriteAppItem(app = app, notifications = notifications.filter { it.packageName == app.packageName }, onLongClick = { if (!isHomeLocked) onEditFavorite(i) }) {
-                                val launchIntent = packageManager.getLaunchIntentForPackage(app.packageName)
-                                if (launchIntent != null) {
-                                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    context.startActivity(launchIntent)
+                            FavoriteAppItem(
+                                app = app, 
+                                notifications = notifications.filter { it.packageName == app.packageName }, 
+                                onLongClick = { 
+                                    if (!isHomeLocked) {
+                                        appToRename = app
+                                    } 
+                                }, 
+                                onClick = { 
+                                    val launchIntent = packageManager.getLaunchIntentForPackage(app.packageName)
+                                    if (launchIntent != null) {
+                                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        context.startActivity(launchIntent)
+                                    }
                                 }
-                            }
+                            )
                         } else {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -366,7 +400,8 @@ fun MainHomeScreen(
                                 Text(
                                     text = "[Press here + ]",
                                     fontSize = 32.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black
                                 )
                             }
                         }
@@ -427,7 +462,14 @@ fun MiniPlayer(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp)
-            .border(BorderStroke(2.dp, Color.Black), shape = RoundedCornerShape(12.dp)),
+            .border(BorderStroke(2.dp, Color.Black), shape = RoundedCornerShape(12.dp))
+            .clickable {
+                try {
+                    mediaController?.sessionActivity?.send()
+                } catch (e: Exception) {
+                    // Ignore
+                }
+            },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -492,12 +534,14 @@ fun DateText() {
         Text(
             text = "$dayOfMonth $dayOfWeek, wk($weekOfYear)",
             fontSize = 20.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            color = Color.Black
         )
         Text(
             text = "$month $year",
             fontSize = 20.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            color = Color.Black
         )
     }
 }
@@ -510,7 +554,7 @@ fun NotificationIndicator(count: Int, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        Text(text = if (count == 1) "New notification" else "$count new notifications", fontSize = 16.sp)
+        Text(text = if (count == 1) "New notification" else "$count new notifications", fontSize = 16.sp, color = Color.Black)
     }
 }
 
@@ -531,7 +575,8 @@ fun FavoriteAppItem(app: AppInfo, notifications: List<StatusBarNotification>, on
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                color = Color.Black
             )
             if (notifications.isNotEmpty()) {
                 Box(
@@ -551,7 +596,8 @@ fun FavoriteAppItem(app: AppInfo, notifications: List<StatusBarNotification>, on
                     fontSize = 18.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 4.dp)
+                    modifier = Modifier.padding(top = 4.dp),
+                    color = Color.Black
                 )
             }
         }
@@ -574,4 +620,60 @@ fun Context.batteryLevel(): Flow<Int> = callbackFlow {
     val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
     registerReceiver(batteryReceiver, filter)
     awaitClose { unregisterReceiver(batteryReceiver) }
+}
+
+@Composable
+fun RenameAppDialog(appInfo: AppInfo, onDismiss: () -> Unit, onRename: (String) -> Unit) {
+    var newName by remember { mutableStateOf(appInfo.customName ?: appInfo.name) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename ${appInfo.name}", color = Color.Black) },
+        text = {
+            TextField(
+                value = newName,
+                onValueChange = { newName = it },
+                singleLine = true,
+                modifier = Modifier.border(BorderStroke(1.dp, Color.Black)),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { onRename(newName) }),
+                colors = TextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
+                    cursorColor = Color.Black,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent,
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    disabledContainerColor = Color.White
+                )
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { onRename(newName) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = Color.Black
+                ),
+                border = BorderStroke(1.dp, Color.Black)
+            ) {
+                Text("Rename")
+            }
+        },
+        dismissButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = Color.Black
+                ),
+                border = BorderStroke(1.dp, Color.Black)
+            ) {
+                Text("Cancel")
+            }
+        },
+        containerColor = Color.White
+    )
 }

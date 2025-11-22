@@ -20,6 +20,7 @@ private const val KEY_FAVORITE_COUNT = "favorite_app_count"
 private const val KEY_ALARM_APP = "alarm_app_package"
 private const val KEY_CALENDAR_APP = "calendar_app_package"
 private const val KEY_HOME_LOCKED = "home_locked"
+private const val KEY_CUSTOM_NAMES = "custom_app_names_set"
 private const val DEFAULT_FAVORITE_COUNT = 4
 
 class FavoritesRepository(private val context: Context) {
@@ -40,6 +41,9 @@ class FavoritesRepository(private val context: Context) {
     private val _isHomeLocked = MutableStateFlow(prefs.getBoolean(KEY_HOME_LOCKED, false))
     val isHomeLocked = _isHomeLocked.asStateFlow()
 
+    private val _customNames = MutableStateFlow(getCustomNamesMap())
+    val customNames = _customNames.asStateFlow()
+
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
             KEY_FAVORITE_COUNT, KEY_FAVORITES -> {
@@ -54,6 +58,9 @@ class FavoritesRepository(private val context: Context) {
             }
             KEY_HOME_LOCKED -> {
                 _isHomeLocked.value = prefs.getBoolean(KEY_HOME_LOCKED, false)
+            }
+            KEY_CUSTOM_NAMES -> {
+                _customNames.value = getCustomNamesMap()
             }
         }
     }
@@ -73,6 +80,26 @@ class FavoritesRepository(private val context: Context) {
         while (list.size < count) list.add(null)
         while (list.size > count) list.removeAt(list.size - 1)
         return list
+    }
+
+    private fun getCustomNamesMap(): Map<String, String> {
+        val storedSet = prefs.getStringSet(KEY_CUSTOM_NAMES, emptySet()) ?: emptySet()
+        return storedSet.mapNotNull {
+            val parts = it.split(":", limit = 2)
+            if (parts.size == 2) parts[0] to parts[1] else null
+        }.toMap()
+    }
+
+    fun saveCustomName(packageName: String, customName: String?) {
+        val currentNames = getCustomNamesMap().toMutableMap()
+        if (customName.isNullOrBlank()) {
+            currentNames.remove(packageName)
+        } else {
+            currentNames[packageName] = customName
+        }
+
+        val newSet = currentNames.map { "${it.key}:${it.value}" }.toSet()
+        prefs.edit().putStringSet(KEY_CUSTOM_NAMES, newSet).apply()
     }
 
     fun saveFavoriteCount(count: Int) {
@@ -175,7 +202,8 @@ class MainActivity : ComponentActivity() {
                             favoritesRepository.saveFavorite(showPickerForIndex!!, it?.packageName)
                             showPickerForIndex = null
                         },
-                        onDismiss = { showPickerForIndex = null }
+                        onDismiss = { showPickerForIndex = null },
+                        favoritesRepository = favoritesRepository
                     )
                 } else if (showAlarmAppPicker) {
                     AppListScreen(
@@ -184,7 +212,8 @@ class MainActivity : ComponentActivity() {
                             favoritesRepository.saveAlarmApp(it?.packageName)
                             showAlarmAppPicker = false
                         },
-                        onDismiss = { showAlarmAppPicker = false }
+                        onDismiss = { showAlarmAppPicker = false },
+                        favoritesRepository = favoritesRepository
                     )
                 } else if (showCalendarAppPicker) {
                     AppListScreen(
@@ -193,7 +222,8 @@ class MainActivity : ComponentActivity() {
                             favoritesRepository.saveCalendarApp(it?.packageName)
                             showCalendarAppPicker = false
                         },
-                        onDismiss = { showCalendarAppPicker = false }
+                        onDismiss = { showCalendarAppPicker = false },
+                        favoritesRepository = favoritesRepository
                     )
                 } else {
                     when (currentScreen) {
@@ -206,7 +236,8 @@ class MainActivity : ComponentActivity() {
                         )
                         Screen.AppDrawer -> AppListScreen(
                             onDismiss = { _currentScreen.value = Screen.Home },
-                            onShowSettingsClicked = { _currentScreen.value = Screen.Settings }
+                            onShowSettingsClicked = { _currentScreen.value = Screen.Settings },
+                            favoritesRepository = favoritesRepository
                         )
                         Screen.Notifications -> NotificationsScreen(onDismiss = { _currentScreen.value = Screen.Home })
                         Screen.Settings -> SettingsScreen(
@@ -245,6 +276,7 @@ class MainActivity : ComponentActivity() {
 data class AppInfo(
     val name: String,
     val packageName: String,
+    val customName: String? = null
 )
 
 fun isNotificationServiceEnabled(context: Context): Boolean {
