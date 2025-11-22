@@ -46,7 +46,14 @@ class NotificationListener : NotificationListenerService() {
 
     private fun isNotificationRelevant(sbn: StatusBarNotification): Boolean {
         // Filter out ongoing media notifications
-        return sbn.notification.category != Notification.CATEGORY_TRANSPORT
+        if (sbn.notification.category == Notification.CATEGORY_TRANSPORT) {
+            return false
+        }
+        // Filter out group summary notifications
+        if ((sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) {
+            return false
+        }
+        return true
     }
 
     fun dismissNotification(key: String) {
