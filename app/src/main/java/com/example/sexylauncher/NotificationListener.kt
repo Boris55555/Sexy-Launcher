@@ -27,21 +27,23 @@ class NotificationListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
-        updateNotifications()
+        _notifications.value = activeNotifications?.filter { isNotificationRelevant(it) } ?: emptyList()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        sbn ?: return
         super.onNotificationPosted(sbn)
-        updateNotifications()
+        if (isNotificationRelevant(sbn)) {
+            val currentList = _notifications.value.filterNot { it.key == sbn.key }.toMutableList()
+            currentList.add(0, sbn) 
+            _notifications.value = currentList.sortedByDescending { it.postTime }
+        }
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
+        sbn ?: return
         super.onNotificationRemoved(sbn)
-        updateNotifications()
-    }
-
-    private fun updateNotifications() {
-        _notifications.value = activeNotifications.filter { isNotificationRelevant(it) }
+        _notifications.value = _notifications.value.filterNot { it.key == sbn.key }
     }
 
     private fun isNotificationRelevant(sbn: StatusBarNotification): Boolean {
@@ -57,14 +59,6 @@ class NotificationListener : NotificationListenerService() {
     }
 
     fun dismissNotification(key: String) {
-        _notifications.value = _notifications.value.filterNot { it.key == key }
         cancelNotification(key)
-    }
-
-    fun dismissAllNotifications() {
-        _notifications.value.forEach { sbn ->
-            cancelNotification(sbn.key)
-        }
-        _notifications.value = emptyList()
     }
 }
