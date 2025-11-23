@@ -305,7 +305,7 @@ fun MainHomeScreen(
                         },
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    DateText()
+                    DateText(favoritesRepository)
                 }
                 if (batteryLevel != null && batteryLevel!! <= 25) {
                     Text(
@@ -522,8 +522,18 @@ fun MiniPlayer(
 
 
 @Composable
-fun DateText() {
+fun DateText(favoritesRepository: FavoritesRepository) {
+    val weekStartsOnSunday by favoritesRepository.weekStartsOnSunday.collectAsState()
     val calendar = Calendar.getInstance()
+
+    if (weekStartsOnSunday) {
+        calendar.firstDayOfWeek = Calendar.SUNDAY
+        calendar.minimalDaysInFirstWeek = 1
+    } else {
+        calendar.firstDayOfWeek = Calendar.MONDAY
+        calendar.minimalDaysInFirstWeek = 4
+    }
+
     val dayOfMonth = calendar.get(Calendar.DAY_OF_MONTH)
     val dayOfWeek = SimpleDateFormat("EEEE", Locale.getDefault()).format(calendar.time)
     val weekOfYear = calendar.get(Calendar.WEEK_OF_YEAR)

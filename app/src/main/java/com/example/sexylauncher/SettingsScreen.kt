@@ -38,6 +38,7 @@ fun SettingsScreen(
     val alarmAppPackage by favoritesRepository.alarmAppPackage.collectAsState()
     val calendarAppPackage by favoritesRepository.calendarAppPackage.collectAsState()
     val isHomeLocked by favoritesRepository.isHomeLocked.collectAsState()
+    val weekStartsOnSunday by favoritesRepository.weekStartsOnSunday.collectAsState()
 
     val favoriteCount by favoritesRepository.favoriteCount.collectAsState()
     var sliderPosition by remember(favoriteCount) { mutableStateOf(favoriteCount.toFloat()) }
@@ -78,7 +79,7 @@ fun SettingsScreen(
     Column(modifier = Modifier
         .fillMaxSize()
         .padding(16.dp)) {
-        Text("Settings", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(bottom = 16.dp))
+        Text("Settings", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(bottom = 16.dp), color = Color.Black)
 
         Row(
             modifier = Modifier
@@ -90,8 +91,8 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Notification Access", fontSize = 18.sp)
-            Text(if (hasNotificationPermission) "Granted" else "Tap to grant")
+            Text("Notification Access", fontSize = 18.sp, color = Color.Black)
+            Text(if (hasNotificationPermission) "Granted" else "Tap to grant", color = Color.Black)
         }
 
         Divider(color = Color.Black)
@@ -103,7 +104,7 @@ fun SettingsScreen(
                 .padding(vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Set as default launcher", fontSize = 18.sp)
+            Text("Set as default launcher", fontSize = 18.sp, color = Color.Black)
         }
 
         Divider(color = Color.Black)
@@ -116,8 +117,8 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Choose alarm app", fontSize = 18.sp)
-            Text(alarmAppName)
+            Text("Choose alarm app", fontSize = 18.sp, color = Color.Black)
+            Text(alarmAppName, color = Color.Black)
         }
 
         Divider(color = Color.Black)
@@ -130,15 +131,31 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Choose calendar app", fontSize = 18.sp)
-            Text(calendarAppName)
+            Text("Choose calendar app", fontSize = 18.sp, color = Color.Black)
+            Text(calendarAppName, color = Color.Black)
+        }
+
+        Divider(color = Color.Black)
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("The week starts on Sunday", fontSize = 18.sp, color = Color.Black)
+            Switch(
+                checked = weekStartsOnSunday,
+                onCheckedChange = { favoritesRepository.saveWeekStartsOnSunday(it) }
+            )
         }
 
         if (!isHomeLocked) {
             Divider(color = Color.Black)
 
             Column(modifier = Modifier.padding(vertical = 16.dp)) {
-                Text("Favorite App Slots: ${sliderPosition.roundToInt()}", fontSize = 18.sp)
+                Text("Favorite App Slots: ${sliderPosition.roundToInt()}", fontSize = 18.sp, color = Color.Black)
                 Slider(
                     value = sliderPosition,
                     onValueChange = { sliderPosition = it },
@@ -167,7 +184,7 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Lock homescreen", fontSize = 18.sp)
+            Text("Lock homescreen", fontSize = 18.sp, color = Color.Black)
             Switch(
                 checked = isHomeLocked,
                 onCheckedChange = { favoritesRepository.saveHomeLocked(it) }

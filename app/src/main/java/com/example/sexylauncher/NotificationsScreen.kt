@@ -12,11 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Divider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -66,8 +62,7 @@ fun NotificationsScreen(onDismiss: () -> Unit) {
                             } catch (e: Exception) {
                                 // Could not send pending intent
                             }
-                        },
-                        onDismiss = { NotificationListener.instance?.dismissNotification(sbn.key) }
+                        }
                     )
                     Divider(color = Color.Black, modifier = Modifier.padding(horizontal = 16.dp))
                 }
@@ -77,7 +72,7 @@ fun NotificationsScreen(onDismiss: () -> Unit) {
 }
 
 @Composable
-fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss: () -> Unit) {
+fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit) {
     val context = LocalContext.current
     val packageManager = context.packageManager
 
@@ -108,11 +103,6 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss:
             }
             if (!text.isNullOrBlank()) {
                 Text(text = text, fontSize = 14.sp, color = Color.Black)
-            }
-        }
-        if (sbn.isClearable) {
-            IconButton(onClick = onDismiss) {
-                Icon(Icons.Default.Close, contentDescription = "Dismiss Notification")
             }
         }
     }

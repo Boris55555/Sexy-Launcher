@@ -21,6 +21,7 @@ private const val KEY_ALARM_APP = "alarm_app_package"
 private const val KEY_CALENDAR_APP = "calendar_app_package"
 private const val KEY_HOME_LOCKED = "home_locked"
 private const val KEY_CUSTOM_NAMES = "custom_app_names_set"
+private const val KEY_WEEK_STARTS_ON_SUNDAY = "week_starts_on_sunday"
 private const val DEFAULT_FAVORITE_COUNT = 4
 
 class FavoritesRepository(private val context: Context) {
@@ -44,6 +45,9 @@ class FavoritesRepository(private val context: Context) {
     private val _customNames = MutableStateFlow(getCustomNamesMap())
     val customNames = _customNames.asStateFlow()
 
+    private val _weekStartsOnSunday = MutableStateFlow(prefs.getBoolean(KEY_WEEK_STARTS_ON_SUNDAY, false))
+    val weekStartsOnSunday = _weekStartsOnSunday.asStateFlow()
+
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
             KEY_FAVORITE_COUNT, KEY_FAVORITES -> {
@@ -61,6 +65,9 @@ class FavoritesRepository(private val context: Context) {
             }
             KEY_CUSTOM_NAMES -> {
                 _customNames.value = getCustomNamesMap()
+            }
+            KEY_WEEK_STARTS_ON_SUNDAY -> {
+                _weekStartsOnSunday.value = prefs.getBoolean(KEY_WEEK_STARTS_ON_SUNDAY, false)
             }
         }
     }
@@ -141,6 +148,10 @@ class FavoritesRepository(private val context: Context) {
 
     fun saveHomeLocked(isLocked: Boolean) {
         prefs.edit().putBoolean(KEY_HOME_LOCKED, isLocked).apply()
+    }
+
+    fun saveWeekStartsOnSunday(isSunday: Boolean) {
+        prefs.edit().putBoolean(KEY_WEEK_STARTS_ON_SUNDAY, isSunday).apply()
     }
 }
 
