@@ -1,6 +1,7 @@
 package com.example.sexylauncher
 
 import android.app.Notification
+import android.content.ComponentName
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,23 +28,21 @@ class NotificationListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
-        _notifications.value = activeNotifications?.filter { isNotificationRelevant(it) } ?: emptyList()
+        updateNotifications()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
-        sbn ?: return
         super.onNotificationPosted(sbn)
-        if (isNotificationRelevant(sbn)) {
-            val currentList = _notifications.value.filterNot { it.key == sbn.key }.toMutableList()
-            currentList.add(0, sbn) 
-            _notifications.value = currentList.sortedByDescending { it.postTime }
-        }
+        updateNotifications()
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-        sbn ?: return
         super.onNotificationRemoved(sbn)
-        _notifications.value = _notifications.value.filterNot { it.key == sbn.key }
+        updateNotifications()
+    }
+
+    private fun updateNotifications() {
+        _notifications.value = activeNotifications?.filter { isNotificationRelevant(it) } ?: emptyList()
     }
 
     private fun isNotificationRelevant(sbn: StatusBarNotification): Boolean {
@@ -60,5 +59,9 @@ class NotificationListener : NotificationListenerService() {
 
     fun dismissNotification(key: String) {
         cancelNotification(key)
+    }
+
+    fun requestRefresh() {
+        requestRebind(ComponentName(this, NotificationListener::class.java))
     }
 }

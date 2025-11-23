@@ -320,10 +320,10 @@ fun MainHomeScreen(
 
             if (notifications.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
-                NotificationIndicator(
-                    count = notifications.size,
-                    onClick = onShowNotificationsClicked
-                )
+                NotificationIndicator(count = notifications.size) {
+                    NotificationListener.instance?.requestRefresh()
+                    onShowNotificationsClicked()
+                }
             }
 
             Row(
@@ -386,6 +386,12 @@ fun MainHomeScreen(
                                     if (launchIntent != null) {
                                         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                         context.startActivity(launchIntent)
+                                    }
+                                    // Special handling for Mudita Messages
+                                    if (app.packageName == "com.mudita.messages") {
+                                        notifications.filter { it.packageName == app.packageName }.forEach { sbn ->
+                                            NotificationListener.instance?.dismissNotification(sbn.key)
+                                        }
                                     }
                                 }
                             )

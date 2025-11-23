@@ -1,5 +1,7 @@
 package com.example.sexylauncher
 
+import android.content.ComponentName
+import android.content.Intent
 import android.service.notification.StatusBarNotification
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -34,6 +36,7 @@ fun NotificationsScreen(onDismiss: () -> Unit) {
     val sortedNotifications = remember(notifications) {
         notifications.sortedByDescending { it.postTime }
     }
+    val context = LocalContext.current
 
     Box(modifier = Modifier
         .fillMaxSize()
@@ -60,7 +63,32 @@ fun NotificationsScreen(onDismiss: () -> Unit) {
                             try {
                                 sbn.notification.contentIntent.send()
                             } catch (e: Exception) {
-                                // Could not send pending intent
+                                val pm = context.packageManager
+                                var launchIntent = pm.getLaunchIntentForPackage(sbn.packageName)
+                                if (launchIntent == null) {
+                                    // A more robust way to find the launch intent if the first one fails
+                                    val intent = Intent(Intent.ACTION_MAIN, null).apply {
+                                        addCategory(Intent.CATEGORY_LAUNCHER)
+                                        `package` = sbn.packageName
+                                    }
+                                    val resolveInfo = pm.queryIntentActivities(intent, 0)
+                                    if (resolveInfo.isNotEmpty()) {
+                                        val activityInfo = resolveInfo[0].activityInfo
+                                        launchIntent = Intent(Intent.ACTION_MAIN).apply {
+                                            addCategory(Intent.CATEGORY_LAUNCHER)
+                                            component = ComponentName(activityInfo.packageName, activityInfo.name)
+                                        }
+                                    }
+                                }
+                                
+                                launchIntent?.let {
+                                    it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    context.startActivity(it)
+                                }
+                            }
+                            // Special handling for Mudita Messages
+                            if (sbn.packageName == "com.mudita.messages") {
+                                NotificationListener.instance?.dismissNotification(sbn.key)
                             }
                         }
                     )
