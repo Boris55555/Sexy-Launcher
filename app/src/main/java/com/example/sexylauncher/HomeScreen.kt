@@ -589,10 +589,20 @@ fun FavoriteAppItem(app: AppInfo, notifications: List<StatusBarNotification>, on
         }
         if (notifications.isNotEmpty()) {
             val firstNotification = notifications.first().notification
-            val notificationText = firstNotification.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
-            if (!notificationText.isNullOrBlank()) {
+            val extras = firstNotification.extras
+            val sender = extras.getString(Notification.EXTRA_TITLE)
+            val message = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+
+            val notificationPreview = when {
+                !sender.isNullOrBlank() && !message.isNullOrBlank() -> "$sender: $message"
+                !message.isNullOrBlank() -> message
+                !sender.isNullOrBlank() -> sender
+                else -> null
+            }
+
+            if (!notificationPreview.isNullOrBlank()) {
                 Text(
-                    text = notificationText,
+                    text = notificationPreview,
                     fontSize = 18.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

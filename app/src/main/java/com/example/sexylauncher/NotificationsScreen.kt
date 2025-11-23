@@ -53,7 +53,8 @@ fun NotificationsScreen(onDismiss: () -> Unit) {
             Text(
                 text = "Notifications",
                 style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(16.dp),
+                color = Color.Black
             )
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(sortedNotifications, key = { it.key }) { sbn ->
@@ -92,26 +93,27 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss:
 
     Row(
         modifier = Modifier
+            .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column(
-            modifier = Modifier
-                .weight(1f)
-                .clickable { onClick() }
+            modifier = Modifier.weight(1f)
         ) {
-            Text(text = appName, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text(text = appName, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.Black)
             if (!title.isNullOrBlank()) {
-                Text(text = title, fontSize = 16.sp)
+                Text(text = title, fontSize = 16.sp, color = Color.Black)
             }
             if (!text.isNullOrBlank()) {
-                Text(text = text, fontSize = 14.sp)
+                Text(text = text, fontSize = 14.sp, color = Color.Black)
             }
         }
-        IconButton(onClick = onDismiss) {
-            Icon(Icons.Default.Close, contentDescription = "Dismiss Notification")
+        if (sbn.isClearable) {
+            IconButton(onClick = onDismiss) {
+                Icon(Icons.Default.Close, contentDescription = "Dismiss Notification")
+            }
         }
     }
 }
