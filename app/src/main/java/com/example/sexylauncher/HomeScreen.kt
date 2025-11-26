@@ -598,9 +598,17 @@ fun FavoriteAppItem(app: AppInfo, notifications: List<StatusBarNotification>, on
                 Box(
                     modifier = Modifier
                         .padding(start = 8.dp)
-                        .size(8.dp)
-                        .background(Color.Red, shape = CircleShape)
-                )
+                        .background(color = Color.Red, shape = CircleShape)
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (notifications.size > 99) "99+" else notifications.size.toString(),
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
         if (notifications.isNotEmpty()) {

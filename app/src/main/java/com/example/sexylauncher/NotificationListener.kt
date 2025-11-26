@@ -28,21 +28,22 @@ class NotificationListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
-        updateNotifications()
+        _notifications.value = activeNotifications?.filter { isNotificationRelevant(it) }?.sortedByDescending { it.postTime } ?: emptyList()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
-        super.onNotificationPosted(sbn)
-        updateNotifications()
+        sbn ?: return
+        if (isNotificationRelevant(sbn)) {
+            val currentList = _notifications.value.toMutableList()
+            currentList.removeAll { it.key == sbn.key }
+            currentList.add(sbn)
+            _notifications.value = currentList.sortedByDescending { it.postTime }
+        }
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-        super.onNotificationRemoved(sbn)
-        updateNotifications()
-    }
-
-    private fun updateNotifications() {
-        _notifications.value = activeNotifications?.filter { isNotificationRelevant(it) } ?: emptyList()
+        sbn ?: return
+        _notifications.value = _notifications.value.filterNot { it.key == sbn.key }
     }
 
     private fun isNotificationRelevant(sbn: StatusBarNotification): Boolean {
@@ -54,14 +55,23 @@ class NotificationListener : NotificationListenerService() {
         if ((sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) {
             return false
         }
+        // Filter out low-priority ONGOING service and system notifications
+        val isOngoingServiceOrSystem = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0 &&
+                (sbn.notification.category == Notification.CATEGORY_SERVICE || sbn.notification.category == Notification.CATEGORY_SYSTEM)
+        if (isOngoingServiceOrSystem) {
+            return false
+        }
         return true
     }
 
     fun dismissNotification(key: String) {
+        // Remove from our local list immediately for instant UI feedback
+        _notifications.value = _notifications.value.filterNot { it.key == key }
+        // Ask the system to cancel the notification
         cancelNotification(key)
     }
 
     fun requestRefresh() {
-        requestRebind(ComponentName(this, NotificationListener::class.java))
+        onListenerConnected()
     }
 }

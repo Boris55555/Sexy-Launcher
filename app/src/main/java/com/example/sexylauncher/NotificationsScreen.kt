@@ -1,5 +1,6 @@
 package com.example.sexylauncher
 
+import android.app.Notification
 import android.content.ComponentName
 import android.content.Intent
 import android.service.notification.StatusBarNotification
@@ -14,7 +15,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -90,7 +95,8 @@ fun NotificationsScreen(onDismiss: () -> Unit) {
                             if (sbn.packageName == "com.mudita.messages") {
                                 NotificationListener.instance?.dismissNotification(sbn.key)
                             }
-                        }
+                        },
+                        onDismiss = { NotificationListener.instance?.dismissNotification(sbn.key) }
                     )
                     Divider(color = Color.Black, modifier = Modifier.padding(horizontal = 16.dp))
                 }
@@ -100,7 +106,7 @@ fun NotificationsScreen(onDismiss: () -> Unit) {
 }
 
 @Composable
-fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit) {
+fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val packageManager = context.packageManager
 
@@ -113,6 +119,13 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit) {
     val extras = sbn.notification.extras
     val title = extras.getString("android.title")
     val text = extras.getString("android.text")
+    
+    val isCommunication = when (sbn.notification.category) {
+        Notification.CATEGORY_MESSAGE,
+        Notification.CATEGORY_CALL,
+        Notification.CATEGORY_SOCIAL -> true
+        else -> false
+    }
 
     Row(
         modifier = Modifier
@@ -131,6 +144,11 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit) {
             }
             if (!text.isNullOrBlank()) {
                 Text(text = text, fontSize = 14.sp, color = Color.Black)
+            }
+        }
+        if (sbn.isClearable && !isCommunication) {
+            IconButton(onClick = onDismiss) {
+                Icon(Icons.Default.Close, contentDescription = "Dismiss Notification")
             }
         }
     }
