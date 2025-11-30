@@ -1,15 +1,22 @@
 package com.example.sexylauncher
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
+import androidx.core.content.ContextCompat
+import com.example.sexylauncher.birthdays.BirthdaysRepository
+import com.example.sexylauncher.birthdays.BirthdaysScreen
 import com.example.sexylauncher.ui.theme.SexyLauncherTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -159,23 +166,36 @@ enum class Screen {
     Home,
     AppDrawer,
     Notifications,
-    Settings
+    Settings,
+    Birthdays
 }
 
 class MainActivity : ComponentActivity() {
     private lateinit var favoritesRepository: FavoritesRepository
+    private lateinit var birthdaysRepository: BirthdaysRepository
     private val _currentScreen = MutableStateFlow(Screen.Home)
     private var lastBackPressTime = 0L
+    private val _currentPage = MutableStateFlow(0)
+
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _: Boolean ->
+        // Handle permission result if needed
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         favoritesRepository = FavoritesRepository(this)
+        birthdaysRepository = BirthdaysRepository(this)
+
+        requestPermissions()
 
         setContent {
             val currentScreen by _currentScreen.collectAsState()
             var showPickerForIndex by remember { mutableStateOf<Int?>(null) }
             var showAlarmAppPicker by remember { mutableStateOf(false) }
             var showCalendarAppPicker by remember { mutableStateOf(false) }
+            val currentPage by _currentPage.collectAsState()
 
             // Centralized Back Handler
             BackHandler(enabled = true) {
@@ -240,10 +260,13 @@ class MainActivity : ComponentActivity() {
                     when (currentScreen) {
                         Screen.Home -> HomeScreen(
                             favoritesRepository = favoritesRepository,
+                            birthdaysRepository = birthdaysRepository,
                             onShowAllAppsClicked = { _currentScreen.value = Screen.AppDrawer },
                             onShowNotificationsClicked = { _currentScreen.value = Screen.Notifications },
                             onShowSettingsClicked = { _currentScreen.value = Screen.Settings },
-                            onEditFavorite = { index -> showPickerForIndex = index }
+                            onEditFavorite = { index -> showPickerForIndex = index },
+                            currentPage = currentPage,
+                            onCurrentPageChanged = { _currentPage.value = it }
                         )
                         Screen.AppDrawer -> AppListScreen(
                             onDismiss = { _currentScreen.value = Screen.Home },
@@ -255,10 +278,31 @@ class MainActivity : ComponentActivity() {
                             onDismiss = { _currentScreen.value = Screen.Home },
                             favoritesRepository = favoritesRepository,
                             onChooseAlarmAppClicked = { showAlarmAppPicker = true },
-                            onChooseCalendarAppClicked = { showCalendarAppPicker = true }
+                            onChooseCalendarAppClicked = { showCalendarAppPicker = true },
+                            onAddBirthdaysClicked = { _currentScreen.value = Screen.Birthdays }
                         )
+                        Screen.Birthdays -> BirthdaysScreen(repository = birthdaysRepository)
                     }
                 }
+            }
+        }
+    }
+
+    private fun requestPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            if (!alarmManager.canScheduleExactAlarms()) {
+                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                startActivity(intent)
             }
         }
     }
@@ -275,12 +319,14 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         if (intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)) {
             _currentScreen.value = Screen.Home
+            _currentPage.value = 0
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         favoritesRepository.cleanup()
+        birthdaysRepository.cleanup()
     }
 }
 

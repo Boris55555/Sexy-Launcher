@@ -7,10 +7,12 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ApplicationInfo
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
+import android.net.Uri
 import android.os.BatteryManager
 import android.service.notification.StatusBarNotification
 import androidx.compose.foundation.BorderStroke
@@ -24,6 +26,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -66,28 +69,37 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.sexylauncher.birthdays.BirthdaysRepository
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import java.util.Calendar
 import java.util.Locale
 
 @Composable
 fun HomeScreen(
     favoritesRepository: FavoritesRepository,
+    birthdaysRepository: BirthdaysRepository,
     onShowAllAppsClicked: () -> Unit,
     onShowNotificationsClicked: () -> Unit,
     onShowSettingsClicked: () -> Unit,
-    onEditFavorite: (Int) -> Unit
+    onEditFavorite: (Int) -> Unit,
+    currentPage: Int,
+    onCurrentPageChanged: (Int) -> Unit
 ) {
     MainHomeScreen(
         favoritesRepository,
+        birthdaysRepository,
         onShowAllAppsClicked,
         onShowNotificationsClicked,
         onShowSettingsClicked,
-        onEditFavorite
+        onEditFavorite,
+        currentPage,
+        onCurrentPageChanged
     )
 }
 
@@ -95,15 +107,17 @@ fun HomeScreen(
 @Composable
 fun MainHomeScreen(
     favoritesRepository: FavoritesRepository,
+    birthdaysRepository: BirthdaysRepository,
     onShowAllAppsClicked: () -> Unit,
     onShowNotificationsClicked: () -> Unit,
     onShowSettingsClicked: () -> Unit,
-    onEditFavorite: (Int) -> Unit
+    onEditFavorite: (Int) -> Unit,
+    currentPage: Int,
+    onCurrentPageChanged: (Int) -> Unit
 ) {
     val context = LocalContext.current
     val packageManager = context.packageManager
     var showRefreshOverlay by remember { mutableStateOf(false) }
-    var appToRename by remember { mutableStateOf<AppInfo?>(null) }
 
     val favoritePackages by favoritesRepository.favorites.collectAsState()
     val favoriteCount by favoritesRepository.favoriteCount.collectAsState()
@@ -111,6 +125,7 @@ fun MainHomeScreen(
     val calendarAppPackage by favoritesRepository.calendarAppPackage.collectAsState()
     val isHomeLocked by favoritesRepository.isHomeLocked.collectAsState()
     val customNames by favoritesRepository.customNames.collectAsState()
+    val birthdays by birthdaysRepository.birthdays.collectAsState()
 
     val favoriteApps = remember(favoritePackages, customNames) {
         favoritePackages.map { pkgName ->
@@ -201,7 +216,6 @@ fun MainHomeScreen(
     }
 
     val pageCount = (favoriteCount + 3) / 4
-    var currentPage by remember { mutableStateOf(0) }
     var nextAlarm by remember { mutableStateOf<String?>(null) }
 
     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -222,18 +236,7 @@ fun MainHomeScreen(
     }
 
     if (currentPage >= pageCount) {
-        currentPage = 0
-    }
-
-    if (appToRename != null) {
-        RenameAppDialog(
-            appInfo = appToRename!!,
-            onDismiss = { appToRename = null },
-            onRename = { newName ->
-                favoritesRepository.saveCustomName(appToRename!!.packageName, newName)
-                appToRename = null
-            }
-        )
+        onCurrentPageChanged(0)
     }
 
     val batteryLevel by context.batteryLevel().collectAsState(initial = null)
@@ -241,30 +244,12 @@ fun MainHomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(Unit) {
+            .pointerInput(isHomeLocked) {
                 detectTapGestures(
-                    onLongPress = { if (!isHomeLocked) onShowSettingsClicked() },
-                    onDoubleTap = {
-                        showRefreshOverlay = true
-                        try {
-                            val intent = Intent("com.android.settings.action.CLEAR_GHOST")
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            // Ignore error on standard devices
-                        }
-                    }
+                    onLongPress = { if (!isHomeLocked) onShowSettingsClicked() }
                 )
             }
     ) {
-        if (showRefreshOverlay) {
-            Box(modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black))
-            LaunchedEffect(Unit) {
-                delay(120L)
-                showRefreshOverlay = false
-            }
-        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -309,13 +294,31 @@ fun MainHomeScreen(
                 }
                 if (batteryLevel != null && batteryLevel!! <= 25) {
                     Text(
-                        text = "Battery: $batteryLevel%",
+                        text = "Battery: ${'$'}batteryLevel%",
                         modifier = Modifier.align(Alignment.TopEnd),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.Black
                     )
                 }
+            }
+
+            val today = LocalDate.now()
+            val todaysBirthdays = birthdays.filter { it.date.month == today.month && it.date.dayOfMonth == today.dayOfMonth }
+
+            if (todaysBirthdays.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                val birthdayText = todaysBirthdays.joinToString(", ") { birthday ->
+                    val age = ChronoUnit.YEARS.between(birthday.date, today)
+                    "${birthday.name} $age years!"
+                }
+                Text(
+                    text = "\uD83C\uDF82 $birthdayText",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
             }
 
             if (notifications.isNotEmpty()) {
@@ -351,7 +354,7 @@ fun MainHomeScreen(
                                     .padding(vertical = 4.dp)
                                     .size(18.dp)
                                     .then(indicatorModifier)
-                                    .clickable { currentPage = pageIndex }
+                                    .clickable { onCurrentPageChanged(pageIndex) }
                             )
                         }
                     }
@@ -378,7 +381,7 @@ fun MainHomeScreen(
                                 notifications = notifications.filter { it.packageName == app.packageName }, 
                                 onLongClick = { 
                                     if (!isHomeLocked) {
-                                        appToRename = app
+                                        onEditFavorite(i)
                                     } 
                                 }, 
                                 onClick = { 
@@ -448,6 +451,17 @@ fun MainHomeScreen(
                         mediaController = null 
                     }
                 )
+            }
+        }
+
+        // Refresh overlay on top of everything
+        if (showRefreshOverlay) {
+            Box(modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black))
+            LaunchedEffect(Unit) {
+                delay(120L)
+                showRefreshOverlay = false
             }
         }
     }
@@ -657,12 +671,29 @@ fun Context.batteryLevel(): Flow<Int> = callbackFlow {
 }
 
 @Composable
-fun RenameAppDialog(appInfo: AppInfo, onDismiss: () -> Unit, onRename: (String) -> Unit) {
+fun RenameAppDialog(
+    appInfo: AppInfo,
+    onDismiss: () -> Unit,
+    onRename: (String) -> Unit,
+    onUninstall: (() -> Unit)? = null
+) {
+    val context = LocalContext.current
+    val packageManager = context.packageManager
+    val isSystemApp by remember(appInfo) {
+        mutableStateOf(
+            try {
+                (packageManager.getApplicationInfo(appInfo.packageName, 0).flags and ApplicationInfo.FLAG_SYSTEM) != 0
+            } catch (e: Exception) {
+                true // Assume system app on error
+            }
+        )
+    }
+
     var newName by remember { mutableStateOf(appInfo.customName ?: appInfo.name) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Rename ${appInfo.name}", color = Color.Black) },
+        title = { Text("Edit ${appInfo.name}", color = Color.Black) },
         text = {
             TextField(
                 value = newName,
@@ -697,15 +728,31 @@ fun RenameAppDialog(appInfo: AppInfo, onDismiss: () -> Unit, onRename: (String) 
             }
         },
         dismissButton = {
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color.Black
-                ),
-                border = BorderStroke(1.dp, Color.Black)
-            ) {
-                Text("Cancel")
+            Row {
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color.Black
+                    ),
+                    border = BorderStroke(1.dp, Color.Black)
+                ) {
+                    Text("Cancel")
+                }
+                if (!isSystemApp && onUninstall != null) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = onUninstall,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Red
+                        ),
+                        border = BorderStroke(1.dp, Color.Red),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Text("Uninstall", fontSize = 12.sp)
+                    }
+                }
             }
         },
         containerColor = Color.White

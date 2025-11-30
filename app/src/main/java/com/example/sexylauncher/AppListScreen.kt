@@ -2,6 +2,7 @@ package com.example.sexylauncher
 
 import android.content.Intent
 import android.content.pm.ResolveInfo
+import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -54,7 +55,7 @@ fun AppListScreen(
     val packageManager = context.packageManager
     val notifications by NotificationListener.notifications.collectAsState()
     val customNames by favoritesRepository.customNames.collectAsState()
-    var appToRename by remember { mutableStateOf<AppInfo?>(null) }
+    var appToEdit by remember { mutableStateOf<AppInfo?>(null) }
 
     val apps = remember(isPickerMode, customNames) {
         val intent = Intent(Intent.ACTION_MAIN, null).apply {
@@ -90,13 +91,20 @@ fun AppListScreen(
         }.sortedBy { it.name }
     }
 
-    if (appToRename != null) {
+    if (appToEdit != null) {
+        val app = appToEdit!!
         RenameAppDialog(
-            appInfo = appToRename!!,
-            onDismiss = { appToRename = null },
+            appInfo = app,
+            onDismiss = { appToEdit = null },
             onRename = { newName ->
-                favoritesRepository.saveCustomName(appToRename!!.packageName, newName)
-                appToRename = null
+                favoritesRepository.saveCustomName(app.packageName, newName)
+                appToEdit = null
+            },
+            onUninstall = {
+                val intent = Intent(Intent.ACTION_UNINSTALL_PACKAGE)
+                intent.data = Uri.parse("package:${app.packageName}")
+                intent.putExtra(Intent.EXTRA_RETURN_RESULT, true)
+                context.startActivity(intent)
             }
         )
     }
@@ -170,7 +178,7 @@ fun AppListScreen(
                         is AppInfo -> {
                             AppListItem(
                                 app = item, 
-                                onLongClick = { appToRename = item },
+                                onLongClick = { appToEdit = item },
                                 onClick = {
                                     if (isPickerMode) {
                                         onAppSelected?.invoke(item)

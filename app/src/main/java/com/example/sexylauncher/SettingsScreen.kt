@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -31,7 +33,8 @@ fun SettingsScreen(
     onDismiss: () -> Unit,
     favoritesRepository: FavoritesRepository,
     onChooseAlarmAppClicked: () -> Unit,
-    onChooseCalendarAppClicked: () -> Unit
+    onChooseCalendarAppClicked: () -> Unit,
+    onAddBirthdaysClicked: () -> Unit
 ) {
     val context = LocalContext.current
     var hasNotificationPermission by remember { mutableStateOf(isNotificationServiceEnabled(context)) }
@@ -78,7 +81,8 @@ fun SettingsScreen(
 
     Column(modifier = Modifier
         .fillMaxSize()
-        .padding(16.dp)) {
+        .padding(16.dp)
+        .verticalScroll(rememberScrollState())) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(bottom = 16.dp), color = Color.Black)
 
         Row(
@@ -133,6 +137,18 @@ fun SettingsScreen(
         ) {
             Text("Choose calendar app", fontSize = 18.sp, color = Color.Black)
             Text(calendarAppName, color = Color.Black)
+        }
+
+        Divider(color = Color.Black)
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onAddBirthdaysClicked() }
+                .padding(vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Add birthdays", fontSize = 18.sp, color = Color.Black)
         }
 
         Divider(color = Color.Black)
