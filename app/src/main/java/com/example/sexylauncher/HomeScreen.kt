@@ -246,7 +246,8 @@ fun MainHomeScreen(
             .fillMaxSize()
             .pointerInput(isHomeLocked) {
                 detectTapGestures(
-                    onLongPress = { if (!isHomeLocked) onShowSettingsClicked() }
+                    onLongPress = { if (!isHomeLocked) onShowSettingsClicked() },
+                    onDoubleTap = { showRefreshOverlay = true }
                 )
             }
     ) {
