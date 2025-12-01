@@ -12,7 +12,7 @@ val keystoreProperties = Properties()
 keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 
 android {
-    namespace = "com.example.sexylauncher"
+    namespace = "com.boris55555.sexylauncher"
     compileSdk = 36
 
     signingConfigs {
@@ -25,7 +25,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.sexylauncher"
+        applicationId = "com.boris55555.sexylauncher"
         minSdk = 31
         targetSdk = 36
         versionCode = 15
