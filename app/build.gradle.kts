@@ -28,8 +28,8 @@ android {
         applicationId = "com.example.sexylauncher"
         minSdk = 31
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.13"
+        versionCode = 15
+        versionName = "1.14"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
