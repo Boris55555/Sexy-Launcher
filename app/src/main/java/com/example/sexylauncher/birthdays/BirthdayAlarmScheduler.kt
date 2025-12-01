@@ -66,9 +66,13 @@ class BirthdayAlarmScheduler(private val context: Context) {
                 context,
                 requestCode,
                 intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
             )
-            alarmManager.cancel(pendingIntent)
+
+            if (pendingIntent != null) {
+                alarmManager.cancel(pendingIntent)
+                pendingIntent.cancel()
+            }
         }
     }
 }

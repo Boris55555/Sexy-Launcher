@@ -3,16 +3,27 @@ package com.example.sexylauncher
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.Settings
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -26,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @Composable
@@ -42,6 +54,7 @@ fun SettingsScreen(
     val calendarAppPackage by favoritesRepository.calendarAppPackage.collectAsState()
     val isHomeLocked by favoritesRepository.isHomeLocked.collectAsState()
     val weekStartsOnSunday by favoritesRepository.weekStartsOnSunday.collectAsState()
+    var showHelpDialog by remember { mutableStateOf(false) }
 
     val favoriteCount by favoritesRepository.favoriteCount.collectAsState()
     var sliderPosition by remember(favoriteCount) { mutableStateOf(favoriteCount.toFloat()) }
@@ -79,131 +92,213 @@ fun SettingsScreen(
         }
     }
 
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .padding(16.dp)
-        .verticalScroll(rememberScrollState())) {
-        Text("Settings", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(bottom = 16.dp), color = Color.Black)
+    val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(enabled = !hasNotificationPermission) {
-                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+    if (showHelpDialog) {
+        val helpText = """
+            Welcome to Sexy Launcher!
+
+            • Home Screen: Long press an empty space for settings. Double tap to refresh. Long press a favorite to change it. If the homescreen is locked, double-tap the cat icon in the bottom right to open settings.
+
+            • All Apps: Press the button on the right edge to open. Long press an app to rename or uninstall.
+
+            • Settings: Customize your launcher, set it as default, lock the layout, and more.
+            """.trimIndent()
+
+        AlertDialog(
+            onDismissRequest = { showHelpDialog = false },
+            title = { Text("Quick Guide", color = Color.Black) },
+            text = { Text(helpText, color = Color.Black) },
+            confirmButton = {
+                Button(
+                    onClick = { showHelpDialog = false },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color.Black
+                    ),
+                    border = BorderStroke(1.dp, Color.Black)
+                ) {
+                    Text("Close")
                 }
-                .padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text("Notification Access", fontSize = 18.sp, color = Color.Black)
-            Text(if (hasNotificationPermission) "Granted" else "Tap to grant", color = Color.Black)
-        }
+            },
+            containerColor = Color.White
+        )
+    }
 
-        Divider(color = Color.Black)
-
-        Row(
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .clickable { context.startActivity(Intent(Settings.ACTION_HOME_SETTINGS)) }
-                .padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .padding(16.dp)
+                .verticalScroll(scrollState)
         ) {
-            Text("Set as default launcher", fontSize = 18.sp, color = Color.Black)
-        }
+            Text("Settings", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(bottom = 16.dp), color = Color.Black)
 
-        Divider(color = Color.Black)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !hasNotificationPermission) {
+                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    }
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Notification Access", fontSize = 18.sp, color = Color.Black)
+                Text(if (hasNotificationPermission) "Granted" else "Tap to grant", color = Color.Black)
+            }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onChooseAlarmAppClicked() }
-                .padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text("Choose alarm app", fontSize = 18.sp, color = Color.Black)
-            Text(alarmAppName, color = Color.Black)
-        }
-
-        Divider(color = Color.Black)
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onChooseCalendarAppClicked() }
-                .padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text("Choose calendar app", fontSize = 18.sp, color = Color.Black)
-            Text(calendarAppName, color = Color.Black)
-        }
-
-        Divider(color = Color.Black)
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onAddBirthdaysClicked() }
-                .padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Add birthdays", fontSize = 18.sp, color = Color.Black)
-        }
-
-        Divider(color = Color.Black)
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text("The week starts on Sunday", fontSize = 18.sp, color = Color.Black)
-            Switch(
-                checked = weekStartsOnSunday,
-                onCheckedChange = { favoritesRepository.saveWeekStartsOnSunday(it) }
-            )
-        }
-
-        if (!isHomeLocked) {
             Divider(color = Color.Black)
 
-            Column(modifier = Modifier.padding(vertical = 16.dp)) {
-                Text("Favorite App Slots: ${sliderPosition.roundToInt()}", fontSize = 18.sp, color = Color.Black)
-                Slider(
-                    value = sliderPosition,
-                    onValueChange = { sliderPosition = it },
-                    valueRange = 1f..20f,
-                    steps = 18,
-                    onValueChangeFinished = {
-                        favoritesRepository.saveFavoriteCount(sliderPosition.roundToInt())
-                    },
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color.Black,
-                        activeTrackColor = Color.Black,
-                        inactiveTrackColor = Color.Black,
-                        activeTickColor = Color.White,
-                        inactiveTickColor = Color.White
-                    )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { context.startActivity(Intent(Settings.ACTION_HOME_SETTINGS)) }
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Set as default launcher", fontSize = 18.sp, color = Color.Black)
+            }
+
+            Divider(color = Color.Black)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onChooseAlarmAppClicked() }
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Choose alarm app", fontSize = 18.sp, color = Color.Black)
+                Text(alarmAppName, color = Color.Black)
+            }
+
+            Divider(color = Color.Black)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onChooseCalendarAppClicked() }
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Choose calendar app", fontSize = 18.sp, color = Color.Black)
+                Text(calendarAppName, color = Color.Black)
+            }
+
+            Divider(color = Color.Black)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onAddBirthdaysClicked() }
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Add birthdays", fontSize = 18.sp, color = Color.Black)
+            }
+
+            Divider(color = Color.Black)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("The week starts on Sunday", fontSize = 18.sp, color = Color.Black)
+                Switch(
+                    checked = weekStartsOnSunday,
+                    onCheckedChange = { favoritesRepository.saveWeekStartsOnSunday(it) }
                 )
+            }
+
+            if (!isHomeLocked) {
+                Divider(color = Color.Black)
+
+                Column(modifier = Modifier.padding(vertical = 16.dp)) {
+                    Text("Favorite App Slots: ${sliderPosition.roundToInt()}", fontSize = 18.sp, color = Color.Black)
+                    Slider(
+                        value = sliderPosition,
+                        onValueChange = { sliderPosition = it },
+                        valueRange = 1f..20f,
+                        steps = 18,
+                        onValueChangeFinished = {
+                            favoritesRepository.saveFavoriteCount(sliderPosition.roundToInt())
+                        },
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color.Black,
+                            activeTrackColor = Color.Black,
+                            inactiveTrackColor = Color.Black,
+                            activeTickColor = Color.White,
+                            inactiveTickColor = Color.White
+                        )
+                    )
+                }
+            }
+
+            Divider(color = Color.Black)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Lock homescreen", fontSize = 18.sp, color = Color.Black)
+                Switch(
+                    checked = isHomeLocked,
+                    onCheckedChange = { favoritesRepository.saveHomeLocked(it) }
+                )
+            }
+
+            Divider(color = Color.Black)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showHelpDialog = true }
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Help", fontSize = 18.sp, color = Color.Black)
             }
         }
 
-        Divider(color = Color.Black)
+        if (scrollState.canScrollBackward) {
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowUp,
+                contentDescription = "Scroll Up",
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(8.dp)
+                    .clickable {
+                        coroutineScope.launch {
+                            scrollState.animateScrollTo(0)
+                        }
+                    },
+                tint = Color.Black
+            )
+        }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text("Lock homescreen", fontSize = 18.sp, color = Color.Black)
-            Switch(
-                checked = isHomeLocked,
-                onCheckedChange = { favoritesRepository.saveHomeLocked(it) }
+        if (scrollState.canScrollForward) {
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = "Scroll Down",
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(8.dp)
+                    .clickable {
+                        coroutineScope.launch {
+                            scrollState.animateScrollTo(scrollState.maxValue)
+                        }
+                    },
+                tint = Color.Black
             )
         }
     }

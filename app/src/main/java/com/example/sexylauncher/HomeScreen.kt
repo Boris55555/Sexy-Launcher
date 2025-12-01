@@ -22,6 +22,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,6 +36,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -44,6 +46,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessAlarm
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
@@ -307,32 +310,43 @@ fun MainHomeScreen(
             val today = LocalDate.now()
             val todaysBirthdays = birthdays.filter { it.date.month == today.month && it.date.dayOfMonth == today.dayOfMonth }
 
-            if (todaysBirthdays.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                val birthdayText = todaysBirthdays.joinToString(", ") { birthday ->
-                    val age = ChronoUnit.YEARS.between(birthday.date, today)
-                    "${birthday.name} $age years!"
+            // Container for notifications and birthdays to stabilize layout
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Fixed-size box for the notification indicator
+                Box(modifier = Modifier.height(56.dp), contentAlignment = Alignment.Center) {
+                    if (notifications.isNotEmpty()) {
+                        NotificationIndicator(count = notifications.size) {
+                            NotificationListener.instance?.requestRefresh()
+                            onShowNotificationsClicked()
+                        }
+                    }
                 }
-                Text(
-                    text = "\uD83C\uDF82 $birthdayText",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+                // Fixed-size box for birthday indicator(s)
+                Box(modifier = Modifier.height(40.dp), contentAlignment = Alignment.Center) {
+                    if (todaysBirthdays.isNotEmpty()) {
+                        Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                            todaysBirthdays.forEachIndexed { index, birthday ->
+                                val age = ChronoUnit.YEARS.between(birthday.date, today)
+                                Text(
+                                    text = "\uD83C\uDF82 ${birthday.name} $age years!",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black,
+                                    maxLines = 1
+                                )
+                                if (index < todaysBirthdays.lastIndex) {
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
-            if (notifications.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                NotificationIndicator(count = notifications.size) {
-                    NotificationListener.instance?.requestRefresh()
-                    onShowNotificationsClicked()
-                }
-            }
+            Spacer(modifier = Modifier.weight(0.2f))
 
             Row(
                 modifier = Modifier
-                    .weight(1f)
                     .fillMaxWidth()
                     .padding(bottom = 80.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -418,6 +432,7 @@ fun MainHomeScreen(
                     }
                 }
             }
+            Spacer(modifier = Modifier.weight(0.8f))
         }
 
         Box(
@@ -437,6 +452,21 @@ fun MainHomeScreen(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Show all apps",
+                tint = Color.Black
+            )
+        }
+
+        if (mediaController == null && isHomeLocked) {
+            Icon(
+                imageVector = Icons.Default.Pets,
+                contentDescription = "Settings",
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+                    .size(24.dp)
+                    .pointerInput(Unit) {
+                        detectTapGestures(onDoubleTap = { onShowSettingsClicked() })
+                    },
                 tint = Color.Black
             )
         }

@@ -3,8 +3,10 @@ package com.example.sexylauncher.birthdays
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +17,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -22,6 +28,7 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
@@ -36,12 +43,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -113,15 +122,55 @@ fun BirthdaysScreen(repository: BirthdaysRepository) {
         )
     }
 
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        item {
-            EInkButton(onClick = { showAddDialog = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("Add Birthday")
+    val lazyListState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(state = lazyListState, modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            item {
+                EInkButton(onClick = { showAddDialog = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Add Birthday")
+                }
+                Spacer(modifier = Modifier.height(16.dp))
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            items(sortedBirthdays) { birthday ->
+                BirthdayItem(birthday = birthday, onLongClick = { birthdayToEditOrDelete = birthday })
+            }
         }
-        items(sortedBirthdays) { birthday ->
-            BirthdayItem(birthday = birthday, onLongClick = { birthdayToEditOrDelete = birthday })
+
+        if (lazyListState.canScrollBackward) {
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowUp,
+                contentDescription = "Scroll Up",
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(8.dp)
+                    .clickable {
+                        coroutineScope.launch {
+                            lazyListState.animateScrollToItem(0)
+                        }
+                    },
+                tint = Color.Black
+            )
+        }
+
+        if (lazyListState.canScrollForward) {
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = "Scroll Down",
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(8.dp)
+                    .clickable {
+                        coroutineScope.launch {
+                            val lastIndex = lazyListState.layoutInfo.totalItemsCount - 1
+                            if (lastIndex >= 0) {
+                                lazyListState.animateScrollToItem(lastIndex)
+                            }
+                        }
+                    },
+                tint = Color.Black
+            )
         }
     }
 }

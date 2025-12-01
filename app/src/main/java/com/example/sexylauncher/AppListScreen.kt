@@ -1,8 +1,11 @@
 package com.example.sexylauncher
 
+import android.app.Activity
 import android.content.Intent
 import android.content.pm.ResolveInfo
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -56,8 +59,17 @@ fun AppListScreen(
     val notifications by NotificationListener.notifications.collectAsState()
     val customNames by favoritesRepository.customNames.collectAsState()
     var appToEdit by remember { mutableStateOf<AppInfo?>(null) }
+    var refreshKey by remember { mutableStateOf(0) } // State to trigger refresh
 
-    val apps = remember(isPickerMode, customNames) {
+    val uninstallLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            refreshKey++ // Trigger recomposition
+        }
+    }
+
+    val apps = remember(isPickerMode, customNames, refreshKey) {
         val intent = Intent(Intent.ACTION_MAIN, null).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
         }
@@ -101,10 +113,11 @@ fun AppListScreen(
                 appToEdit = null
             },
             onUninstall = {
+                appToEdit = null // Dismiss the dialog immediately
                 val intent = Intent(Intent.ACTION_UNINSTALL_PACKAGE)
                 intent.data = Uri.parse("package:${app.packageName}")
                 intent.putExtra(Intent.EXTRA_RETURN_RESULT, true)
-                context.startActivity(intent)
+                uninstallLauncher.launch(intent)
             }
         )
     }
