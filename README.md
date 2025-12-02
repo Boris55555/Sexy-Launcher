@@ -8,5 +8,8 @@ Once you have set Sexy Launcher as your default launcher, run in the terminal:
 If you want to restore the default Mudita Compact launcher, run in the terminal:
 ```bash adb shell pm enable --user 0 com.mudita.launcher ```
 
-And when you want to remove Sexy Launcher, run in the terminal:
+And when you want to remove Sexy Launcher, run in the terminal (newer versions 1.14...):
+```bash adb uninstall com.boris55555.sexylauncher ```
+
+Older versions:
 ```bash adb uninstall com.example.sexylauncher ```
