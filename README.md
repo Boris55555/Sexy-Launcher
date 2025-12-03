@@ -16,8 +16,8 @@ Older versions:
 
 Pictures:
 
-<img src="assets/AllApps.jpg" alt="Picture1" width="80%" />
-<img src="assets/Homescreen001.jpg" alt="Picture2" width="80%" />
-<img src="assets/Homescreen002.jpg" alt="Picture3" width="80%" />
-<img src="assets/Notifications.jpg" alt="Picture4" width="80%" />
-<img src="assets/Settings.jpg" alt="Picture5" width="80%" />
+<img src="assets/AllApps.jpg" alt="Picture1" width="50" />
+<img src="assets/Homescreen001.jpg" alt="Picture2" width="50" />
+<img src="assets/Homescreen002.jpg" alt="Picture3" width="50" />
+<img src="assets/Notifications.jpg" alt="Picture4" width="50" />
+<img src="assets/Settings.jpg" alt="Picture5" width="50" />
