@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,6 +55,7 @@ fun SettingsScreen(
     val calendarAppPackage by favoritesRepository.calendarAppPackage.collectAsState()
     val isHomeLocked by favoritesRepository.isHomeLocked.collectAsState()
     val weekStartsOnSunday by favoritesRepository.weekStartsOnSunday.collectAsState()
+    val hideLauncherFromAppView by favoritesRepository.hideLauncherFromAppView.collectAsState()
     var showHelpDialog by remember { mutableStateOf(false) }
 
     val favoriteCount by favoritesRepository.favoriteCount.collectAsState()
@@ -94,6 +96,15 @@ fun SettingsScreen(
 
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
+
+    val eInkSwitchColors = SwitchDefaults.colors(
+        checkedThumbColor = Color.White,
+        checkedTrackColor = Color.Black,
+        checkedBorderColor = Color.Black,
+        uncheckedThumbColor = Color.Black,
+        uncheckedTrackColor = Color.White,
+        uncheckedBorderColor = Color.Black
+    )
 
     if (showHelpDialog) {
         val helpText = """
@@ -213,7 +224,8 @@ fun SettingsScreen(
                 Text("The week starts on Sunday", fontSize = 18.sp, color = Color.Black)
                 Switch(
                     checked = weekStartsOnSunday,
-                    onCheckedChange = { favoritesRepository.saveWeekStartsOnSunday(it) }
+                    onCheckedChange = { favoritesRepository.saveWeekStartsOnSunday(it) },
+                    colors = eInkSwitchColors
                 )
             }
 
@@ -253,7 +265,25 @@ fun SettingsScreen(
                 Text("Lock homescreen", fontSize = 18.sp, color = Color.Black)
                 Switch(
                     checked = isHomeLocked,
-                    onCheckedChange = { favoritesRepository.saveHomeLocked(it) }
+                    onCheckedChange = { favoritesRepository.saveHomeLocked(it) },
+                    colors = eInkSwitchColors
+                )
+            }
+
+            Divider(color = Color.Black)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Hide launcher from app view", fontSize = 18.sp, color = Color.Black)
+                Switch(
+                    checked = hideLauncherFromAppView,
+                    onCheckedChange = { favoritesRepository.saveHideLauncherFromAppView(it) },
+                    colors = eInkSwitchColors
                 )
             }
 

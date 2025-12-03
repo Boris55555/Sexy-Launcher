@@ -58,6 +58,7 @@ fun AppListScreen(
     val packageManager = context.packageManager
     val notifications by NotificationListener.notifications.collectAsState()
     val customNames by favoritesRepository.customNames.collectAsState()
+    val hideLauncherFromAppView by favoritesRepository.hideLauncherFromAppView.collectAsState()
     var appToEdit by remember { mutableStateOf<AppInfo?>(null) }
     var refreshKey by remember { mutableStateOf(0) } // State to trigger refresh
 
@@ -69,7 +70,7 @@ fun AppListScreen(
         }
     }
 
-    val apps = remember(isPickerMode, customNames, refreshKey) {
+    val apps = remember(isPickerMode, customNames, refreshKey, hideLauncherFromAppView) {
         val intent = Intent(Intent.ACTION_MAIN, null).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
         }
@@ -97,9 +98,11 @@ fun AppListScreen(
                 customName = customName
             )
         }.filter {
-            it.packageName !in hiddenPackages &&
+            val isLauncher = it.packageName == context.packageName
+            val shouldHideLauncher = hideLauncherFromAppView && isLauncher
+            it.packageName !in hiddenPackages && !shouldHideLauncher &&
             // Don't show the launcher itself in picker mode
-            (!isPickerMode || it.packageName != context.packageName)
+            (!isPickerMode || !isLauncher)
         }.sortedBy { it.name }
     }
 

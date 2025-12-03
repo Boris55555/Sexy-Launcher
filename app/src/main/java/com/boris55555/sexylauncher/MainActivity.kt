@@ -29,6 +29,7 @@ private const val KEY_CALENDAR_APP = "calendar_app_package"
 private const val KEY_HOME_LOCKED = "home_locked"
 private const val KEY_CUSTOM_NAMES = "custom_app_names_set"
 private const val KEY_WEEK_STARTS_ON_SUNDAY = "week_starts_on_sunday"
+private const val KEY_HIDE_LAUNCHER_FROM_APP_VIEW = "hide_launcher_from_app_view"
 private const val DEFAULT_FAVORITE_COUNT = 4
 
 class FavoritesRepository(private val context: Context) {
@@ -48,6 +49,9 @@ class FavoritesRepository(private val context: Context) {
 
     private val _isHomeLocked = MutableStateFlow(prefs.getBoolean(KEY_HOME_LOCKED, false))
     val isHomeLocked = _isHomeLocked.asStateFlow()
+
+    private val _hideLauncherFromAppView = MutableStateFlow(prefs.getBoolean(KEY_HIDE_LAUNCHER_FROM_APP_VIEW, true))
+    val hideLauncherFromAppView = _hideLauncherFromAppView.asStateFlow()
 
     private val _customNames = MutableStateFlow(getCustomNamesMap())
     val customNames = _customNames.asStateFlow()
@@ -69,6 +73,9 @@ class FavoritesRepository(private val context: Context) {
             }
             KEY_HOME_LOCKED -> {
                 _isHomeLocked.value = prefs.getBoolean(KEY_HOME_LOCKED, false)
+            }
+            KEY_HIDE_LAUNCHER_FROM_APP_VIEW -> {
+                _hideLauncherFromAppView.value = prefs.getBoolean(KEY_HIDE_LAUNCHER_FROM_APP_VIEW, true)
             }
             KEY_CUSTOM_NAMES -> {
                 _customNames.value = getCustomNamesMap()
@@ -155,6 +162,10 @@ class FavoritesRepository(private val context: Context) {
 
     fun saveHomeLocked(isLocked: Boolean) {
         prefs.edit().putBoolean(KEY_HOME_LOCKED, isLocked).apply()
+    }
+
+    fun saveHideLauncherFromAppView(hide: Boolean) {
+        prefs.edit().putBoolean(KEY_HIDE_LAUNCHER_FROM_APP_VIEW, hide).apply()
     }
 
     fun saveWeekStartsOnSunday(isSunday: Boolean) {

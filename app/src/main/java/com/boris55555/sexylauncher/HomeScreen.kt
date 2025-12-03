@@ -45,6 +45,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessAlarm
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.PlayArrow
@@ -65,6 +66,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -724,7 +726,26 @@ fun RenameAppDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit ${appInfo.name}", color = Color.Black) },
+        title = { 
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Edit ${appInfo.name}",
+                    color = Color.Black,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (!isSystemApp && onUninstall != null) {
+                    IconButton(onClick = onUninstall) {
+                        Icon(Icons.Default.Delete, contentDescription = "Uninstall", tint = Color.Black)
+                    }
+                }
+            }
+        },
         text = {
             TextField(
                 value = newName,
@@ -747,21 +768,13 @@ fun RenameAppDialog(
             )
         },
         confirmButton = {
-            Button(
-                onClick = { onRename(newName) },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color.Black
-                ),
-                border = BorderStroke(1.dp, Color.Black)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Rename")
-            }
-        },
-        dismissButton = {
-            Row {
                 Button(
                     onClick = onDismiss,
+                    shape = RectangleShape,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.White,
                         contentColor = Color.Black
@@ -770,22 +783,20 @@ fun RenameAppDialog(
                 ) {
                     Text("Cancel")
                 }
-                if (!isSystemApp && onUninstall != null) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = onUninstall,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.White,
-                            contentColor = Color.Red
-                        ),
-                        border = BorderStroke(1.dp, Color.Red),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
-                    ) {
-                        Text("Uninstall", fontSize = 12.sp)
-                    }
+                Button(
+                    onClick = { onRename(newName) },
+                    shape = RectangleShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color.Black
+                    ),
+                    border = BorderStroke(1.dp, Color.Black)
+                ) {
+                    Text("Rename")
                 }
             }
         },
+        dismissButton = {},
         containerColor = Color.White
     )
 }
