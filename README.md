@@ -14,8 +14,10 @@ And when you want to remove Sexy Launcher, run in the terminal (newer versions 1
 Older versions:
 ```bash adb uninstall com.example.sexylauncher ```
 
-![Picture1](assets/AllApps.jpg)
-![Picture1](assets/Homescreen001.jpg)
-![Picture1](assets/Homescreen002.jpg)
-![Picture1](assets/Notifications.jpg)
-![Picture1](assets/Settings.jpg)
+Pictures:
+
+<img src="assets/AllApps.jpg" alt="Picture1" width="80%" />
+<img src="assets/Homescreen001.jpg" alt="Picture2" width="80%" />
+<img src="assets/Homescreen002.jpg" alt="Picture3" width="80%" />
+<img src="assets/Notifications.jpg" alt="Picture4" width="80%" />
+<img src="assets/Settings.jpg" alt="Picture5" width="80%" />
