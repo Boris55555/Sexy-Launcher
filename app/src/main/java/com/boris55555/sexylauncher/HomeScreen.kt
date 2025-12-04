@@ -645,13 +645,14 @@ fun FavoriteAppItem(app: AppInfo, notifications: List<StatusBarNotification>, on
                 Box(
                     modifier = Modifier
                         .padding(start = 8.dp)
-                        .background(color = Color.Red, shape = CircleShape)
+                        .border(BorderStroke(2.dp, Color.Black), shape = CircleShape)
+                        .background(color = Color.White, shape = CircleShape)
                         .padding(horizontal = 6.dp, vertical = 2.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = if (notifications.size > 99) "99+" else notifications.size.toString(),
-                        color = Color.White,
+                        color = Color.Black,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
