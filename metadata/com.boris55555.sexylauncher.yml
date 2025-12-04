@@ -1,0 +1,34 @@
+    Categories:
+      - System
+      - Theming
+    License: Apache-2.0
+    SourceCode: https://github.com/Boris55555/Sexy-Launcher
+    IssueTracker: https://github.com/Boris55555/Sexy-Launcher/issues
+    
+    AutoName: Sexy Launcher
+    Description: |
+      A minimalist, E-Ink friendly launcher focused on simplicity and style. 
+      
+      Features:
+      * Minimalist home screen with favorite apps
+      * E-Ink friendly black and white theme
+      * Notification previews and management
+      * App list with alphabet scroller
+      * Customizable settings
+    
+    RepoType: git
+    Repo: https://github.com/Boris55555/Sexy-Launcher.git
+    
+    Builds:
+      - versionName: "1.16"
+        versionCode: 17
+        commit: v1.16
+        subdir: app
+        gradle:
+          - assembleRelease
+    
+    AutoUpdateMode: Version %v
+    UpdateCheckMode: Tags
+    CurrentVersion: "1.16"
+    CurrentVersionCode: 17
+    
