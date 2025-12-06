@@ -1,4 +1,4 @@
-package com.boris55555.sexylauncher.birthdays
+package com.boris55555.sexylauncher.reminders
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -19,12 +19,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,8 +53,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.boris55555.sexylauncher.DateVisualTransformation
 import com.boris55555.sexylauncher.EInkButton
+import com.boris55555.sexylauncher.TimeVisualTransformation
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
@@ -61,40 +67,36 @@ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BirthdaysScreen(repository: BirthdaysRepository) {
-    val birthdays by repository.birthdays.collectAsState()
+fun RemindersScreen(repository: RemindersRepository) {
+    val reminders by repository.reminders.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
-    var birthdayToEditOrDelete by remember { mutableStateOf<Birthday?>(null) }
+    var reminderToEditOrDelete by remember { mutableStateOf<Reminder?>(null) }
 
-    val sortedBirthdays = birthdays.sortedBy {
-        val today = LocalDate.now()
-        val nextBirthdayDate = it.date.withYear(today.year).let { date ->
-            if (date.isBefore(today)) date.plusYears(1) else date
-        }
-        ChronoUnit.DAYS.between(today, nextBirthdayDate)
+    val sortedReminders = reminders.sortedBy {
+        ChronoUnit.DAYS.between(LocalDate.now(), it.date)
     }
 
     if (showAddDialog) {
-        AddBirthdayDialog(
+        AddReminderDialog(
             onDismiss = { showAddDialog = false },
-            onAddBirthday = { name, date, reminderDays, reminderTime ->
-                repository.addBirthday(name, date, reminderDays, reminderTime)
+            onAddReminder = { title, content, date, time, reminderDays, reminderHours ->
+                repository.addReminder(title, content, date, time, reminderDays, reminderHours)
                 showAddDialog = false
             }
         )
     }
 
-    birthdayToEditOrDelete?.let { birthday ->
-        EditOrDeleteBirthdayDialog(
-            birthday = birthday,
-            onDismiss = { birthdayToEditOrDelete = null },
-            onUpdateBirthday = { name, date, reminderDays, reminderTime ->
-                repository.updateBirthday(birthday.id, name, date, reminderDays, reminderTime)
-                birthdayToEditOrDelete = null
+    reminderToEditOrDelete?.let { reminder ->
+        EditOrDeleteReminderDialog(
+            reminder = reminder,
+            onDismiss = { reminderToEditOrDelete = null },
+            onUpdateReminder = { title, content, date, time, reminderDays, reminderHours ->
+                repository.updateReminder(reminder.id, title, content, date, time, reminderDays, reminderHours)
+                reminderToEditOrDelete = null
             },
-            onDeleteBirthday = {
-                repository.removeBirthday(birthday.id)
-                birthdayToEditOrDelete = null
+            onDeleteReminder = {
+                repository.removeReminder(reminder.id)
+                reminderToEditOrDelete = null
             }
         )
     }
@@ -112,7 +114,7 @@ fun BirthdaysScreen(repository: BirthdaysRepository) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Birthdays",
+                text = "Reminders",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
@@ -129,8 +131,8 @@ fun BirthdaysScreen(repository: BirthdaysRepository) {
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 16.dp)
             ) {
-                items(sortedBirthdays) { birthday ->
-                    BirthdayItem(birthday = birthday, onLongClick = { birthdayToEditOrDelete = birthday })
+                items(sortedReminders) { reminder ->
+                    ReminderItem(reminder = reminder, onLongClick = { reminderToEditOrDelete = reminder })
                 }
             }
 
@@ -174,13 +176,10 @@ fun BirthdaysScreen(repository: BirthdaysRepository) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun BirthdayItem(birthday: Birthday, onLongClick: () -> Unit) {
-    val age = ChronoUnit.YEARS.between(birthday.date, LocalDate.now())
-    val nextBirthday = birthday.date.withYear(LocalDate.now().year).let {
-        if (it.isBefore(LocalDate.now())) it.plusYears(1) else it
-    }
-    val daysUntilNextBirthday = ChronoUnit.DAYS.between(LocalDate.now(), nextBirthday)
-    val formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+fun ReminderItem(reminder: Reminder, onLongClick: () -> Unit) {
+    val daysUntilReminder = ChronoUnit.DAYS.between(LocalDate.now(), reminder.date)
+    val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+    val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
     Column(
         modifier = Modifier
@@ -195,13 +194,13 @@ fun BirthdayItem(birthday: Birthday, onLongClick: () -> Unit) {
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             Icon(
-                imageVector = Icons.Default.Cake,
-                contentDescription = "Birthday",
+                imageVector = Icons.Default.Notifications,
+                contentDescription = "Reminder",
                 tint = Color.Black,
                 modifier = Modifier.align(Alignment.CenterStart)
             )
             Text(
-                text = birthday.name,
+                text = reminder.title,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black,
                 textAlign = TextAlign.Center,
@@ -209,34 +208,32 @@ fun BirthdayItem(birthday: Birthday, onLongClick: () -> Unit) {
             )
         }
         Spacer(modifier = Modifier.height(8.dp))
+        Text(text = reminder.content, color = Color.Black, maxLines = 2)
+        Spacer(modifier = Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom
         ) {
-            Text(text = "Age: $age", color = Color.Black)
-            Text(text = "($daysUntilNextBirthday days until next birthday)", color = Color.Black, maxLines = 1)
+            Text(text = "Date: ${reminder.date.format(dateFormatter)}", color = Color.Black)
+            Text(text = "Time: ${reminder.time.format(timeFormatter)}", color = Color.Black)
         }
         Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = "Birthday: ${birthday.date.format(formatter)}",
-            color = Color.Black,
-            textAlign = TextAlign.Start,
-            modifier = Modifier.fillMaxWidth()
-        )
+        Text(text = "($daysUntilReminder days until reminder)", color = Color.Black, maxLines = 1)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddBirthdayDialog(
+fun AddReminderDialog(
     onDismiss: () -> Unit,
-    onAddBirthday: (String, LocalDate, Int?, LocalTime?) -> Unit,
-    birthday: Birthday? = null
+    onAddReminder: (String, String, LocalDate, LocalTime, List<Int>, Int?) -> Unit,
+    reminder: Reminder? = null
 ) {
-    var name by remember { mutableStateOf(birthday?.name ?: "") }
+    var title by remember { mutableStateOf(reminder?.title ?: "") }
+    var content by remember { mutableStateOf(reminder?.content ?: "") }
     val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
-    var dateString by remember { mutableStateOf(birthday?.date?.format(dateFormatter)?.replace(".", "") ?: "") }
+    var dateString by remember { mutableStateOf(reminder?.date?.format(dateFormatter)?.replace(".", "") ?: "") }
 
     val parsedDate by remember {
         derivedStateOf {
@@ -248,30 +245,52 @@ fun AddBirthdayDialog(
         }
     }
 
-    var reminderDays by remember { mutableStateOf(birthday?.reminderDays?.toFloat() ?: 0f) }
-    val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-    var timeString by remember { mutableStateOf(birthday?.reminderTime?.format(timeFormatter) ?: "12:00") }
+    val timeFormatter = DateTimeFormatter.ofPattern("HHmm")
+    var timeString by remember { mutableStateOf(reminder?.time?.format(timeFormatter) ?: "") }
     val parsedTime by remember {
         derivedStateOf {
             try {
-                LocalTime.parse(timeString, timeFormatter)
+                LocalTime.parse(timeString, DateTimeFormatter.ofPattern("HHmm"))
             } catch (e: DateTimeParseException) {
                 null
             }
         }
     }
 
+    var reminderDays by remember { mutableStateOf(reminder?.reminderDays ?: emptyList()) }
+    var reminderHoursSliderPosition by remember { mutableStateOf(reminder?.reminderHours?.toFloat() ?: 0f) }
+
+
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Color.White,
-        title = { Text(if (birthday == null) "Add Birthday" else "Edit Birthday", color = Color.Black) },
+        title = { Text(if (reminder == null) "Add Reminder" else "Edit Reminder", color = Color.Black) },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Name") },
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Title") },
                     shape = RectangleShape,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedBorderColor = Color.Black,
+                        unfocusedBorderColor = Color.Black,
+                        focusedLabelColor = Color.Black,
+                        unfocusedLabelColor = Color.Black,
+                        cursorColor = Color.Black,
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
+                    )
+                )
+                Spacer(Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = content,
+                    onValueChange = { if (it.length <= 50) content = it },
+                    label = { Text("Content (max 50 chars)") },
+                    shape = RectangleShape,
+                    modifier = Modifier.height(100.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = Color.White,
                         unfocusedContainerColor = Color.White,
@@ -306,12 +325,65 @@ fun AddBirthdayDialog(
                     )
                 )
                 Spacer(Modifier.height(16.dp))
-                Text("Reminder: ${if (reminderDays == 0f) "No reminder" else "${reminderDays.roundToInt()} days before"}")
+                OutlinedTextField(
+                    value = timeString,
+                    onValueChange = { if (it.length <= 4) timeString = it },
+                    label = { Text("Time") },
+                    placeholder = { Text("HH:mm") },
+                    shape = RectangleShape,
+                    visualTransformation = TimeVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedBorderColor = Color.Black,
+                        unfocusedBorderColor = Color.Black,
+                        focusedLabelColor = Color.Black,
+                        unfocusedLabelColor = Color.Black,
+                        cursorColor = Color.Black,
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
+                    )
+                )
+                Spacer(Modifier.height(16.dp))
+                Text("Reminder (days before):", color = Color.Black)
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    (1..5).forEach { day ->
+                        val isSelected = reminderDays.contains(day)
+                        Button(
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                reminderDays = if (isSelected) {
+                                    reminderDays - day
+                                } else {
+                                    (reminderDays + day).sorted()
+                                }
+                            },
+                            shape = RectangleShape,
+                            border = BorderStroke(1.dp, Color.Black),
+                            contentPadding = PaddingValues(0.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isSelected) Color.Black else Color.White,
+                                contentColor = if (isSelected) Color.White else Color.Black
+                            )
+                        ) {
+                            Text(text = "+$day", fontSize = 14.sp)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+                val reminderHours = if(reminderHoursSliderPosition > 0f) reminderHoursSliderPosition.roundToInt() else null
+                Text("Reminder: ${if (reminderHours != null) "$reminderHours hours before" else "No time-based reminder"}", color = Color.Black)
+                Spacer(Modifier.height(8.dp))
                 Slider(
-                    value = reminderDays,
-                    onValueChange = { reminderDays = it.roundToInt().toFloat() },
-                    valueRange = 0f..14f,
-                    steps = 13,
+                    value = reminderHoursSliderPosition,
+                    onValueChange = { reminderHoursSliderPosition = it },
+                    valueRange = 0f..5f,
+                    steps = 4,
                     colors = SliderDefaults.colors(
                         thumbColor = Color.Black,
                         activeTrackColor = Color.Black,
@@ -320,27 +392,6 @@ fun AddBirthdayDialog(
                         inactiveTickColor = Color.White
                     )
                 )
-                if (reminderDays > 0f) {
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = timeString,
-                        onValueChange = { timeString = it },
-                        label = { Text("Time (HH:mm)") },
-                        shape = RectangleShape,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            focusedBorderColor = Color.Black,
-                            unfocusedBorderColor = Color.Black,
-                            focusedLabelColor = Color.Black,
-                            unfocusedLabelColor = Color.Black,
-                            cursorColor = Color.Black,
-                            focusedTextColor = Color.Black,
-                            unfocusedTextColor = Color.Black,
-                        )
-                    )
-                }
             }
         },
         confirmButton = {
@@ -348,15 +399,14 @@ fun AddBirthdayDialog(
                 onClick = {
                     val date = parsedDate
                     val time = parsedTime
-                    if (name.isNotBlank() && date != null) {
-                        val reminderDaysInt = if (reminderDays == 0f) null else reminderDays.roundToInt()
-                        val reminderTime = if (reminderDaysInt != null) time else null
-                        onAddBirthday(name, date, reminderDaysInt, reminderTime)
+                    if (title.isNotBlank() && content.isNotBlank() && date != null && time != null) {
+                        val reminderHoursInt = if (reminderHoursSliderPosition > 0) reminderHoursSliderPosition.roundToInt() else null
+                        onAddReminder(title, content, date, time, reminderDays, reminderHoursInt)
                     }
                 },
-                enabled = name.isNotBlank() && parsedDate != null && (reminderDays == 0f || parsedTime != null)
+                enabled = title.isNotBlank() && content.isNotBlank() && parsedDate != null && parsedTime != null
             ) {
-                Text(if (birthday == null) "Add" else "Update")
+                Text(if (reminder == null) "Add" else "Update")
             }
         },
         dismissButton = {
@@ -368,29 +418,29 @@ fun AddBirthdayDialog(
 }
 
 @Composable
-fun EditOrDeleteBirthdayDialog(
-    birthday: Birthday,
+fun EditOrDeleteReminderDialog(
+    reminder: Reminder,
     onDismiss: () -> Unit,
-    onUpdateBirthday: (String, LocalDate, Int?, LocalTime?) -> Unit,
-    onDeleteBirthday: () -> Unit
+    onUpdateReminder: (String, String, LocalDate, LocalTime, List<Int>, Int?) -> Unit,
+    onDeleteReminder: () -> Unit
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
 
     if (showEditDialog) {
-        AddBirthdayDialog(
+        AddReminderDialog(
             onDismiss = { showEditDialog = false },
-            onAddBirthday = { name, date, reminderDays, reminderTime ->
-                onUpdateBirthday(name, date, reminderDays, reminderTime)
+            onAddReminder = { title, content, date, time, reminderDays, reminderHours ->
+                onUpdateReminder(title, content, date, time, reminderDays, reminderHours)
                 showEditDialog = false
             },
-            birthday = birthday
+            reminder = reminder
         )
     } else {
         AlertDialog(
             onDismissRequest = onDismiss,
             containerColor = Color.White,
-            title = { Text(birthday.name, color = Color.Black) },
-            text = { Text("What would you like to do with ${birthday.name}'s birthday?", color = Color.Black) },
+            title = { Text(reminder.title, color = Color.Black) },
+            text = { Text("What would you like to do with this reminder?", color = Color.Black) },
             confirmButton = {
                 EInkButton(onClick = { showEditDialog = true }) {
                     Text("Edit")
@@ -398,7 +448,7 @@ fun EditOrDeleteBirthdayDialog(
             },
             dismissButton = {
                 Row {
-                    EInkButton(onClick = onDeleteBirthday) {
+                    EInkButton(onClick = onDeleteReminder) {
                         Text("Delete")
                     }
                     Spacer(Modifier.width(8.dp))

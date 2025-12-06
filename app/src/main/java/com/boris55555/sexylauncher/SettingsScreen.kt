@@ -14,15 +14,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -43,11 +45,11 @@ import kotlin.math.roundToInt
 
 @Composable
 fun SettingsScreen(
-    onDismiss: () -> Unit,
     favoritesRepository: FavoritesRepository,
     onChooseAlarmAppClicked: () -> Unit,
     onChooseCalendarAppClicked: () -> Unit,
-    onAddBirthdaysClicked: () -> Unit
+    onBirthdaysClicked: () -> Unit,
+    onRemindersClicked: () -> Unit
 ) {
     val context = LocalContext.current
     var hasNotificationPermission by remember { mutableStateOf(isNotificationServiceEnabled(context)) }
@@ -59,14 +61,14 @@ fun SettingsScreen(
     var showHelpDialog by remember { mutableStateOf(false) }
 
     val favoriteCount by favoritesRepository.favoriteCount.collectAsState()
-    var sliderPosition by remember(favoriteCount) { mutableStateOf(favoriteCount.toFloat()) }
+    var sliderPosition by remember(favoriteCount) { mutableFloatStateOf(favoriteCount.toFloat()) }
 
     val alarmAppName = remember(alarmAppPackage) {
         alarmAppPackage?.let {
             try {
                 val packageManager = context.packageManager
                 packageManager.getApplicationLabel(packageManager.getApplicationInfo(it, 0)).toString()
-            } catch (e: PackageManager.NameNotFoundException) {
+            } catch (_: PackageManager.NameNotFoundException) {
                 "Unknown"
             }
         } ?: "Not Set"
@@ -77,7 +79,7 @@ fun SettingsScreen(
             try {
                 val packageManager = context.packageManager
                 packageManager.getApplicationLabel(packageManager.getApplicationInfo(it, 0)).toString()
-            } catch (e: PackageManager.NameNotFoundException) {
+            } catch (_: PackageManager.NameNotFoundException) {
                 "Unknown"
             }
         } ?: "Not Set"
@@ -115,12 +117,12 @@ fun SettingsScreen(
             • All Apps: Press the button on the right edge to open. Long press an app to rename or uninstall.
 
             • Settings: Customize your launcher, set it as default, lock the layout, and more.
-            """.trimIndent()
+            """
 
         AlertDialog(
             onDismissRequest = { showHelpDialog = false },
             title = { Text("Quick Guide", color = Color.Black) },
-            text = { Text(helpText, color = Color.Black) },
+            text = { Text(helpText.trimIndent(), color = Color.Black) },
             confirmButton = {
                 Button(
                     onClick = { showHelpDialog = false },
@@ -144,7 +146,11 @@ fun SettingsScreen(
                 .padding(16.dp)
                 .verticalScroll(scrollState)
         ) {
-            Text("Settings", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(bottom = 16.dp), color = Color.Black)
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 16.dp)) {
+                Icon(Icons.Default.Tune, contentDescription = "Control Panel Icon", tint = Color.Black)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Control Panel", style = MaterialTheme.typography.headlineMedium, color = Color.Black)
+            }
 
             Row(
                 modifier = Modifier
@@ -160,7 +166,7 @@ fun SettingsScreen(
                 Text(if (hasNotificationPermission) "Granted" else "Tap to grant", color = Color.Black)
             }
 
-            Divider(color = Color.Black)
+            HorizontalDivider(color = Color.Black)
 
             Row(
                 modifier = Modifier
@@ -172,7 +178,7 @@ fun SettingsScreen(
                 Text("Set as default launcher", fontSize = 18.sp, color = Color.Black)
             }
 
-            Divider(color = Color.Black)
+            HorizontalDivider(color = Color.Black)
 
             Row(
                 modifier = Modifier
@@ -186,7 +192,7 @@ fun SettingsScreen(
                 Text(alarmAppName, color = Color.Black)
             }
 
-            Divider(color = Color.Black)
+            HorizontalDivider(color = Color.Black)
 
             Row(
                 modifier = Modifier
@@ -200,19 +206,28 @@ fun SettingsScreen(
                 Text(calendarAppName, color = Color.Black)
             }
 
-            Divider(color = Color.Black)
+            HorizontalDivider(color = Color.Black)
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onAddBirthdaysClicked() }
-                    .padding(vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Add birthdays", fontSize = 18.sp, color = Color.Black)
+                Text("Add:", fontSize = 18.sp, color = Color.Black)
+                Row {
+                    EInkButton(onClick = onBirthdaysClicked) {
+                        Text("Birthday")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    EInkButton(onClick = onRemindersClicked) {
+                        Text("Reminder")
+                    }
+                }
             }
 
-            Divider(color = Color.Black)
+            HorizontalDivider(color = Color.Black)
 
             Row(
                 modifier = Modifier
@@ -230,7 +245,7 @@ fun SettingsScreen(
             }
 
             if (!isHomeLocked) {
-                Divider(color = Color.Black)
+                HorizontalDivider(color = Color.Black)
 
                 Column(modifier = Modifier.padding(vertical = 16.dp)) {
                     Text("Favorite App Slots: ${sliderPosition.roundToInt()}", fontSize = 18.sp, color = Color.Black)
@@ -253,7 +268,7 @@ fun SettingsScreen(
                 }
             }
 
-            Divider(color = Color.Black)
+            HorizontalDivider(color = Color.Black)
 
             Row(
                 modifier = Modifier
@@ -270,7 +285,7 @@ fun SettingsScreen(
                 )
             }
 
-            Divider(color = Color.Black)
+            HorizontalDivider(color = Color.Black)
 
             Row(
                 modifier = Modifier
@@ -287,7 +302,7 @@ fun SettingsScreen(
                 )
             }
 
-            Divider(color = Color.Black)
+            HorizontalDivider(color = Color.Black)
 
             Row(
                 modifier = Modifier

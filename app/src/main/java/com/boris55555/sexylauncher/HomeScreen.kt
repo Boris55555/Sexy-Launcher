@@ -46,6 +46,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessAlarm
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.PlayArrow
@@ -311,16 +312,21 @@ fun MainHomeScreen(
 
             val today = LocalDate.now()
             val todaysBirthdays = birthdays.filter { it.date.month == today.month && it.date.dayOfMonth == today.dayOfMonth }
+            val hasReminders = notifications.any { it.packageName == context.packageName }
 
             // Container for notifications and birthdays to stabilize layout
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 // Fixed-size box for the notification indicator
                 Box(modifier = Modifier.height(56.dp), contentAlignment = Alignment.Center) {
                     if (notifications.isNotEmpty()) {
-                        NotificationIndicator(count = notifications.size) {
-                            NotificationListener.instance?.requestRefresh()
-                            onShowNotificationsClicked()
-                        }
+                        NotificationIndicator(
+                            count = notifications.size,
+                            hasReminders = hasReminders,
+                            onClick = {
+                                NotificationListener.instance?.requestRefresh()
+                                onShowNotificationsClicked()
+                            }
+                        )
                     }
                 }
                 // Fixed-size box for birthday indicator(s)
@@ -610,14 +616,27 @@ fun DateText(favoritesRepository: FavoritesRepository) {
 }
 
 @Composable
-fun NotificationIndicator(count: Int, onClick: () -> Unit) {
-    Box(
+fun NotificationIndicator(count: Int, hasReminders: Boolean, onClick: () -> Unit) {
+    Row(
         modifier = Modifier
-            .border(BorderStroke(2.dp, Color.Black))
+            .border(BorderStroke(2.dp, Color.Black), shape = RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = if (count == 1) "New notification" else "$count new notifications", fontSize = 16.sp, color = Color.Black)
+        if (hasReminders) {
+            Icon(
+                imageVector = Icons.Default.Notifications,
+                contentDescription = "Notification Bell",
+                tint = Color.Black,
+                modifier = Modifier.padding(end = 8.dp)
+            )
+        }
+        Text(
+            text = if (count == 1) "New notification" else "$count new notifications", 
+            fontSize = 16.sp, 
+            color = Color.Black
+        )
     }
 }
 

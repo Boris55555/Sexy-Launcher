@@ -10,13 +10,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,9 +37,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.boris55555.sexylauncher.reminders.RemindersRepository
 
 @Composable
-fun NotificationsScreen(onDismiss: () -> Unit) {
+fun NotificationsScreen(remindersRepository: RemindersRepository, onDismiss: () -> Unit) {
     val notifications by NotificationListener.notifications.collectAsState()
     val sortedNotifications = remember(notifications) {
         notifications.sortedByDescending { it.postTime }
@@ -85,15 +89,11 @@ fun NotificationsScreen(onDismiss: () -> Unit) {
                                         }
                                     }
                                 }
-                                
+
                                 launchIntent?.let {
                                     it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                     context.startActivity(it)
                                 }
-                            }
-                            // Special handling for Mudita Messages
-                            if (sbn.packageName == "com.mudita.messages") {
-                                NotificationListener.instance?.dismissNotification(sbn.key)
                             }
                         },
                         onDismiss = { NotificationListener.instance?.dismissNotification(sbn.key) }
@@ -119,7 +119,7 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss:
     val extras = sbn.notification.extras
     val title = extras.getString("android.title")
     val text = extras.getString("android.text")
-    
+
     val isCommunication = when (sbn.notification.category) {
         Notification.CATEGORY_MESSAGE,
         Notification.CATEGORY_CALL,
@@ -127,14 +127,25 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss:
         else -> false
     }
 
+    val isReminder = sbn.packageName == context.packageName
+
     Row(
         modifier = Modifier
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
+        if (isReminder) {
+            Icon(
+                imageVector = Icons.Default.Notifications,
+                contentDescription = "Reminder",
+                tint = Color.Black,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+        }
         Column(
             modifier = Modifier.weight(1f)
         ) {
@@ -148,7 +159,7 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss:
         }
         if (sbn.isClearable && !isCommunication) {
             IconButton(onClick = onDismiss) {
-                Icon(Icons.Default.Close, contentDescription = "Dismiss Notification")
+                Icon(Icons.Default.Close, contentDescription = "Dismiss Notification", tint = Color.Black)
             }
         }
     }

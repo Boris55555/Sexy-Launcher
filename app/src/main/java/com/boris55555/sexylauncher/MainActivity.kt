@@ -17,6 +17,8 @@ import androidx.compose.runtime.*
 import androidx.core.content.ContextCompat
 import com.boris55555.sexylauncher.birthdays.BirthdaysRepository
 import com.boris55555.sexylauncher.birthdays.BirthdaysScreen
+import com.boris55555.sexylauncher.reminders.RemindersRepository
+import com.boris55555.sexylauncher.reminders.RemindersScreen
 import com.boris55555.sexylauncher.ui.theme.SexyLauncherTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -178,12 +180,14 @@ enum class Screen {
     AppDrawer,
     Notifications,
     Settings,
-    Birthdays
+    Birthdays,
+    Reminders
 }
 
 class MainActivity : ComponentActivity() {
     private lateinit var favoritesRepository: FavoritesRepository
     private lateinit var birthdaysRepository: BirthdaysRepository
+    private lateinit var remindersRepository: RemindersRepository
     private val _currentScreen = MutableStateFlow(Screen.Home)
     private var lastBackPressTime = 0L
     private val _currentPage = MutableStateFlow(0)
@@ -198,6 +202,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         favoritesRepository = FavoritesRepository(this)
         birthdaysRepository = BirthdaysRepository(this)
+        remindersRepository = RemindersRepository(this)
 
         requestPermissions()
 
@@ -220,6 +225,9 @@ class MainActivity : ComponentActivity() {
                     }
                     showCalendarAppPicker -> {
                         showCalendarAppPicker = false
+                    }
+                    currentScreen == Screen.Birthdays || currentScreen == Screen.Reminders -> {
+                        _currentScreen.value = Screen.Settings
                     }
                     currentScreen != Screen.Home -> {
                         _currentScreen.value = Screen.Home
@@ -284,15 +292,19 @@ class MainActivity : ComponentActivity() {
                             onShowSettingsClicked = { _currentScreen.value = Screen.Settings },
                             favoritesRepository = favoritesRepository
                         )
-                        Screen.Notifications -> NotificationsScreen(onDismiss = { _currentScreen.value = Screen.Home })
+                        Screen.Notifications -> NotificationsScreen(
+                            remindersRepository = remindersRepository,
+                            onDismiss = { _currentScreen.value = Screen.Home }
+                        )
                         Screen.Settings -> SettingsScreen(
-                            onDismiss = { _currentScreen.value = Screen.Home },
                             favoritesRepository = favoritesRepository,
                             onChooseAlarmAppClicked = { showAlarmAppPicker = true },
                             onChooseCalendarAppClicked = { showCalendarAppPicker = true },
-                            onAddBirthdaysClicked = { _currentScreen.value = Screen.Birthdays }
+                            onBirthdaysClicked = { _currentScreen.value = Screen.Birthdays },
+                            onRemindersClicked = { _currentScreen.value = Screen.Reminders }
                         )
                         Screen.Birthdays -> BirthdaysScreen(repository = birthdaysRepository)
+                        Screen.Reminders -> RemindersScreen(repository = remindersRepository)
                     }
                 }
             }
@@ -338,6 +350,7 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         favoritesRepository.cleanup()
         birthdaysRepository.cleanup()
+        remindersRepository.cleanup()
     }
 }
 
