@@ -248,6 +248,23 @@ fun AddBirthdayDialog(
         }
     }
 
+    val dateValidationError by remember {
+        derivedStateOf<String?> {
+            if (dateString.isBlank()) {
+                null // No error if blank
+            } else if (dateString.length < 8) {
+                null // No error while typing
+            } else {
+                val date = parsedDate
+                when {
+                    date == null -> "Invalid date format"
+                    date.isAfter(LocalDate.now()) -> "Birthday can't be in the future"
+                    else -> null // All good
+                }
+            }
+        }
+    }
+
     var reminderDays by remember { mutableStateOf(birthday?.reminderDays?.toFloat() ?: 0f) }
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     var timeString by remember { mutableStateOf(birthday?.reminderTime?.format(timeFormatter) ?: "12:00") }
@@ -293,6 +310,12 @@ fun AddBirthdayDialog(
                     shape = RectangleShape,
                     visualTransformation = DateVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = dateValidationError != null,
+                    supportingText = {
+                        if (dateValidationError != null) {
+                            Text(dateValidationError!!, color = MaterialTheme.colorScheme.error)
+                        }
+                    },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = Color.White,
                         unfocusedContainerColor = Color.White,
@@ -354,7 +377,7 @@ fun AddBirthdayDialog(
                         onAddBirthday(name, date, reminderDaysInt, reminderTime)
                     }
                 },
-                enabled = name.isNotBlank() && parsedDate != null && (reminderDays == 0f || parsedTime != null)
+                enabled = name.isNotBlank() && parsedDate != null && (reminderDays == 0f || parsedTime != null) && dateValidationError == null
             ) {
                 Text(if (birthday == null) "Add" else "Update")
             }

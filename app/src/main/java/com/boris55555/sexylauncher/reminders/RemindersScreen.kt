@@ -38,6 +38,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -52,6 +53,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.boris55555.sexylauncher.DateVisualTransformation
@@ -68,13 +70,17 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RemindersScreen(repository: RemindersRepository) {
+    LaunchedEffect(Unit) {
+        repository.cleanupExpiredReminders()
+    }
+
     val reminders by repository.reminders.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var reminderToEditOrDelete by remember { mutableStateOf<Reminder?>(null) }
 
-    val sortedReminders = reminders.sortedBy {
-        ChronoUnit.DAYS.between(LocalDate.now(), it.date)
-    }
+    val today = LocalDate.now()
+    val (expired, active) = reminders.partition { it.date.isBefore(today) }
+    val sortedReminders = active.sortedBy { it.date } + expired.sortedBy { it.date }
 
     if (showAddDialog) {
         AddReminderDialog(
@@ -178,6 +184,7 @@ fun RemindersScreen(repository: RemindersRepository) {
 @Composable
 fun ReminderItem(reminder: Reminder, onLongClick: () -> Unit) {
     val daysUntilReminder = ChronoUnit.DAYS.between(LocalDate.now(), reminder.date)
+    val isExpired = daysUntilReminder < 0
     val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
@@ -204,11 +211,17 @@ fun ReminderItem(reminder: Reminder, onLongClick: () -> Unit) {
                 fontWeight = FontWeight.Bold,
                 color = Color.Black,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                textDecoration = if (isExpired) TextDecoration.LineThrough else null
             )
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Text(text = reminder.content, color = Color.Black, maxLines = 2)
+        Text(
+            text = reminder.content,
+            color = Color.Black,
+            maxLines = 2,
+            textDecoration = if (isExpired) TextDecoration.LineThrough else null
+        )
         Spacer(modifier = Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -219,7 +232,11 @@ fun ReminderItem(reminder: Reminder, onLongClick: () -> Unit) {
             Text(text = "Time: ${reminder.time.format(timeFormatter)}", color = Color.Black)
         }
         Spacer(modifier = Modifier.height(4.dp))
-        Text(text = "($daysUntilReminder days until reminder)", color = Color.Black, maxLines = 1)
+        if (isExpired) {
+            Text(text = "(Expired)", color = Color.Gray, maxLines = 1)
+        } else {
+            Text(text = "($daysUntilReminder days until reminder)", color = Color.Black, maxLines = 1)
+        }
     }
 }
 
@@ -235,12 +252,33 @@ fun AddReminderDialog(
     val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
     var dateString by remember { mutableStateOf(reminder?.date?.format(dateFormatter)?.replace(".", "") ?: "") }
 
+    val currentYear = LocalDate.now().year
+
     val parsedDate by remember {
         derivedStateOf {
             try {
                 LocalDate.parse(dateString, DateTimeFormatter.ofPattern("ddMMyyyy"))
             } catch (e: DateTimeParseException) {
                 null
+            }
+        }
+    }
+
+    val dateValidationError by remember {
+        derivedStateOf<String?> {
+            if (dateString.isBlank()) {
+                null // No error if blank
+            } else if (dateString.length < 8) {
+                null // No error while typing
+            } else {
+                val date = parsedDate
+                if (date == null) {
+                    "Invalid date format"
+                } else if (date.year < currentYear || date.year > currentYear + 2) {
+                    "Year must be from $currentYear to ${currentYear + 2}"
+                } else {
+                    null // All good
+                }
             }
         }
     }
@@ -306,12 +344,26 @@ fun AddReminderDialog(
                 Spacer(Modifier.height(16.dp))
                 OutlinedTextField(
                     value = dateString,
-                    onValueChange = { if (it.length <= 8) dateString = it },
+                    onValueChange = { newText ->
+                        if (newText.length <= 8) {
+                            if (newText.length == 4 && dateString.length == 3) {
+                                dateString = newText + LocalDate.now().year.toString()
+                            } else {
+                                dateString = newText
+                            }
+                        }
+                    },
                     label = { Text("Date") },
                     placeholder = { Text("DD.MM.YYYY") },
                     shape = RectangleShape,
                     visualTransformation = DateVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = dateValidationError != null,
+                    supportingText = {
+                        if (dateValidationError != null) {
+                            Text(dateValidationError!!, color = MaterialTheme.colorScheme.error)
+                        }
+                    },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = Color.White,
                         unfocusedContainerColor = Color.White,
@@ -404,7 +456,7 @@ fun AddReminderDialog(
                         onAddReminder(title, content, date, time, reminderDays, reminderHoursInt)
                     }
                 },
-                enabled = title.isNotBlank() && content.isNotBlank() && parsedDate != null && parsedTime != null
+                enabled = title.isNotBlank() && content.isNotBlank() && parsedDate != null && parsedTime != null && dateValidationError == null
             ) {
                 Text(if (reminder == null) "Add" else "Update")
             }

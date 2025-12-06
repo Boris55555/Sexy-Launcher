@@ -13,6 +13,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+/**
+ * A broadcast receiver that handles scheduled reminders and device boot events.
+ * On device boot, it reschedules all reminders.
+ * When a reminder alarm is received, it displays a notification.
+ */
 class ReminderBroadcastReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {

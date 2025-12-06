@@ -30,7 +30,7 @@ class RemindersRepository(private val context: Context) {
     init {
         prefs.registerOnSharedPreferenceChangeListener(listener)
         _reminders.value = getReminders()
-        removeExpiredReminders()
+        cleanupExpiredReminders()
     }
 
     fun addReminder(title: String, content: String, date: LocalDate, time: LocalTime, reminderDays: List<Int>, reminderHours: Int?) {
@@ -60,12 +60,20 @@ class RemindersRepository(private val context: Context) {
         scheduler.cancel(reminderToRemove)
     }
 
-    private fun removeExpiredReminders() {
+    /**
+     * Removes all reminders that are more than a day old from storage.
+     */
+    fun cleanupExpiredReminders() {
         val currentReminders = getReminders()
-        val today = LocalDate.now()
-        val filteredReminders = currentReminders.filter { it.date.isAfter(today.minusDays(1)) }
-        if (filteredReminders.size != currentReminders.size) {
-            saveReminders(filteredReminders)
+        val cutOffDate = LocalDate.now().minusDays(1) // Reminders from yesterday are kept, from the day before are removed
+
+        val remindersToKeep = currentReminders.filter { !it.date.isBefore(cutOffDate) }
+        val remindersToRemove = currentReminders.filter { it.date.isBefore(cutOffDate) }
+
+
+        if (remindersToRemove.isNotEmpty()) {
+            remindersToRemove.forEach { scheduler.cancel(it) }
+            saveReminders(remindersToKeep)
         }
     }
 
