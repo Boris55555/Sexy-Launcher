@@ -2,6 +2,7 @@ package com.boris55555.sexylauncher.reminders
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -406,24 +407,26 @@ fun AddReminderDialog(
                 ) {
                     (1..5).forEach { day ->
                         val isSelected = reminderDays.contains(day)
-                        Button(
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                reminderDays = if (isSelected) {
-                                    reminderDays - day
-                                } else {
-                                    (reminderDays + day).sorted()
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .border(BorderStroke(1.dp, Color.Black), shape = RectangleShape)
+                                .background(if (isSelected) Color.Black else Color.White)
+                                .clickable {
+                                    reminderDays = if (isSelected) {
+                                        reminderDays - day
+                                    } else {
+                                        (reminderDays + day).sorted()
+                                    }
                                 }
-                            },
-                            shape = RectangleShape,
-                            border = BorderStroke(1.dp, Color.Black),
-                            contentPadding = PaddingValues(0.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isSelected) Color.Black else Color.White,
-                                contentColor = if (isSelected) Color.White else Color.Black
-                            )
+                                .padding(vertical = 8.dp), // Adjust padding as needed
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(text = "+$day", fontSize = 14.sp)
+                            Text(
+                                text = "+$day",
+                                fontSize = 14.sp,
+                                color = if (isSelected) Color.White else Color.Black
+                            )
                         }
                     }
                 }

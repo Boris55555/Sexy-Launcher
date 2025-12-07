@@ -24,6 +24,8 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +50,8 @@ fun SettingsScreen(
     favoritesRepository: FavoritesRepository,
     onChooseAlarmAppClicked: () -> Unit,
     onChooseCalendarAppClicked: () -> Unit,
+    onChooseSwipeLeftAppClicked: () -> Unit,
+    onChooseSwipeRightAppClicked: () -> Unit,
     onBirthdaysClicked: () -> Unit,
     onRemindersClicked: () -> Unit
 ) {
@@ -58,6 +62,10 @@ fun SettingsScreen(
     val isHomeLocked by favoritesRepository.isHomeLocked.collectAsState()
     val weekStartsOnSunday by favoritesRepository.weekStartsOnSunday.collectAsState()
     val hideLauncherFromAppView by favoritesRepository.hideLauncherFromAppView.collectAsState()
+    val gesturesEnabled by favoritesRepository.gesturesEnabled.collectAsState()
+    val swipeLeftAction by favoritesRepository.swipeLeftAction.collectAsState()
+    val swipeRightAction by favoritesRepository.swipeRightAction.collectAsState()
+
     var showHelpDialog by remember { mutableStateOf(false) }
 
     val favoriteCount by favoritesRepository.favoriteCount.collectAsState()
@@ -83,6 +91,25 @@ fun SettingsScreen(
                 "Unknown"
             }
         } ?: "Not Set"
+    }
+
+    fun getActionDisplayName(action: String): String {
+        return when {
+            action == "none" -> "None"
+            action == "notifications" -> "Notifications"
+            action == "birthdays" -> "Birthdays"
+            action == "reminders" -> "Reminders"
+            action.startsWith("app:") -> {
+                val pkgName = action.substring(4)
+                try {
+                    val pm = context.packageManager
+                    pm.getApplicationLabel(pm.getApplicationInfo(pkgName, 0)).toString()
+                } catch (e: PackageManager.NameNotFoundException) {
+                    "Unknown App"
+                }
+            }
+            else -> "Unknown"
+        }
     }
 
     // This makes the permission status update if the user grants it and returns to the app
@@ -226,6 +253,105 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            HorizontalDivider(color = Color.Black)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Enable Gestures", fontSize = 18.sp, color = Color.Black)
+                Switch(
+                    checked = gesturesEnabled,
+                    onCheckedChange = { favoritesRepository.saveGesturesEnabled(it) },
+                    colors = eInkSwitchColors
+                )
+            }
+
+            if (gesturesEnabled) {
+                HorizontalDivider(color = Color.Black)
+
+                var showLeftSwipeMenu by remember { mutableStateOf(false) }
+                var showRightSwipeMenu by remember { mutableStateOf(false) }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Swipe Left", fontSize = 18.sp, color = Color.Black)
+                    Box {
+                        EInkButton(onClick = { showLeftSwipeMenu = true }) {
+                            Text(getActionDisplayName(swipeLeftAction))
+                        }
+                        DropdownMenu(
+                            expanded = showLeftSwipeMenu,
+                            onDismissRequest = { showLeftSwipeMenu = false }
+                        ) {
+                            DropdownMenuItem(text = { Text("None") }, onClick = { 
+                                favoritesRepository.saveSwipeLeftAction("none")
+                                showLeftSwipeMenu = false
+                            })
+                            DropdownMenuItem(text = { Text("Birthdays") }, onClick = { 
+                                favoritesRepository.saveSwipeLeftAction("birthdays")
+                                showLeftSwipeMenu = false
+                            })
+                            DropdownMenuItem(text = { Text("Reminders") }, onClick = { 
+                                favoritesRepository.saveSwipeLeftAction("reminders")
+                                showLeftSwipeMenu = false
+                            })
+                            DropdownMenuItem(text = { Text("Open App...") }, onClick = { 
+                                onChooseSwipeLeftAppClicked()
+                                showLeftSwipeMenu = false
+                            })
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = Color.Black)
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Swipe Right", fontSize = 18.sp, color = Color.Black)
+                     Box {
+                        EInkButton(onClick = { showRightSwipeMenu = true }) {
+                            Text(getActionDisplayName(swipeRightAction))
+                        }
+                        DropdownMenu(
+                            expanded = showRightSwipeMenu,
+                            onDismissRequest = { showRightSwipeMenu = false }
+                        ) {
+                            DropdownMenuItem(text = { Text("None") }, onClick = { 
+                                favoritesRepository.saveSwipeRightAction("none")
+                                showRightSwipeMenu = false
+                            })
+                            DropdownMenuItem(text = { Text("Birthdays") }, onClick = { 
+                                favoritesRepository.saveSwipeRightAction("birthdays")
+                                showRightSwipeMenu = false
+                            })
+                            DropdownMenuItem(text = { Text("Reminders") }, onClick = { 
+                                favoritesRepository.saveSwipeRightAction("reminders")
+                                showRightSwipeMenu = false
+                            })
+                            DropdownMenuItem(text = { Text("Open App...") }, onClick = { 
+                                onChooseSwipeRightAppClicked()
+                                showRightSwipeMenu = false
+                            })
+                        }
+                    }
+                }
+            }
+
 
             HorizontalDivider(color = Color.Black)
 

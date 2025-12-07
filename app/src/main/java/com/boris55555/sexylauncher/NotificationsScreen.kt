@@ -102,6 +102,10 @@ fun NotificationsScreen(remindersRepository: RemindersRepository, onDismiss: () 
                                     context.startActivity(it)
                                 }
                             }
+                            // Always dismiss communication notifications on click
+                            if (sbn.notification.category in setOf(Notification.CATEGORY_MESSAGE, Notification.CATEGORY_CALL, Notification.CATEGORY_SOCIAL)) {
+                                NotificationListener.instance?.dismissNotification(sbn.key)
+                            }
                         },
                         onDismiss = { NotificationListener.instance?.dismissNotification(sbn.key) }
                     )
@@ -126,13 +130,6 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss:
     val extras = sbn.notification.extras
     val title = extras.getString("android.title")
     val text = extras.getString("android.text")
-
-    val isCommunication = when (sbn.notification.category) {
-        Notification.CATEGORY_MESSAGE,
-        Notification.CATEGORY_CALL,
-        Notification.CATEGORY_SOCIAL -> true
-        else -> false
-    }
 
     val isReminder = sbn.packageName == context.packageName
 
@@ -164,7 +161,7 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss:
                 Text(text = text, fontSize = 14.sp, color = Color.Black)
             }
         }
-        if (sbn.isClearable && !isCommunication) {
+        if (sbn.isClearable) {
             IconButton(onClick = onDismiss) {
                 Icon(Icons.Default.Close, contentDescription = "Dismiss Notification", tint = Color.Black)
             }

@@ -55,10 +55,10 @@ class NotificationListener : NotificationListenerService() {
         if ((sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) {
             return false
         }
-        // Filter out low-priority ONGOING service and system notifications
-        val isOngoingServiceOrSystem = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0 &&
-                (sbn.notification.category == Notification.CATEGORY_SERVICE || sbn.notification.category == Notification.CATEGORY_SYSTEM)
-        if (isOngoingServiceOrSystem) {
+        // Filter out low-priority ONGOING service and system notifications, but allow others (like calls)
+        val isOngoing = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
+        val isServiceOrSystem = sbn.notification.category == Notification.CATEGORY_SERVICE || sbn.notification.category == Notification.CATEGORY_SYSTEM
+        if (isOngoing && isServiceOrSystem) {
             return false
         }
         return true

@@ -32,6 +32,9 @@ private const val KEY_HOME_LOCKED = "home_locked"
 private const val KEY_CUSTOM_NAMES = "custom_app_names_set"
 private const val KEY_WEEK_STARTS_ON_SUNDAY = "week_starts_on_sunday"
 private const val KEY_HIDE_LAUNCHER_FROM_APP_VIEW = "hide_launcher_from_app_view"
+private const val KEY_GESTURES_ENABLED = "gestures_enabled"
+private const val KEY_SWIPE_LEFT_ACTION = "swipe_left_action"
+private const val KEY_SWIPE_RIGHT_ACTION = "swipe_right_action"
 private const val DEFAULT_FAVORITE_COUNT = 4
 
 class FavoritesRepository(private val context: Context) {
@@ -61,6 +64,15 @@ class FavoritesRepository(private val context: Context) {
     private val _weekStartsOnSunday = MutableStateFlow(prefs.getBoolean(KEY_WEEK_STARTS_ON_SUNDAY, false))
     val weekStartsOnSunday = _weekStartsOnSunday.asStateFlow()
 
+    private val _gesturesEnabled = MutableStateFlow(prefs.getBoolean(KEY_GESTURES_ENABLED, false))
+    val gesturesEnabled = _gesturesEnabled.asStateFlow()
+
+    private val _swipeLeftAction = MutableStateFlow(prefs.getString(KEY_SWIPE_LEFT_ACTION, "none") ?: "none")
+    val swipeLeftAction = _swipeLeftAction.asStateFlow()
+
+    private val _swipeRightAction = MutableStateFlow(prefs.getString(KEY_SWIPE_RIGHT_ACTION, "none") ?: "none")
+    val swipeRightAction = _swipeRightAction.asStateFlow()
+
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
             KEY_FAVORITE_COUNT, KEY_FAVORITES -> {
@@ -85,11 +97,39 @@ class FavoritesRepository(private val context: Context) {
             KEY_WEEK_STARTS_ON_SUNDAY -> {
                 _weekStartsOnSunday.value = prefs.getBoolean(KEY_WEEK_STARTS_ON_SUNDAY, false)
             }
+            KEY_GESTURES_ENABLED -> {
+                _gesturesEnabled.value = prefs.getBoolean(KEY_GESTURES_ENABLED, false)
+            }
+            KEY_SWIPE_LEFT_ACTION -> {
+                val action = prefs.getString(KEY_SWIPE_LEFT_ACTION, "none") ?: "none"
+                if (action == "notifications") {
+                    saveSwipeLeftAction("none")
+                } else {
+                    _swipeLeftAction.value = action
+                }
+            }
+            KEY_SWIPE_RIGHT_ACTION -> {
+                val action = prefs.getString(KEY_SWIPE_RIGHT_ACTION, "none") ?: "none"
+                if (action == "notifications") {
+                    saveSwipeRightAction("none")
+                } else {
+                    _swipeRightAction.value = action
+                }
+            }
         }
     }
 
     init {
         prefs.registerOnSharedPreferenceChangeListener(listener)
+        // Initial check to clean up old values
+        val leftAction = prefs.getString(KEY_SWIPE_LEFT_ACTION, "none") ?: "none"
+        if (leftAction == "notifications") {
+            saveSwipeLeftAction("none")
+        }
+        val rightAction = prefs.getString(KEY_SWIPE_RIGHT_ACTION, "none") ?: "none"
+        if (rightAction == "notifications") {
+            saveSwipeRightAction("none")
+        }
     }
 
     fun cleanup() {
@@ -173,6 +213,18 @@ class FavoritesRepository(private val context: Context) {
     fun saveWeekStartsOnSunday(isSunday: Boolean) {
         prefs.edit().putBoolean(KEY_WEEK_STARTS_ON_SUNDAY, isSunday).apply()
     }
+
+    fun saveGesturesEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_GESTURES_ENABLED, enabled).apply()
+    }
+
+    fun saveSwipeLeftAction(action: String) {
+        prefs.edit().putString(KEY_SWIPE_LEFT_ACTION, action).apply()
+    }
+
+    fun saveSwipeRightAction(action: String) {
+        prefs.edit().putString(KEY_SWIPE_RIGHT_ACTION, action).apply()
+    }
 }
 
 enum class Screen {
@@ -191,11 +243,17 @@ class MainActivity : ComponentActivity() {
     private val _currentScreen = MutableStateFlow(Screen.Home)
     private var lastBackPressTime = 0L
     private val _currentPage = MutableStateFlow(0)
+    private var previousScreen: Screen? = null
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { _: Boolean ->
         // Handle permission result if needed
+    }
+
+    private fun navigateTo(screen: Screen) {
+        previousScreen = _currentScreen.value
+        _currentScreen.value = screen
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -211,6 +269,8 @@ class MainActivity : ComponentActivity() {
             var showPickerForIndex by remember { mutableStateOf<Int?>(null) }
             var showAlarmAppPicker by remember { mutableStateOf(false) }
             var showCalendarAppPicker by remember { mutableStateOf(false) }
+            var showSwipeLeftAppPicker by remember { mutableStateOf(false) }
+            var showSwipeRightAppPicker by remember { mutableStateOf(false) }
             val currentPage by _currentPage.collectAsState()
 
             // Centralized Back Handler
@@ -226,8 +286,14 @@ class MainActivity : ComponentActivity() {
                     showCalendarAppPicker -> {
                         showCalendarAppPicker = false
                     }
+                    showSwipeLeftAppPicker -> {
+                        showSwipeLeftAppPicker = false
+                    }
+                    showSwipeRightAppPicker -> {
+                        showSwipeRightAppPicker = false
+                    }
                     currentScreen == Screen.Birthdays || currentScreen == Screen.Reminders -> {
-                        _currentScreen.value = Screen.Settings
+                        _currentScreen.value = previousScreen ?: Screen.Home
                     }
                     currentScreen != Screen.Home -> {
                         _currentScreen.value = Screen.Home
@@ -275,21 +341,50 @@ class MainActivity : ComponentActivity() {
                         onDismiss = { showCalendarAppPicker = false },
                         favoritesRepository = favoritesRepository
                     )
+                } else if (showSwipeLeftAppPicker) {
+                    AppListScreen(
+                        isPickerMode = true,
+                        onAppSelected = {
+                            favoritesRepository.saveSwipeLeftAction(it?.packageName?.let { pkg -> "app:$pkg" } ?: "none")
+                            showSwipeLeftAppPicker = false
+                        },
+                        onDismiss = { showSwipeLeftAppPicker = false },
+                        favoritesRepository = favoritesRepository
+                    )
+                } else if (showSwipeRightAppPicker) {
+                    AppListScreen(
+                        isPickerMode = true,
+                        onAppSelected = {
+                            favoritesRepository.saveSwipeRightAction(it?.packageName?.let { pkg -> "app:$pkg" } ?: "none")
+                            showSwipeRightAppPicker = false
+                        },
+                        onDismiss = { showSwipeRightAppPicker = false },
+                        favoritesRepository = favoritesRepository
+                    )
                 } else {
                     when (currentScreen) {
                         Screen.Home -> HomeScreen(
                             favoritesRepository = favoritesRepository,
                             birthdaysRepository = birthdaysRepository,
-                            onShowAllAppsClicked = { _currentScreen.value = Screen.AppDrawer },
-                            onShowNotificationsClicked = { _currentScreen.value = Screen.Notifications },
-                            onShowSettingsClicked = { _currentScreen.value = Screen.Settings },
+                            onShowAllAppsClicked = { navigateTo(Screen.AppDrawer) },
+                            onShowNotificationsClicked = { navigateTo(Screen.Notifications) },
+                            onShowBirthdaysClicked = { navigateTo(Screen.Birthdays) },
+                            onShowRemindersClicked = { navigateTo(Screen.Reminders) },
+                            onLaunchAppClicked = { packageName ->
+                                val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+                                if (launchIntent != null) {
+                                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    startActivity(launchIntent)
+                                }
+                            },
+                            onShowSettingsClicked = { navigateTo(Screen.Settings) },
                             onEditFavorite = { index -> showPickerForIndex = index },
                             currentPage = currentPage,
                             onCurrentPageChanged = { _currentPage.value = it }
                         )
                         Screen.AppDrawer -> AppListScreen(
                             onDismiss = { _currentScreen.value = Screen.Home },
-                            onShowSettingsClicked = { _currentScreen.value = Screen.Settings },
+                            onShowSettingsClicked = { navigateTo(Screen.Settings) },
                             favoritesRepository = favoritesRepository
                         )
                         Screen.Notifications -> NotificationsScreen(
@@ -300,8 +395,10 @@ class MainActivity : ComponentActivity() {
                             favoritesRepository = favoritesRepository,
                             onChooseAlarmAppClicked = { showAlarmAppPicker = true },
                             onChooseCalendarAppClicked = { showCalendarAppPicker = true },
-                            onBirthdaysClicked = { _currentScreen.value = Screen.Birthdays },
-                            onRemindersClicked = { _currentScreen.value = Screen.Reminders }
+                            onChooseSwipeLeftAppClicked = { showSwipeLeftAppPicker = true },
+                            onChooseSwipeRightAppClicked = { showSwipeRightAppPicker = true },
+                            onBirthdaysClicked = { navigateTo(Screen.Birthdays) },
+                            onRemindersClicked = { navigateTo(Screen.Reminders) }
                         )
                         Screen.Birthdays -> BirthdaysScreen(repository = birthdaysRepository)
                         Screen.Reminders -> RemindersScreen(repository = remindersRepository)
