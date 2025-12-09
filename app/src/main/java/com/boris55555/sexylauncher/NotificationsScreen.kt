@@ -3,6 +3,7 @@ package com.boris55555.sexylauncher
 import android.app.Notification
 import android.content.ComponentName
 import android.content.Intent
+import android.os.Bundle
 import android.service.notification.StatusBarNotification
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -128,8 +129,25 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss:
     }
 
     val extras = sbn.notification.extras
-    val title = extras.getString("android.title")
-    val text = extras.getString("android.text")
+    val title = extras.getString("android.title") ?: extras.getString("android.conversationTitle")
+    var text: CharSequence? = extras.getCharSequence("android.text") ?: extras.getCharSequence("android.bigText")
+
+    // Handle MessagingStyle notifications
+    val messages = extras.getParcelableArray("android.messages")
+    if (messages != null && messages.isNotEmpty()) {
+        val lastMessage = messages.last()
+        if (lastMessage is Bundle) {
+            text = lastMessage.getCharSequence("text") ?: text
+        }
+    }
+
+    // Handle InboxStyle notifications
+    if (text.isNullOrBlank()) {
+        val lines = extras.getCharSequenceArray("android.text.lines")
+        if (lines != null && lines.isNotEmpty()) {
+            text = lines.last()
+        }
+    }
 
     val isReminder = sbn.packageName == context.packageName
 
@@ -158,7 +176,7 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss:
                 Text(text = title, fontSize = 16.sp, color = Color.Black)
             }
             if (!text.isNullOrBlank()) {
-                Text(text = text, fontSize = 14.sp, color = Color.Black)
+                Text(text = text.toString(), fontSize = 14.sp, color = Color.Black)
             }
         }
         if (sbn.isClearable) {

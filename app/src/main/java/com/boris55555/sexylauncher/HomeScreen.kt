@@ -121,6 +121,7 @@ fun MainHomeScreen(
     val gesturesEnabled by favoritesRepository.gesturesEnabled.collectAsState()
     val swipeLeftAction by favoritesRepository.swipeLeftAction.collectAsState()
     val swipeRightAction by favoritesRepository.swipeRightAction.collectAsState()
+    val catIconAction by favoritesRepository.catIconAction.collectAsState()
 
     val favoriteApps = remember(favoritePackages, customNames) {
         favoritePackages.map { pkgName ->
@@ -307,9 +308,9 @@ fun MainHomeScreen(
                 ) {
                     DateText(favoritesRepository)
                 }
-                if (batteryLevel != null && batteryLevel!! <= 25) {
+                if (batteryLevel != null && batteryLevel!! <= 50) {
                     Text(
-                        text = "Battery: $batteryLevel%",
+                        text = "($batteryLevel%)",
                         modifier = Modifier.align(Alignment.TopEnd),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
@@ -344,7 +345,7 @@ fun MainHomeScreen(
                             todaysBirthdays.forEachIndexed { index, birthday ->
                                 val age = ChronoUnit.YEARS.between(birthday.date, today)
                                 Text(
-                                    text = "\uD83C\uDF82 ${birthday.name} $age years!",
+                                    text = "🎂 ${birthday.name} $age years!",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.Black,
@@ -410,7 +411,7 @@ fun MainHomeScreen(
                         if (app != null) {
                             FavoriteAppItem(
                                 app = app, 
-                                notifications = notifications.filter { it.packageName == app.packageName }, 
+                                notifications = notifications.filter { it.packageName == app.packageName }.sortedByDescending { it.postTime }, 
                                 onLongClick = { 
                                     if (!isHomeLocked) {
                                         onEditFavorite(i)
@@ -480,8 +481,19 @@ fun MainHomeScreen(
                     .align(Alignment.BottomEnd)
                     .padding(16.dp)
                     .size(24.dp)
-                    .pointerInput(Unit) {
-                        detectTapGestures(onDoubleTap = { onShowSettingsClicked() })
+                    .pointerInput(catIconAction) {
+                        detectTapGestures(
+                            onDoubleTap = {
+                                if (catIconAction == "double_touch") {
+                                    onShowSettingsClicked()
+                                }
+                            },
+                            onLongPress = {
+                                if (catIconAction == "long_press") {
+                                    onShowSettingsClicked()
+                                }
+                            }
+                        )
                     },
                 tint = Color.Black
             )

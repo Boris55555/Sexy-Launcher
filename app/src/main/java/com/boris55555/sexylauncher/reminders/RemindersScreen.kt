@@ -233,10 +233,24 @@ fun ReminderItem(reminder: Reminder, onLongClick: () -> Unit) {
             Text(text = "Time: ${reminder.time.format(timeFormatter)}", color = Color.Black)
         }
         Spacer(modifier = Modifier.height(4.dp))
+
         if (isExpired) {
             Text(text = "(Expired)", color = Color.Gray, maxLines = 1)
         } else {
             Text(text = "($daysUntilReminder days until reminder)", color = Color.Black, maxLines = 1)
+        }
+
+        val extraReminders = mutableListOf<String>()
+        if (reminder.reminderDays.isNotEmpty()) {
+            extraReminders.add("Days: ${reminder.reminderDays.joinToString(", ")}")
+        }
+        if (reminder.reminderHours != null) {
+            extraReminders.add("Hours: ${reminder.reminderHours}")
+        }
+
+        if (extraReminders.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = "Add. notices: ${extraReminders.joinToString(", ")}", color = Color.Black)
         }
     }
 }

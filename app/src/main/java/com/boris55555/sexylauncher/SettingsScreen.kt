@@ -65,6 +65,8 @@ fun SettingsScreen(
     val gesturesEnabled by favoritesRepository.gesturesEnabled.collectAsState()
     val swipeLeftAction by favoritesRepository.swipeLeftAction.collectAsState()
     val swipeRightAction by favoritesRepository.swipeRightAction.collectAsState()
+    val catIconAction by favoritesRepository.catIconAction.collectAsState()
+    val disableDuraSpeedNotifications by favoritesRepository.disableDuraSpeedNotifications.collectAsState()
 
     var showHelpDialog by remember { mutableStateOf(false) }
 
@@ -191,6 +193,23 @@ fun SettingsScreen(
             ) {
                 Text("Notification Access", fontSize = 18.sp, color = Color.Black)
                 Text(if (hasNotificationPermission) "Granted" else "Tap to grant", color = Color.Black)
+            }
+
+            HorizontalDivider(color = Color.Black)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Disable DuraSpeed notifications", fontSize = 18.sp, color = Color.Black)
+                Switch(
+                    checked = disableDuraSpeedNotifications,
+                    onCheckedChange = { favoritesRepository.saveDisableDuraSpeedNotifications(it) },
+                    colors = eInkSwitchColors
+                )
             }
 
             HorizontalDivider(color = Color.Black)
@@ -370,6 +389,23 @@ fun SettingsScreen(
                 )
             }
 
+            HorizontalDivider(color = Color.Black)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Lock homescreen", fontSize = 18.sp, color = Color.Black)
+                Switch(
+                    checked = isHomeLocked,
+                    onCheckedChange = { favoritesRepository.saveHomeLocked(it) },
+                    colors = eInkSwitchColors
+                )
+            }
+
             if (!isHomeLocked) {
                 HorizontalDivider(color = Color.Black)
 
@@ -394,21 +430,32 @@ fun SettingsScreen(
                 }
             }
 
-            HorizontalDivider(color = Color.Black)
+            if (isHomeLocked) {
+                HorizontalDivider(color = Color.Black)
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("Lock homescreen", fontSize = 18.sp, color = Color.Black)
-                Switch(
-                    checked = isHomeLocked,
-                    onCheckedChange = { favoritesRepository.saveHomeLocked(it) },
-                    colors = eInkSwitchColors
-                )
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+                    Text("Cat Icon Action", fontSize = 18.sp, color = Color.Black)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        EInkButton(
+                            onClick = { favoritesRepository.saveCatIconAction("double_touch") },
+                            enabled = catIconAction != "double_touch",
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Double Touch")
+                        }
+                        EInkButton(
+                            onClick = { favoritesRepository.saveCatIconAction("long_press") },
+                            enabled = catIconAction != "long_press",
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Long Press")
+                        }
+                    }
+                }
             }
 
             HorizontalDivider(color = Color.Black)

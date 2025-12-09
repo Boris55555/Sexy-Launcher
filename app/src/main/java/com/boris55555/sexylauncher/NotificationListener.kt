@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.asStateFlow
 
 class NotificationListener : NotificationListenerService() {
 
+    private lateinit var favoritesRepository: FavoritesRepository
+
     companion object {
         private val _notifications = MutableStateFlow<List<StatusBarNotification>>(emptyList())
         val notifications = _notifications.asStateFlow()
@@ -19,6 +21,7 @@ class NotificationListener : NotificationListenerService() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        favoritesRepository = FavoritesRepository(applicationContext)
     }
 
     override fun onDestroy() {
@@ -47,6 +50,9 @@ class NotificationListener : NotificationListenerService() {
     }
 
     private fun isNotificationRelevant(sbn: StatusBarNotification): Boolean {
+        if (favoritesRepository.disableDuraSpeedNotifications.value && sbn.packageName == "com.duraspeed.user") {
+            return false
+        }
         // Filter out ongoing media notifications
         if (sbn.notification.category == Notification.CATEGORY_TRANSPORT) {
             return false

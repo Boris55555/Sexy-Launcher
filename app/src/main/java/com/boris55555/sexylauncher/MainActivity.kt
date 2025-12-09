@@ -35,6 +35,8 @@ private const val KEY_HIDE_LAUNCHER_FROM_APP_VIEW = "hide_launcher_from_app_view
 private const val KEY_GESTURES_ENABLED = "gestures_enabled"
 private const val KEY_SWIPE_LEFT_ACTION = "swipe_left_action"
 private const val KEY_SWIPE_RIGHT_ACTION = "swipe_right_action"
+private const val KEY_CAT_ICON_ACTION = "cat_icon_action"
+private const val KEY_DISABLE_DURASPEED_NOTIFICATIONS = "disable_duraspeed_notifications"
 private const val DEFAULT_FAVORITE_COUNT = 4
 
 class FavoritesRepository(private val context: Context) {
@@ -72,6 +74,12 @@ class FavoritesRepository(private val context: Context) {
 
     private val _swipeRightAction = MutableStateFlow(prefs.getString(KEY_SWIPE_RIGHT_ACTION, "none") ?: "none")
     val swipeRightAction = _swipeRightAction.asStateFlow()
+
+    private val _catIconAction = MutableStateFlow(prefs.getString(KEY_CAT_ICON_ACTION, "double_touch") ?: "double_touch")
+    val catIconAction = _catIconAction.asStateFlow()
+
+    private val _disableDuraSpeedNotifications = MutableStateFlow(prefs.getBoolean(KEY_DISABLE_DURASPEED_NOTIFICATIONS, false))
+    val disableDuraSpeedNotifications = _disableDuraSpeedNotifications.asStateFlow()
 
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
@@ -115,6 +123,12 @@ class FavoritesRepository(private val context: Context) {
                 } else {
                     _swipeRightAction.value = action
                 }
+            }
+            KEY_CAT_ICON_ACTION -> {
+                _catIconAction.value = prefs.getString(KEY_CAT_ICON_ACTION, "double_touch") ?: "double_touch"
+            }
+            KEY_DISABLE_DURASPEED_NOTIFICATIONS -> {
+                _disableDuraSpeedNotifications.value = prefs.getBoolean(KEY_DISABLE_DURASPEED_NOTIFICATIONS, false)
             }
         }
     }
@@ -224,6 +238,14 @@ class FavoritesRepository(private val context: Context) {
 
     fun saveSwipeRightAction(action: String) {
         prefs.edit().putString(KEY_SWIPE_RIGHT_ACTION, action).apply()
+    }
+
+    fun saveCatIconAction(action: String) {
+        prefs.edit().putString(KEY_CAT_ICON_ACTION, action).apply()
+    }
+
+    fun saveDisableDuraSpeedNotifications(disabled: Boolean) {
+        prefs.edit().putBoolean(KEY_DISABLE_DURASPEED_NOTIFICATIONS, disabled).apply()
     }
 }
 
