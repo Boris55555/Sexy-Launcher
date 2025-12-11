@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ApplicationInfo
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
@@ -122,23 +123,31 @@ fun MainHomeScreen(
     val swipeLeftAction by favoritesRepository.swipeLeftAction.collectAsState()
     val swipeRightAction by favoritesRepository.swipeRightAction.collectAsState()
     val catIconAction by favoritesRepository.catIconAction.collectAsState()
+    val showAppIcons by favoritesRepository.showAppIcons.collectAsState()
 
     val favoriteApps = remember(favoritePackages, customNames) {
         favoritePackages.map { pkgName ->
             if (pkgName == null) null
             else {
-                val intent = Intent(Intent.ACTION_MAIN, null).apply {
-                    addCategory(Intent.CATEGORY_LAUNCHER)
-                    `package` = pkgName
-                }
-                packageManager.queryIntentActivities(intent, 0).firstOrNull()?.let {
-                    val originalName = it.loadLabel(packageManager).toString()
-                    val customName = customNames[pkgName]
-                    AppInfo(
-                        name = customName ?: originalName,
-                        packageName = it.activityInfo.packageName,
-                        customName = customName
-                    )
+                try {
+                    val intent = Intent(Intent.ACTION_MAIN, null).apply {
+                        addCategory(Intent.CATEGORY_LAUNCHER)
+                        `package` = pkgName
+                    }
+                    packageManager.queryIntentActivities(intent, 0).firstOrNull()?.let { resolveInfo ->
+                        val originalName = resolveInfo.loadLabel(packageManager).toString()
+                        val customName = customNames[pkgName]
+                        val appInfo = packageManager.getApplicationInfo(pkgName, 0)
+                        val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                        AppInfo(
+                            name = customName ?: originalName,
+                            packageName = resolveInfo.activityInfo.packageName,
+                            customName = customName,
+                            isSystemApp = isSystem || pkgName.startsWith("com.mudita")
+                        )
+                    }
+                } catch (e: Exception) {
+                    null
                 }
             }
         }
@@ -321,22 +330,23 @@ fun MainHomeScreen(
 
             val today = LocalDate.now()
             val todaysBirthdays = birthdays.filter { it.date.month == today.month && it.date.dayOfMonth == today.dayOfMonth }
-            val hasReminders = notifications.any { it.packageName == context.packageName }
 
             // Container for notifications and birthdays to stabilize layout
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 // Fixed-size box for the notification indicator
-                Box(modifier = Modifier.height(56.dp), contentAlignment = Alignment.Center) {
-                    if (notifications.isNotEmpty()) {
-                        NotificationIndicator(
-                            count = notifications.size,
-                            hasReminders = hasReminders,
-                            onClick = {
-                                NotificationListener.instance?.requestRefresh()
-                                onShowNotificationsClicked()
-                            }
-                        )
-                    }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    NotificationIndicator(
+                        notifications = notifications,
+                        onClick = {
+                            NotificationListener.instance?.requestRefresh()
+                            onShowNotificationsClicked()
+                        }
+                    )
                 }
                 // Fixed-size box for birthday indicator(s)
                 Box(modifier = Modifier.height(40.dp), contentAlignment = Alignment.Center) {
@@ -412,6 +422,7 @@ fun MainHomeScreen(
                             FavoriteAppItem(
                                 app = app, 
                                 notifications = notifications.filter { it.packageName == app.packageName }.sortedByDescending { it.postTime }, 
+                                showAppIcons = showAppIcons,
                                 onLongClick = { 
                                     if (!isHomeLocked) {
                                         onEditFavorite(i)

@@ -67,6 +67,8 @@ fun SettingsScreen(
     val swipeRightAction by favoritesRepository.swipeRightAction.collectAsState()
     val catIconAction by favoritesRepository.catIconAction.collectAsState()
     val disableDuraSpeedNotifications by favoritesRepository.disableDuraSpeedNotifications.collectAsState()
+    val dateThemeLight by favoritesRepository.dateThemeLight.collectAsState()
+    val showAppIcons by favoritesRepository.showAppIcons.collectAsState()
 
     var showHelpDialog by remember { mutableStateOf(false) }
 
@@ -385,6 +387,40 @@ fun SettingsScreen(
                 Switch(
                     checked = weekStartsOnSunday,
                     onCheckedChange = { favoritesRepository.saveWeekStartsOnSunday(it) },
+                    colors = eInkSwitchColors
+                )
+            }
+
+            HorizontalDivider(color = Color.Black)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Light Date Theme", fontSize = 18.sp, color = Color.Black)
+                Switch(
+                    checked = dateThemeLight,
+                    onCheckedChange = { favoritesRepository.saveDateThemeLight(it) },
+                    colors = eInkSwitchColors
+                )
+            }
+
+            HorizontalDivider(color = Color.Black)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Show App Icons", fontSize = 18.sp, color = Color.Black)
+                Switch(
+                    checked = showAppIcons,
+                    onCheckedChange = { favoritesRepository.saveShowAppIcons(it) },
                     colors = eInkSwitchColors
                 )
             }

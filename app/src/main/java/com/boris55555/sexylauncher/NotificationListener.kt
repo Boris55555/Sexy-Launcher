@@ -1,15 +1,13 @@
 package com.boris55555.sexylauncher
 
 import android.app.Notification
-import android.content.ComponentName
+import android.content.Context
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class NotificationListener : NotificationListenerService() {
-
-    private lateinit var favoritesRepository: FavoritesRepository
 
     companion object {
         private val _notifications = MutableStateFlow<List<StatusBarNotification>>(emptyList())
@@ -21,7 +19,6 @@ class NotificationListener : NotificationListenerService() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-        favoritesRepository = FavoritesRepository(applicationContext)
     }
 
     override fun onDestroy() {
@@ -31,26 +28,28 @@ class NotificationListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
-        _notifications.value = activeNotifications?.filter { isNotificationRelevant(it) }?.sortedByDescending { it.postTime } ?: emptyList()
+        updateNotifications()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
-        sbn ?: return
-        if (isNotificationRelevant(sbn)) {
-            val currentList = _notifications.value.toMutableList()
-            currentList.removeAll { it.key == sbn.key }
-            currentList.add(sbn)
-            _notifications.value = currentList.sortedByDescending { it.postTime }
-        }
+        updateNotifications()
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-        sbn ?: return
-        _notifications.value = _notifications.value.filterNot { it.key == sbn.key }
+        updateNotifications()
     }
 
-    private fun isNotificationRelevant(sbn: StatusBarNotification): Boolean {
-        if (favoritesRepository.disableDuraSpeedNotifications.value && sbn.packageName == "com.duraspeed.user") {
+    private fun updateNotifications() {
+        val prefs = applicationContext.getSharedPreferences("SexyLauncherPrefs", Context.MODE_PRIVATE)
+        val disableDuraSpeed = prefs.getBoolean("disable_duraspeed_notifications", false)
+
+        _notifications.value = (activeNotifications ?: emptyArray()).filter {
+            isNotificationRelevant(it, disableDuraSpeed)
+        }.sortedByDescending { it.postTime }
+    }
+
+    private fun isNotificationRelevant(sbn: StatusBarNotification, disableDuraSpeed: Boolean): Boolean {
+        if (disableDuraSpeed && sbn.packageName == "com.duraspeed.user") {
             return false
         }
         // Filter out ongoing media notifications
@@ -71,10 +70,8 @@ class NotificationListener : NotificationListenerService() {
     }
 
     fun dismissNotification(key: String) {
-        // Remove from our local list immediately for instant UI feedback
-        _notifications.value = _notifications.value.filterNot { it.key == key }
-        // Ask the system to cancel the notification
         cancelNotification(key)
+        // The list will auto-update via onNotificationRemoved -> updateNotifications()
     }
 
     fun requestRefresh() {

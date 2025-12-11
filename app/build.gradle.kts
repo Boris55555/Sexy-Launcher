@@ -28,8 +28,8 @@ android {
         applicationId = "com.boris55555.sexylauncher"
         minSdk = 31
         targetSdk = 36
-        versionCode = 20
-        versionName = "1.19"
+        versionCode = 22
+        versionName = "2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -69,6 +69,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.foundation:foundation")
+    implementation("com.google.accompanist:accompanist-drawablepainter:0.37.3")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

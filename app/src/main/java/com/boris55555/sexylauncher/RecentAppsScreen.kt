@@ -45,7 +45,8 @@ fun RecentAppsScreen(onDismiss: () -> Unit) {
                     ) {
                         AppInfo(
                             name = appInfo.loadLabel(context.packageManager).toString(),
-                            packageName = it.processName
+                            packageName = it.processName,
+                            isSystemApp = false
                         )
                     } else {
                         null
@@ -87,7 +88,8 @@ fun RecentAppsScreen(onDismiss: () -> Unit) {
                                             ) {
                                                 AppInfo(
                                                     name = appInfo.loadLabel(context.packageManager).toString(),
-                                                    packageName = it.processName
+                                                    packageName = it.processName,
+                                                    isSystemApp = false
                                                 )
                                             } else {
                                                 null

@@ -37,6 +37,8 @@ private const val KEY_SWIPE_LEFT_ACTION = "swipe_left_action"
 private const val KEY_SWIPE_RIGHT_ACTION = "swipe_right_action"
 private const val KEY_CAT_ICON_ACTION = "cat_icon_action"
 private const val KEY_DISABLE_DURASPEED_NOTIFICATIONS = "disable_duraspeed_notifications"
+private const val KEY_DATE_THEME_LIGHT = "date_theme_light"
+private const val KEY_SHOW_APP_ICONS = "show_app_icons"
 private const val DEFAULT_FAVORITE_COUNT = 4
 
 class FavoritesRepository(private val context: Context) {
@@ -80,6 +82,12 @@ class FavoritesRepository(private val context: Context) {
 
     private val _disableDuraSpeedNotifications = MutableStateFlow(prefs.getBoolean(KEY_DISABLE_DURASPEED_NOTIFICATIONS, false))
     val disableDuraSpeedNotifications = _disableDuraSpeedNotifications.asStateFlow()
+
+    private val _dateThemeLight = MutableStateFlow(prefs.getBoolean(KEY_DATE_THEME_LIGHT, false))
+    val dateThemeLight = _dateThemeLight.asStateFlow()
+
+    private val _showAppIcons = MutableStateFlow(prefs.getBoolean(KEY_SHOW_APP_ICONS, false))
+    val showAppIcons = _showAppIcons.asStateFlow()
 
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
@@ -129,6 +137,12 @@ class FavoritesRepository(private val context: Context) {
             }
             KEY_DISABLE_DURASPEED_NOTIFICATIONS -> {
                 _disableDuraSpeedNotifications.value = prefs.getBoolean(KEY_DISABLE_DURASPEED_NOTIFICATIONS, false)
+            }
+            KEY_DATE_THEME_LIGHT -> {
+                _dateThemeLight.value = prefs.getBoolean(KEY_DATE_THEME_LIGHT, false)
+            }
+            KEY_SHOW_APP_ICONS -> {
+                _showAppIcons.value = prefs.getBoolean(KEY_SHOW_APP_ICONS, false)
             }
         }
     }
@@ -247,6 +261,14 @@ class FavoritesRepository(private val context: Context) {
     fun saveDisableDuraSpeedNotifications(disabled: Boolean) {
         prefs.edit().putBoolean(KEY_DISABLE_DURASPEED_NOTIFICATIONS, disabled).apply()
     }
+
+    fun saveDateThemeLight(isLight: Boolean) {
+        prefs.edit().putBoolean(KEY_DATE_THEME_LIGHT, isLight).apply()
+    }
+
+    fun saveShowAppIcons(show: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_APP_ICONS, show).apply()
+    }
 }
 
 enum class Screen {
@@ -294,6 +316,7 @@ class MainActivity : ComponentActivity() {
             var showSwipeLeftAppPicker by remember { mutableStateOf(false) }
             var showSwipeRightAppPicker by remember { mutableStateOf(false) }
             val currentPage by _currentPage.collectAsState()
+            var lockedLetter by remember { mutableStateOf<Char?>(null) }
 
             // Centralized Back Handler
             BackHandler(enabled = true) {
@@ -313,6 +336,9 @@ class MainActivity : ComponentActivity() {
                     }
                     showSwipeRightAppPicker -> {
                         showSwipeRightAppPicker = false
+                    }
+                    currentScreen == Screen.AppDrawer && lockedLetter != null -> {
+                        lockedLetter = null
                     }
                     currentScreen == Screen.Birthdays || currentScreen == Screen.Reminders -> {
                         _currentScreen.value = previousScreen ?: Screen.Home
@@ -341,7 +367,9 @@ class MainActivity : ComponentActivity() {
                             showPickerForIndex = null
                         },
                         onDismiss = { showPickerForIndex = null },
-                        favoritesRepository = favoritesRepository
+                        favoritesRepository = favoritesRepository,
+                        onLockedLetterChanged = { lockedLetter = it },
+                        lockedLetter = lockedLetter
                     )
                 } else if (showAlarmAppPicker) {
                     AppListScreen(
@@ -351,7 +379,9 @@ class MainActivity : ComponentActivity() {
                             showAlarmAppPicker = false
                         },
                         onDismiss = { showAlarmAppPicker = false },
-                        favoritesRepository = favoritesRepository
+                        favoritesRepository = favoritesRepository,
+                        onLockedLetterChanged = { lockedLetter = it },
+                        lockedLetter = lockedLetter
                     )
                 } else if (showCalendarAppPicker) {
                     AppListScreen(
@@ -361,7 +391,9 @@ class MainActivity : ComponentActivity() {
                             showCalendarAppPicker = false
                         },
                         onDismiss = { showCalendarAppPicker = false },
-                        favoritesRepository = favoritesRepository
+                        favoritesRepository = favoritesRepository,
+                        onLockedLetterChanged = { lockedLetter = it },
+                        lockedLetter = lockedLetter
                     )
                 } else if (showSwipeLeftAppPicker) {
                     AppListScreen(
@@ -371,7 +403,9 @@ class MainActivity : ComponentActivity() {
                             showSwipeLeftAppPicker = false
                         },
                         onDismiss = { showSwipeLeftAppPicker = false },
-                        favoritesRepository = favoritesRepository
+                        favoritesRepository = favoritesRepository,
+                        onLockedLetterChanged = { lockedLetter = it },
+                        lockedLetter = lockedLetter
                     )
                 } else if (showSwipeRightAppPicker) {
                     AppListScreen(
@@ -381,7 +415,9 @@ class MainActivity : ComponentActivity() {
                             showSwipeRightAppPicker = false
                         },
                         onDismiss = { showSwipeRightAppPicker = false },
-                        favoritesRepository = favoritesRepository
+                        favoritesRepository = favoritesRepository,
+                        onLockedLetterChanged = { lockedLetter = it },
+                        lockedLetter = lockedLetter
                     )
                 } else {
                     when (currentScreen) {
@@ -407,7 +443,9 @@ class MainActivity : ComponentActivity() {
                         Screen.AppDrawer -> AppListScreen(
                             onDismiss = { _currentScreen.value = Screen.Home },
                             onShowSettingsClicked = { navigateTo(Screen.Settings) },
-                            favoritesRepository = favoritesRepository
+                            favoritesRepository = favoritesRepository,
+                            onLockedLetterChanged = { lockedLetter = it },
+                            lockedLetter = lockedLetter
                         )
                         Screen.Notifications -> NotificationsScreen(
                             remindersRepository = remindersRepository,
@@ -476,7 +514,8 @@ class MainActivity : ComponentActivity() {
 data class AppInfo(
     val name: String,
     val packageName: String,
-    val customName: String? = null
+    val customName: String? = null,
+    val isSystemApp: Boolean
 )
 
 fun isNotificationServiceEnabled(context: Context): Boolean {
