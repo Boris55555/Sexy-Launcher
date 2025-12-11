@@ -13,44 +13,26 @@ A minimalist, e-ink friendly launcher for Android, designed specifically for the
     - Swipe up to open the app drawer.
     - Customizable left and right swipe actions (e.g., open notifications, birthdays, or a specific app).
 - **E-Ink Friendly Theming**:
-    - Toggle app icons on/off for a purely text-based experience.
-    - Choose between a light and dark theme for the date widget.
+    - Toggle app icons on/off for a purely text-based experience ("Show App Icons").
+    - Choose between a light and dark theme for the date widget ("Inverted Date Theme").
 - **Backup & Restore**: Save and load your entire launcher setup.
 
 ## Screenshots
 
 <table>
   <tr>
-    <td><img src="assets/Screenshot_20251211_192557.png" width="250"></td>
-    <td><img src="assets/Screenshot_20251211_192801.png" width="250"></td>
-  </tr>
-  <tr align="center">
-    <td>Homescreen</td>
-    <td>All Apps</td>
+    <td align="center"><img src="assets/Homescreen.png" width="180"><br><sub><b>Homescreen</b></sub></td>
+    <td align="center"><img src="assets/All_Apps.png" width="180"><br><sub><b>All Apps</b></sub></td>
+    <td align="center"><img src="assets/Control_Panel.png" width="180"><br><sub><b>Control Panel</b></sub></td>
+    <td align="center"><img src="assets/Notifications.png" width="180"><br><sub><b>Notifications</b></sub></td>
   </tr>
   <tr>
-    <td><img src="assets/Screenshot_20251211_192829.png" width="250"></td>
-    <td><img src="assets/Screenshot_20251211_192853.png" width="250"></td>
-  </tr>
-  <tr align="center">
-    <td>Notifications</td>
-    <td>Control Panel</td>
+    <td align="center"><img src="assets/Customize.png" width="180"><br><sub><b>Customize App</b></sub></td>
+    <td align="center"><img src="assets/Filter_by_Letter.png" width="180"><br><sub><b>Filter by Letter</b></sub></td>
+    <td align="center"><img src="assets/Add_Reminders.png" width="180"><br><sub><b>Add Reminders</b></sub></td>
+    <td align="center"><img src="assets/Inverted_Date_Theme.png" width="180"><br><sub><b>Inverted Date Theme</b></sub></td>
   </tr>
   <tr>
-    <td><img src="assets/Screenshot_20251211_192913.png" width="250"></td>
-    <td><img src="assets/Screenshot_20251211_192957.png" width="250"></td>
-  </tr>
-  <tr align="center">
-    <td>Enable gestures</td>
-    <td>Filter by Letter</td>
-  </tr>
-   <tr>
-    <td><img src="assets/Screenshot_20251211_193208.png" width="250"></td>
-    <td><img src="assets/Screenshot_20251211_193320.png" width="250"></td>
-  </tr>
-  <tr align="center">
-    <td>Inverted Date Theme</td>
-    <td>Display Icons</td>
+    <td align="center" colspan="4"><img src="assets/Show_App_Icons.png" width="180"><br><sub><b>Show/Hide App Icons</b></sub></td>
   </tr>
 </table>
-
