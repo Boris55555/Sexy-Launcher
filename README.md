@@ -33,32 +33,24 @@ A minimalist, e-ink friendly launcher for Android, designed specifically for the
     <td><img src="assets/Screenshot_20251211_192853.png" width="250"></td>
   </tr>
   <tr align="center">
-    <td>Settings</td>
     <td>Notifications</td>
+    <td>Control Panel</td>
   </tr>
   <tr>
     <td><img src="assets/Screenshot_20251211_192913.png" width="250"></td>
     <td><img src="assets/Screenshot_20251211_192957.png" width="250"></td>
   </tr>
   <tr align="center">
-    <td>Edit Favorite</td>
-    <td>Edit App</td>
-  </tr>
-   <tr>
-    <td><img src="assets/Screenshot_20251211_193021.png" width="250"></td>
-    <td><img src="assets/Screenshot_20251211_193105.png" width="250"></td>
-  </tr>
-  <tr align="center">
-    <td>Birthdays</td>
-    <td>Reminders</td>
+    <td>Enable gestures</td>
+    <td>Filter by Letter</td>
   </tr>
    <tr>
     <td><img src="assets/Screenshot_20251211_193208.png" width="250"></td>
     <td><img src="assets/Screenshot_20251211_193320.png" width="250"></td>
   </tr>
   <tr align="center">
-    <td>Locked Homescreen</td>
-    <td>More Settings</td>
+    <td>Inverted Date Theme</td>
+    <td>Display Icons</td>
   </tr>
 </table>
 
