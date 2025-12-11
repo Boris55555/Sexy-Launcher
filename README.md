@@ -1,6 +1,6 @@
 # Sexy Launcher
 
-A minimalist, e-ink friendly launcher for Android, designed to provide a clean, fast, and focused user experience.
+A minimalist, e-ink friendly launcher for Android, designed specifically for the **Mudita Kompakt** phone to provide a clean, fast, and focused user experience.
 
 ## Features
 
@@ -19,23 +19,46 @@ A minimalist, e-ink friendly launcher for Android, designed to provide a clean, 
 
 ## Screenshots
 
-| Homescreen | All Apps |
-|---|---|
-| ![Homescreen](assets/Screenshot_20251211_192557.png) | ![All Apps](assets/Screenshot_20251211_192801.png) |
-
-| Settings | Notifications |
-|---|---|
-| ![Settings](assets/Screenshot_20251211_192829.png) | ![Notifications](assets/Screenshot_20251211_192853.png) |
-
-| Edit Favorite | Edit App |
-|---|---|
-| ![Edit Favorite](assets/Screenshot_20251211_192913.png) | ![Edit App](assets/Screenshot_20251211_192957.png) |
-
-| Birthdays | Reminders |
-|---|---|
-| ![Birthdays](assets/Screenshot_20251211_193021.png) | ![Reminders](assets/Screenshot_20251211_193105.png) |
-
-| Locked Homescreen | More Settings |
-|---|---|
-| ![Locked Homescreen](assets/Screenshot_20251211_193208.png) | ![More Settings](assets/Screenshot_20251211_193320.png) |
+<table>
+  <tr>
+    <td><img src="assets/Screenshot_20251211_192557.png" width="250"></td>
+    <td><img src="assets/Screenshot_20251211_192801.png" width="250"></td>
+  </tr>
+  <tr align="center">
+    <td>Homescreen</td>
+    <td>All Apps</td>
+  </tr>
+  <tr>
+    <td><img src="assets/Screenshot_20251211_192829.png" width="250"></td>
+    <td><img src="assets/Screenshot_20251211_192853.png" width="250"></td>
+  </tr>
+  <tr align="center">
+    <td>Settings</td>
+    <td>Notifications</td>
+  </tr>
+  <tr>
+    <td><img src="assets/Screenshot_20251211_192913.png" width="250"></td>
+    <td><img src="assets/Screenshot_20251211_192957.png" width="250"></td>
+  </tr>
+  <tr align="center">
+    <td>Edit Favorite</td>
+    <td>Edit App</td>
+  </tr>
+   <tr>
+    <td><img src="assets/Screenshot_20251211_193021.png" width="250"></td>
+    <td><img src="assets/Screenshot_20251211_193105.png" width="250"></td>
+  </tr>
+  <tr align="center">
+    <td>Birthdays</td>
+    <td>Reminders</td>
+  </tr>
+   <tr>
+    <td><img src="assets/Screenshot_20251211_193208.png" width="250"></td>
+    <td><img src="assets/Screenshot_20251211_193320.png" width="250"></td>
+  </tr>
+  <tr align="center">
+    <td>Locked Homescreen</td>
+    <td>More Settings</td>
+  </tr>
+</table>
 
