@@ -4,18 +4,17 @@ A minimalist, e-ink friendly launcher for Android, designed specifically for the
 
 ## Features
 
-- **Minimalist Home Screen**: Displays only your favorite apps, the current date and time, next alarm, battery level, and birthday reminders.
+- **Minimalist Home Screen**: Displays only your favorite apps, the current date, next alarm, battery level, and birthday reminders.
 - **Customizable Favorites**: Choose the number of favorite app slots on your home screen.
 - **Integrated Notifications**: A dedicated screen for all your notifications, with categorized icons (messages, calls, email) on the home screen for a quick overview.
 - **App Drawer**: A simple A-Z list of all your applications with a fast-scroll alphabet index.
 - **App Customization**: Long-press an app in the drawer to rename or uninstall it.
 - **Gesture Control**:
     - Swipe up to open the app drawer.
-    - Customizable left and right swipe actions (e.g., open notifications, birthdays, or a specific app).
+    - Customizable left and right swipe actions (e.g., open birthdays, or a specific app).
 - **E-Ink Friendly Theming**:
     - Toggle app icons on/off for a purely text-based experience ("Show App Icons").
     - Choose between a light and dark theme for the date widget ("Inverted Date Theme").
-- **Backup & Restore**: Save and load your entire launcher setup.
 
 ## Screenshots
 
