@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.boris55555.sexylauncher.DateVisualTransformation
 import com.boris55555.sexylauncher.EInkButton
+import com.boris55555.sexylauncher.TimeVisualTransformation
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
@@ -267,11 +268,12 @@ fun AddBirthdayDialog(
 
     var reminderDays by remember { mutableStateOf(birthday?.reminderDays?.toFloat() ?: 0f) }
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-    var timeString by remember { mutableStateOf(birthday?.reminderTime?.format(timeFormatter) ?: "12:00") }
+    var timeString by remember { mutableStateOf(birthday?.reminderTime?.format(timeFormatter)?.replace(":", "") ?: "1200") }
+
     val parsedTime by remember {
         derivedStateOf {
             try {
-                LocalTime.parse(timeString, timeFormatter)
+                LocalTime.parse(timeString, DateTimeFormatter.ofPattern("HHmm"))
             } catch (e: DateTimeParseException) {
                 null
             }
@@ -347,9 +349,11 @@ fun AddBirthdayDialog(
                     Spacer(Modifier.height(16.dp))
                     OutlinedTextField(
                         value = timeString,
-                        onValueChange = { timeString = it },
-                        label = { Text("Time (HH:mm)") },
+                        onValueChange = { if (it.length <= 4) timeString = it },
+                        label = { Text("Time") },
+                        placeholder = { Text("HH:mm") },
                         shape = RectangleShape,
+                        visualTransformation = TimeVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = Color.White,

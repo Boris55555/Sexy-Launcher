@@ -49,7 +49,7 @@ class NotificationListener : NotificationListenerService() {
     }
 
     private fun isNotificationRelevant(sbn: StatusBarNotification, disableDuraSpeed: Boolean): Boolean {
-        if (disableDuraSpeed && sbn.packageName == "com.duraspeed.user") {
+        if (disableDuraSpeed && sbn.packageName.startsWith("com.duraspeed")) {
             return false
         }
         // Filter out ongoing media notifications
@@ -65,6 +65,13 @@ class NotificationListener : NotificationListenerService() {
         val isServiceOrSystem = sbn.notification.category == Notification.CATEGORY_SERVICE || sbn.notification.category == Notification.CATEGORY_SYSTEM
         if (isOngoing && isServiceOrSystem) {
             return false
+        }
+        // Filter out summary notifications that might not be flagged as FLAG_GROUP_SUMMARY
+        if (sbn.notification.extras.containsKey(Notification.EXTRA_SUMMARY_TEXT)) {
+             val summaryText = sbn.notification.extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString()
+             if (summaryText != null && summaryText.matches(Regex(".* new messages?.*\\d+.*chats?.*|\\d+.*messages?.*from.*\\d+.*chats?.*|2 new messages"))){
+                return false
+             }
         }
         return true
     }

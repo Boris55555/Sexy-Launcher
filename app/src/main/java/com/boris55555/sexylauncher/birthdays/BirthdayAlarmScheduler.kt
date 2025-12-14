@@ -14,32 +14,39 @@ class BirthdayAlarmScheduler(private val context: Context) {
     private val alarmManager = context.getSystemService(AlarmManager::class.java)
 
     fun schedule(birthday: Birthday) {
-        if (birthday.reminderDays == null || birthday.reminderTime == null) return
+        val reminderDays = birthday.reminderDays ?: return
+        val reminderTime = birthday.reminderTime ?: return
 
         val today = LocalDate.now()
         var nextBirthdayDate = birthday.date.withYear(today.year)
 
-        if (nextBirthdayDate.isBefore(today) || (nextBirthdayDate.isEqual(today) && birthday.reminderTime.isBefore(java.time.LocalTime.now()))) {
+        if (nextBirthdayDate.isBefore(today) || (nextBirthdayDate.isEqual(today) && reminderTime.isBefore(java.time.LocalTime.now()))) {
             nextBirthdayDate = nextBirthdayDate.plusYears(1)
         }
 
         val age = ChronoUnit.YEARS.between(birthday.date, nextBirthdayDate).toInt()
 
-        for (daysBefore in 1..birthday.reminderDays) {
+        for (i in 0..reminderDays) {
             val reminderDateTime = nextBirthdayDate
-                .minusDays(daysBefore.toLong())
-                .atTime(birthday.reminderTime)
+                .minusDays(i.toLong())
+                .atTime(reminderTime)
 
             if (reminderDateTime.isBefore(LocalDateTime.now())) {
                 continue
             }
 
+            val text = when (i) {
+                0 -> "${birthday.name} is turning $age today!"
+                1 -> "${birthday.name} will be $age tomorrow!"
+                else -> "${birthday.name} will be $age in $i days!"
+            }
+
             val intent = Intent(context, BirthdayAlarmReceiver::class.java).apply {
-                putExtra(BirthdayAlarmReceiver.EXTRA_TEXT, "${birthday.name} will be $age years old in $daysBefore days!")
+                putExtra(BirthdayAlarmReceiver.EXTRA_TEXT, text)
                 putExtra(BirthdayAlarmReceiver.EXTRA_ID, birthday.id)
             }
 
-            val requestCode = "${birthday.id}$daysBefore".hashCode()
+            val requestCode = "${birthday.id}_${i}".hashCode()
 
             val pendingIntent = PendingIntent.getBroadcast(
                 context,
@@ -57,11 +64,11 @@ class BirthdayAlarmScheduler(private val context: Context) {
     }
 
     fun cancel(birthday: Birthday) {
-        if (birthday.reminderDays == null) return
+        val reminderDays = birthday.reminderDays ?: return
 
-        for (daysBefore in 1..birthday.reminderDays) {
+        for (i in 0..reminderDays) {
             val intent = Intent(context, BirthdayAlarmReceiver::class.java)
-            val requestCode = "${birthday.id}$daysBefore".hashCode()
+            val requestCode = "${birthday.id}_${i}".hashCode()
             val pendingIntent = PendingIntent.getBroadcast(
                 context,
                 requestCode,
