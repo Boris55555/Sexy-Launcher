@@ -137,7 +137,8 @@ fun NotificationIndicator(notifications: List<StatusBarNotification>, onClick: (
                     -> NotificationCategory.EMAIL
                 it.notification.category == Notification.CATEGORY_MESSAGE
                     -> NotificationCategory.MESSAGES
-                it.notification.category == Notification.CATEGORY_CALL -> NotificationCategory.CALLS
+                it.notification.category == Notification.CATEGORY_CALL || it.notification.category == Notification.CATEGORY_MISSED_CALL
+                    -> NotificationCategory.CALLS
                 it.notification.category == Notification.CATEGORY_EVENT -> NotificationCategory.CALENDAR
                 else -> NotificationCategory.OTHER
             }

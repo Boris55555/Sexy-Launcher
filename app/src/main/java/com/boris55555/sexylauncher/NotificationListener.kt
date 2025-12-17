@@ -56,8 +56,9 @@ class NotificationListener : NotificationListenerService() {
         if (sbn.notification.category == Notification.CATEGORY_TRANSPORT) {
             return false
         }
-        // Filter out group summary notifications
-        if ((sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) {
+        // Filter out group summary notifications, but allow them for missed calls
+        val isGroupSummary = (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0
+        if (isGroupSummary && sbn.notification.category != Notification.CATEGORY_MISSED_CALL) {
             return false
         }
         // Filter out low-priority ONGOING service and system notifications, but allow others (like calls)
