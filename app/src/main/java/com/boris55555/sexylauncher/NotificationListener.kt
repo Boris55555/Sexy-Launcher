@@ -49,37 +49,40 @@ class NotificationListener : NotificationListenerService() {
     }
 
     private fun isNotificationRelevant(sbn: StatusBarNotification, disableDuraSpeed: Boolean): Boolean {
-        if (disableDuraSpeed && sbn.packageName.startsWith("com.duraspeed")) {
+        val text = sbn.notification.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+        if (disableDuraSpeed && (sbn.packageName.startsWith("com.duraspeed") || text?.contains("DuraSpeed") == true)) {
             return false
         }
-        // Filter out ongoing media notifications
+
         if (sbn.notification.category == Notification.CATEGORY_TRANSPORT) {
             return false
         }
-        // Filter out group summary notifications, but allow them for missed calls
+
         val isGroupSummary = (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0
-        if (isGroupSummary && sbn.notification.category != Notification.CATEGORY_MISSED_CALL) {
+        val isCallRelated = sbn.notification.category == Notification.CATEGORY_MISSED_CALL || sbn.notification.category == Notification.CATEGORY_CALL
+
+        if (isGroupSummary && !isCallRelated) {
             return false
         }
-        // Filter out low-priority ONGOING service and system notifications, but allow others (like calls)
+
         val isOngoing = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
         val isServiceOrSystem = sbn.notification.category == Notification.CATEGORY_SERVICE || sbn.notification.category == Notification.CATEGORY_SYSTEM
-        if (isOngoing && isServiceOrSystem) {
+        if (isOngoing && isServiceOrSystem && !isCallRelated) {
             return false
         }
-        // Filter out summary notifications that might not be flagged as FLAG_GROUP_SUMMARY
+
         if (sbn.notification.extras.containsKey(Notification.EXTRA_SUMMARY_TEXT)) {
-             val summaryText = sbn.notification.extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString()
-             if (summaryText != null && summaryText.matches(Regex(".* new messages?.*\\d+.*chats?.*|\\d+.*messages?.*from.*\\d+.*chats?.*|2 new messages"))){
+            val summaryText = sbn.notification.extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString()
+            if (summaryText != null && summaryText.matches(Regex(".* new messages?.*|.*\\d+.*chats?.*"))){
                 return false
-             }
+            }
         }
+
         return true
     }
 
     fun dismissNotification(key: String) {
         cancelNotification(key)
-        // The list will auto-update via onNotificationRemoved -> updateNotifications()
     }
 
     fun requestRefresh() {
