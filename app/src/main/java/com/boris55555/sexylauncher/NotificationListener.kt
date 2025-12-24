@@ -49,8 +49,14 @@ class NotificationListener : NotificationListenerService() {
     }
 
     private fun isNotificationRelevant(sbn: StatusBarNotification, disableDuraSpeed: Boolean): Boolean {
+        // Absolute exception for Mudita dialer
+        if (sbn.packageName == "com.mudita.dial") {
+            return true
+        }
+
         val text = sbn.notification.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
-        if (disableDuraSpeed && (sbn.packageName.startsWith("com.duraspeed") || text?.contains("DuraSpeed") == true)) {
+
+        if (disableDuraSpeed && (sbn.packageName.startsWith("com.duraspeed") || text?.contains("DuraSpeed", ignoreCase = true) == true)) {
             return false
         }
 
@@ -58,9 +64,9 @@ class NotificationListener : NotificationListenerService() {
             return false
         }
 
-        val isGroupSummary = (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0
-        val isCallRelated = sbn.notification.category == Notification.CATEGORY_MISSED_CALL || sbn.notification.category == Notification.CATEGORY_CALL
+        val isCallRelated = sbn.notification.category == Notification.CATEGORY_MISSED_CALL || sbn.notification.category == Notification.CATEGORY_CALL || text?.contains("missed call", ignoreCase = true) == true
 
+        val isGroupSummary = (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0
         if (isGroupSummary && !isCallRelated) {
             return false
         }
@@ -71,12 +77,12 @@ class NotificationListener : NotificationListenerService() {
             return false
         }
 
-        if (sbn.notification.extras.containsKey(Notification.EXTRA_SUMMARY_TEXT)) {
-            val summaryText = sbn.notification.extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString()
-            if (summaryText != null && summaryText.matches(Regex(".* new messages?.*|.*\\d+.*chats?.*"))){
-                return false
-            }
-        }
+//        if (sbn.notification.extras.containsKey(Notification.EXTRA_SUMMARY_TEXT) && !isCallRelated) {
+//            val summaryText = sbn.notification.extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString()
+//            if (summaryText != null && summaryText.matches(Regex(".* new messages?.*|.*\d+.*chats?.*"))){
+//                return false
+//            }
+//        }
 
         return true
     }
