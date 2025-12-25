@@ -25,11 +25,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.AlternateEmail
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.AlertDialog
@@ -113,7 +113,7 @@ fun DateText(favoritesRepository: FavoritesRepository) {
 
 enum class NotificationCategory(val icon: ImageVector) {
     EMAIL(Icons.Default.AlternateEmail),
-    MESSAGES(Icons.Default.Message),
+    MESSAGES(Icons.AutoMirrored.Filled.Message),
     CALLS(Icons.Default.Phone),
     CALENDAR(Icons.Default.CalendarToday),
     REMINDERS(Icons.Default.Notifications),
@@ -135,7 +135,8 @@ fun NotificationIndicator(notifications: List<StatusBarNotification>, onClick: (
                 packageName.contains("outlook") ||
                 packageName.contains("thunderbird")
                     -> NotificationCategory.EMAIL
-                it.notification.category == Notification.CATEGORY_MESSAGE
+                it.notification.category == Notification.CATEGORY_MESSAGE ||
+                packageName.contains("matrix")
                     -> NotificationCategory.MESSAGES
                 it.notification.category == Notification.CATEGORY_CALL || it.notification.category == Notification.CATEGORY_MISSED_CALL
                     -> NotificationCategory.CALLS

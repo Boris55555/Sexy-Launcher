@@ -1,5 +1,6 @@
 package com.boris55555.sexylauncher
 
+import android.app.Activity
 import android.app.AlarmManager
 import android.content.BroadcastReceiver
 import android.content.ComponentName
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -37,6 +39,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessAlarm
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -44,16 +48,20 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.boris55555.sexylauncher.birthdays.BirthdaysRepository
+import com.boris55555.sexylauncher.utils.BrightnessHelper
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -63,6 +71,7 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import java.util.Calendar
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun HomeScreen(
@@ -111,6 +120,8 @@ fun MainHomeScreen(
     val context = LocalContext.current
     val packageManager = context.packageManager
     var showRefreshOverlay by remember { mutableStateOf(false) }
+    var showBrightnessButton by remember { mutableStateOf(false) }
+    var brightnessButtonPosition by remember { mutableStateOf<Offset?>(null) }
 
     val favoritePackages by favoritesRepository.favorites.collectAsState()
     val favoriteCount by favoritesRepository.favoriteCount.collectAsState()
@@ -120,6 +131,7 @@ fun MainHomeScreen(
     val customNames by favoritesRepository.customNames.collectAsState()
     val birthdays by birthdaysRepository.birthdays.collectAsState()
     val gesturesEnabled by favoritesRepository.gesturesEnabled.collectAsState()
+    val brightnessGestureEnabled by favoritesRepository.brightnessGestureEnabled.collectAsState()
     val swipeLeftAction by favoritesRepository.swipeLeftAction.collectAsState()
     val swipeRightAction by favoritesRepository.swipeRightAction.collectAsState()
     val catIconAction by favoritesRepository.catIconAction.collectAsState()
@@ -268,10 +280,19 @@ fun MainHomeScreen(
                 onFavoritesSwipeUp = { if (currentPage < pageCount - 1) onCurrentPageChanged(currentPage + 1) },
                 onFavoritesSwipeDown = { if (currentPage > 0) onCurrentPageChanged(currentPage - 1) }
             )
-            .pointerInput(isHomeLocked) {
-                 detectTapGestures(
+            .pointerInput(isHomeLocked, brightnessGestureEnabled, favoritesArea) {
+                detectTapGestures(
                     onLongPress = { if (!isHomeLocked) onShowSettingsClicked() },
-                    onDoubleTap = { showRefreshOverlay = true }
+                    onDoubleTap = { showRefreshOverlay = true },
+                    onTap = { offset ->
+                        if (brightnessGestureEnabled) {
+                            val isTapOnEmptySpace = favoritesArea?.contains(offset)?.not() ?: true
+                            if (isTapOnEmptySpace) {
+                                brightnessButtonPosition = offset
+                                showBrightnessButton = true
+                            }
+                        }
+                    }
                 )
             }
     ) {
@@ -524,6 +545,19 @@ fun MainHomeScreen(
             }
         }
 
+        if (showBrightnessButton) {
+            brightnessButtonPosition?.let { position ->
+                BrightnessToggleButton(
+                    position = position,
+                    onTimeout = { showBrightnessButton = false },
+                    onClick = {
+                        BrightnessHelper.toggleBrightness(context, (context as Activity).window)
+                        showBrightnessButton = false
+                    }
+                )
+            }
+        }
+
         // Refresh overlay on top of everything
         if (showRefreshOverlay) {
             Box(modifier = Modifier
@@ -534,6 +568,50 @@ fun MainHomeScreen(
                 showRefreshOverlay = false
             }
         }
+    }
+}
+
+@Composable
+private fun BrightnessToggleButton(
+    position: Offset,
+    onTimeout: () -> Unit,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val window = (context as Activity).window
+    val currentBrightness = window.attributes.screenBrightness
+    // System default brightness is a negative value. Treat it as "light on".
+    val isLightOn = currentBrightness < 0f || currentBrightness > 0.1f
+
+    LaunchedEffect(Unit) {
+        delay(3000L)
+        onTimeout()
+    }
+
+    val density = LocalDensity.current
+    val buttonSize = 56.dp
+    val buttonSizePx = with(density) { buttonSize.toPx() }
+
+    Box(
+        modifier = Modifier
+            .offset { IntOffset(
+                (position.x - buttonSizePx / 2).roundToInt(),
+                (position.y - buttonSizePx / 2).roundToInt()
+            ) }
+            .size(buttonSize)
+            .clip(CircleShape)
+            .background(Color.White)
+            .border(BorderStroke(2.dp, Color.Black), CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            // Use DarkMode icon as a button to turn lights off, and LightMode to turn them on.
+            imageVector = if (isLightOn) Icons.Default.DarkMode else Icons.Default.LightMode,
+            contentDescription = "Toggle Brightness",
+            tint = Color.Black,
+            modifier = Modifier.size(32.dp)
+        )
     }
 }
 

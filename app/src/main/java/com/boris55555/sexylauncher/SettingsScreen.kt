@@ -63,6 +63,7 @@ fun SettingsScreen(
     val weekStartsOnSunday by favoritesRepository.weekStartsOnSunday.collectAsState()
     val hideLauncherFromAppView by favoritesRepository.hideLauncherFromAppView.collectAsState()
     val gesturesEnabled by favoritesRepository.gesturesEnabled.collectAsState()
+    val brightnessGestureEnabled by favoritesRepository.brightnessGestureEnabled.collectAsState()
     val swipeLeftAction by favoritesRepository.swipeLeftAction.collectAsState()
     val swipeRightAction by favoritesRepository.swipeRightAction.collectAsState()
     val catIconAction by favoritesRepository.catIconAction.collectAsState()
@@ -371,6 +372,23 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+            
+            HorizontalDivider(color = Color.Black)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Enable Brightness Gesture", fontSize = 18.sp, color = Color.Black)
+                Switch(
+                    checked = brightnessGestureEnabled,
+                    onCheckedChange = { favoritesRepository.saveBrightnessGestureEnabled(it) },
+                    colors = eInkSwitchColors
+                )
             }
 
 

@@ -39,6 +39,7 @@ private const val KEY_CAT_ICON_ACTION = "cat_icon_action"
 private const val KEY_DISABLE_DURASPEED_NOTIFICATIONS = "disable_duraspeed_notifications"
 private const val KEY_DATE_THEME_LIGHT = "date_theme_light"
 private const val KEY_SHOW_APP_ICONS = "show_app_icons"
+private const val KEY_BRIGHTNESS_GESTURE_ENABLED = "brightness_gesture_enabled"
 private const val DEFAULT_FAVORITE_COUNT = 4
 
 class FavoritesRepository(private val context: Context) {
@@ -70,6 +71,9 @@ class FavoritesRepository(private val context: Context) {
 
     private val _gesturesEnabled = MutableStateFlow(prefs.getBoolean(KEY_GESTURES_ENABLED, false))
     val gesturesEnabled = _gesturesEnabled.asStateFlow()
+
+    private val _brightnessGestureEnabled = MutableStateFlow(prefs.getBoolean(KEY_BRIGHTNESS_GESTURE_ENABLED, false))
+    val brightnessGestureEnabled = _brightnessGestureEnabled.asStateFlow()
 
     private val _swipeLeftAction = MutableStateFlow(prefs.getString(KEY_SWIPE_LEFT_ACTION, "none") ?: "none")
     val swipeLeftAction = _swipeLeftAction.asStateFlow()
@@ -115,6 +119,9 @@ class FavoritesRepository(private val context: Context) {
             }
             KEY_GESTURES_ENABLED -> {
                 _gesturesEnabled.value = prefs.getBoolean(KEY_GESTURES_ENABLED, false)
+            }
+            KEY_BRIGHTNESS_GESTURE_ENABLED -> {
+                _brightnessGestureEnabled.value = prefs.getBoolean(KEY_BRIGHTNESS_GESTURE_ENABLED, false)
             }
             KEY_SWIPE_LEFT_ACTION -> {
                 val action = prefs.getString(KEY_SWIPE_LEFT_ACTION, "none") ?: "none"
@@ -244,6 +251,10 @@ class FavoritesRepository(private val context: Context) {
 
     fun saveGesturesEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_GESTURES_ENABLED, enabled).apply()
+    }
+
+    fun saveBrightnessGestureEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_BRIGHTNESS_GESTURE_ENABLED, enabled).apply()
     }
 
     fun saveSwipeLeftAction(action: String) {
