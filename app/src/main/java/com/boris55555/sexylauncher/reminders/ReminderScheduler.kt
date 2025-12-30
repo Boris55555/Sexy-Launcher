@@ -35,7 +35,7 @@ class ReminderScheduler(private val context: Context) {
         // Schedule main reminder
         val mainPendingIntent = PendingIntent.getBroadcast(
             context,
-            reminder.id,
+            "${reminder.id}_main".hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
         )
@@ -91,7 +91,7 @@ class ReminderScheduler(private val context: Context) {
         // Cancel main reminder
         val mainPendingIntent = PendingIntent.getBroadcast(
             context,
-            reminder.id,
+            "${reminder.id}_main".hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
         )

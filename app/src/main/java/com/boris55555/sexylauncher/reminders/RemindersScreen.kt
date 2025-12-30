@@ -62,6 +62,7 @@ import com.boris55555.sexylauncher.EInkButton
 import com.boris55555.sexylauncher.TimeVisualTransformation
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -79,9 +80,9 @@ fun RemindersScreen(repository: RemindersRepository) {
     var showAddDialog by remember { mutableStateOf(false) }
     var reminderToEditOrDelete by remember { mutableStateOf<Reminder?>(null) }
 
-    val today = LocalDate.now()
-    val (expired, active) = reminders.partition { it.date.isBefore(today) }
-    val sortedReminders = active.sortedBy { it.date } + expired.sortedBy { it.date }
+    val now = LocalDateTime.now()
+    val (expired, active) = reminders.partition { LocalDateTime.of(it.date, it.time).isBefore(now) }
+    val sortedReminders = active.sortedBy { LocalDateTime.of(it.date, it.time) } + expired.sortedByDescending { LocalDateTime.of(it.date, it.time) }
 
     if (showAddDialog) {
         AddReminderDialog(
@@ -184,8 +185,10 @@ fun RemindersScreen(repository: RemindersRepository) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ReminderItem(reminder: Reminder, onLongClick: () -> Unit) {
-    val daysUntilReminder = ChronoUnit.DAYS.between(LocalDate.now(), reminder.date)
-    val isExpired = daysUntilReminder < 0
+    val now = LocalDateTime.now()
+    val reminderDateTime = LocalDateTime.of(reminder.date, reminder.time)
+    val isExpired = reminderDateTime.isBefore(now)
+    val daysUntilReminder = ChronoUnit.DAYS.between(now.toLocalDate(), reminder.date)
     val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
@@ -237,7 +240,12 @@ fun ReminderItem(reminder: Reminder, onLongClick: () -> Unit) {
         if (isExpired) {
             Text(text = "(Expired)", color = Color.Gray, maxLines = 1)
         } else {
-            Text(text = "($daysUntilReminder days until reminder)", color = Color.Black, maxLines = 1)
+            val statusText = when (daysUntilReminder) {
+                0L -> "(Today)"
+                1L -> "(Tomorrow)"
+                else -> "($daysUntilReminder days until reminder)"
+            }
+            Text(text = statusText, color = Color.Black, maxLines = 1)
         }
 
         val extraReminders = mutableListOf<String>()
