@@ -134,6 +134,20 @@ fun getNotificationCategory(sbn: StatusBarNotification, context: Context): Notif
     return when {
         sbn.packageName == context.packageName -> NotificationCategory.REMINDERS
         
+        // 1. Calls (Priority check)
+        sbn.notification.category == Notification.CATEGORY_CALL || 
+        sbn.notification.category == Notification.CATEGORY_MISSED_CALL ||
+        fullContent.contains("missed call") ||
+        fullContent.contains("vastaamaton") ||
+        fullContent.contains("puhelu") ||
+        fullContent.contains("huti") ||
+        packageName.contains("dialer") ||
+        packageName.contains("telecom") ||
+        packageName.contains("phone") ||
+        packageName == "com.mudita.dial"
+            -> NotificationCategory.CALLS
+
+        // 2. Emails
         sbn.notification.category == Notification.CATEGORY_EMAIL ||
         packageName.contains("mail") ||
         packageName.contains("gmail") ||
@@ -141,6 +155,7 @@ fun getNotificationCategory(sbn: StatusBarNotification, context: Context): Notif
         packageName.contains("thunderbird")
             -> NotificationCategory.EMAIL
             
+        // 3. Messages
         sbn.notification.category == Notification.CATEGORY_MESSAGE ||
         packageName.contains("messaging") ||
         packageName.contains("sms") ||
@@ -163,15 +178,7 @@ fun getNotificationCategory(sbn: StatusBarNotification, context: Context): Notif
         fullContent.contains("chat")
             -> NotificationCategory.MESSAGES
             
-        sbn.notification.category == Notification.CATEGORY_CALL || 
-        sbn.notification.category == Notification.CATEGORY_MISSED_CALL ||
-        packageName.contains("dialer") ||
-        packageName.contains("telecom") ||
-        packageName.contains("phone") ||
-        packageName == "com.mudita.dial" ||
-        fullContent.contains("missed call")
-            -> NotificationCategory.CALLS
-            
+        // 4. Calendar
         sbn.notification.category == Notification.CATEGORY_EVENT ||
         packageName.contains("calendar")
             -> NotificationCategory.CALENDAR
