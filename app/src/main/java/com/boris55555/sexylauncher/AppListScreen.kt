@@ -374,30 +374,34 @@ fun AppListItem(app: AppInfo, showAppIcons: Boolean, onClick: () -> Unit, onLong
 
     Row(
         modifier = Modifier
-            .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(start = 64.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Start
     ) {
-        if (showAppIcons) {
-            Box(modifier = Modifier.size(40.dp)) {
-                if (appIcon != null) {
-                    Image(
-                        painter = rememberDrawablePainter(drawable = appIcon),
-                        contentDescription = "${app.name} icon",
-                        modifier = Modifier.fillMaxSize()
-                    )
+        Row(
+            modifier = Modifier
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (showAppIcons) {
+                Box(modifier = Modifier.size(40.dp)) {
+                    if (appIcon != null) {
+                        Image(
+                            painter = rememberDrawablePainter(drawable = appIcon),
+                            contentDescription = "${app.name} icon",
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
+                Spacer(modifier = Modifier.width(16.dp))
             }
-            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = app.name,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
-        Text(
-            text = app.name,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
     }
 }
