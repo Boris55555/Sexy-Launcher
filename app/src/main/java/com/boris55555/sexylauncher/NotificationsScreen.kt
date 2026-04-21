@@ -259,27 +259,9 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss:
 
     val isReminder = sbn.packageName == context.packageName
 
-    val isMessage = sbn.notification.category == Notification.CATEGORY_MESSAGE ||
-            sbn.packageName.contains("messaging") ||
-            sbn.packageName.contains("sms") ||
-            sbn.packageName.contains("chat") ||
-            sbn.packageName.contains("messenger") ||
-            sbn.packageName.contains("whatsapp") ||
-            sbn.packageName.contains("telegram") ||
-            sbn.packageName.contains("threema") ||
-            sbn.packageName.contains("viber") ||
-            sbn.packageName.contains("discord") ||
-            sbn.packageName.contains("slack") ||
-            sbn.packageName.contains("matrix") ||
-            sbn.packageName.contains("element") ||
-            sbn.packageName.contains("fluffychat") ||
-            sbn.packageName.contains("sunup")
-
-    val isCall = sbn.notification.category == Notification.CATEGORY_MISSED_CALL ||
-            sbn.notification.category == Notification.CATEGORY_CALL ||
-            sbn.packageName.contains("dialer") ||
-            sbn.packageName.contains("phone") ||
-            sbn.packageName == "com.mudita.dial"
+    val category = getNotificationCategory(sbn, context)
+    val isMessage = category == NotificationCategory.MESSAGES
+    val isCall = category == NotificationCategory.CALLS
 
     Row(
         modifier = Modifier

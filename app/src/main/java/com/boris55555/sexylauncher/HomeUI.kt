@@ -1,6 +1,7 @@
 package com.boris55555.sexylauncher
 
 import android.app.Notification
+import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.provider.CallLog
@@ -121,47 +122,90 @@ enum class NotificationCategory(val icon: ImageVector) {
     OTHER(Icons.Default.Android)
 }
 
+fun getNotificationCategory(sbn: StatusBarNotification, context: Context): NotificationCategory {
+    val packageName = sbn.packageName.lowercase(Locale.getDefault())
+    val extras = sbn.notification.extras
+    val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.lowercase(Locale.getDefault()) ?: ""
+    val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.lowercase(Locale.getDefault()) ?: ""
+    val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.lowercase(Locale.getDefault()) ?: ""
+    val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.lowercase(Locale.getDefault()) ?: ""
+    val fullContent = "$title $text $subText $bigText"
+
+    return when {
+        sbn.packageName == context.packageName -> NotificationCategory.REMINDERS
+        
+        sbn.notification.category == Notification.CATEGORY_EMAIL ||
+        packageName.contains("mail") ||
+        packageName.contains("gmail") ||
+        packageName.contains("outlook") ||
+        packageName.contains("thunderbird")
+            -> NotificationCategory.EMAIL
+            
+        sbn.notification.category == Notification.CATEGORY_MESSAGE ||
+        packageName.contains("messaging") ||
+        packageName.contains("sms") ||
+        packageName.contains("chat") ||
+        packageName.contains("messenger") ||
+        packageName.contains("whatsapp") ||
+        packageName.contains("telegram") ||
+        packageName.contains("threema") ||
+        packageName.contains("viber") ||
+        packageName.contains("discord") ||
+        packageName.contains("slack") ||
+        packageName.contains("matrix") ||
+        packageName.contains("element") ||
+        packageName.contains("fluffychat") ||
+        packageName.contains("sunup") ||
+        packageName == "org.mlm.mages" ||
+        packageName == "com.mudita.messages" ||
+        fullContent.contains("viesti") ||
+        fullContent.contains("message") ||
+        fullContent.contains("chat")
+            -> NotificationCategory.MESSAGES
+            
+        sbn.notification.category == Notification.CATEGORY_CALL || 
+        sbn.notification.category == Notification.CATEGORY_MISSED_CALL ||
+        packageName.contains("dialer") ||
+        packageName.contains("telecom") ||
+        packageName.contains("phone") ||
+        packageName == "com.mudita.dial" ||
+        fullContent.contains("missed call")
+            -> NotificationCategory.CALLS
+            
+        sbn.notification.category == Notification.CATEGORY_EVENT ||
+        packageName.contains("calendar")
+            -> NotificationCategory.CALENDAR
+            
+        else -> NotificationCategory.OTHER
+    }
+}
+
 @Composable
 fun NotificationIndicator(notifications: List<StatusBarNotification>, onClick: () -> Unit) {
     val context = LocalContext.current
     val missedCallsCount by NotificationListener.missedCallsCount.collectAsState()
 
     val groupedNotifications = remember(notifications, missedCallsCount) {
-        val result = notifications.groupingBy {
-            val packageName = it.packageName.lowercase(Locale.getDefault())
-            when {
-                it.packageName == context.packageName -> NotificationCategory.REMINDERS
-                it.notification.category == Notification.CATEGORY_EMAIL ||
-                packageName.contains("mail") ||
-                packageName.contains("gmail") ||
-                packageName.contains("outlook") ||
-                packageName.contains("thunderbird")
-                    -> NotificationCategory.EMAIL
-                it.notification.category == Notification.CATEGORY_MESSAGE ||
-                packageName.contains("matrix") ||
-                packageName.contains("messaging") ||
-                packageName.contains("mms") ||
-                packageName.contains("sms")
-                    -> NotificationCategory.MESSAGES
-                it.notification.category == Notification.CATEGORY_CALL || 
-                it.notification.category == Notification.CATEGORY_MISSED_CALL ||
-                packageName.contains("dialer") ||
-                packageName.contains("telecom") ||
-                packageName.contains("phone") ||
-                packageName == "com.mudita.dial"
-                    -> NotificationCategory.CALLS
-                it.notification.category == Notification.CATEGORY_EVENT -> NotificationCategory.CALENDAR
-                else -> NotificationCategory.OTHER
-            }
-        }.eachCount().toMutableMap()
-
-        // Add missed calls from call log if they are not already counted via notifications
-        if (missedCallsCount > 0) {
-            val currentCalls = result[NotificationCategory.CALLS] ?: 0
-            if (missedCallsCount > currentCalls) {
-                result[NotificationCategory.CALLS] = missedCallsCount
+        val result = mutableMapOf<NotificationCategory, Int>()
+        
+        notifications.forEach { sbn ->
+            val category = getNotificationCategory(sbn, context)
+            if (category != NotificationCategory.CALLS) {
+                result[category] = (result[category] ?: 0) + 1
             }
         }
+
+        // Special handling for CALLS to sync with missedCallsCount and avoid double counting
+        val callNotifications = notifications.filter { getNotificationCategory(it, context) == NotificationCategory.CALLS }
+        val missedCallNotificationsCount = callNotifications.count { it.notification.category == Notification.CATEGORY_MISSED_CALL }
+        val otherCallNotificationsCount = callNotifications.size - missedCallNotificationsCount
+        
+        // Final call count = (other call notifications like Voicemail) + (actual missed calls from log)
+        val finalCallCount = otherCallNotificationsCount + missedCallsCount
+        if (finalCallCount > 0) {
+            result[NotificationCategory.CALLS] = finalCallCount
+        }
+
         result
     }
 
@@ -226,7 +270,8 @@ fun FavoriteAppItem(
                      app.packageName.contains("telecom")
 
     val totalCount = if (isPhoneApp) {
-        maxOf(notifications.size, missedCallsCount)
+        val missedCallNotificationsCount = notifications.count { it.notification.category == Notification.CATEGORY_MISSED_CALL }
+        (notifications.size - missedCallNotificationsCount) + missedCallsCount
     } else {
         notifications.size
     }
