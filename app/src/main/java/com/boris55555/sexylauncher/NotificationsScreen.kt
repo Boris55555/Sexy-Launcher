@@ -21,7 +21,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -257,6 +259,28 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss:
 
     val isReminder = sbn.packageName == context.packageName
 
+    val isMessage = sbn.notification.category == Notification.CATEGORY_MESSAGE ||
+            sbn.packageName.contains("messaging") ||
+            sbn.packageName.contains("sms") ||
+            sbn.packageName.contains("chat") ||
+            sbn.packageName.contains("messenger") ||
+            sbn.packageName.contains("whatsapp") ||
+            sbn.packageName.contains("telegram") ||
+            sbn.packageName.contains("threema") ||
+            sbn.packageName.contains("viber") ||
+            sbn.packageName.contains("discord") ||
+            sbn.packageName.contains("slack") ||
+            sbn.packageName.contains("matrix") ||
+            sbn.packageName.contains("element") ||
+            sbn.packageName.contains("fluffychat") ||
+            sbn.packageName.contains("sunup")
+
+    val isCall = sbn.notification.category == Notification.CATEGORY_MISSED_CALL ||
+            sbn.notification.category == Notification.CATEGORY_CALL ||
+            sbn.packageName.contains("dialer") ||
+            sbn.packageName.contains("phone") ||
+            sbn.packageName == "com.mudita.dial"
+
     Row(
         modifier = Modifier
             .clickable { onClick() }
@@ -269,6 +293,22 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss:
             Icon(
                 imageVector = Icons.Default.Notifications,
                 contentDescription = "Reminder",
+                tint = Color.Black,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+        } else if (isMessage) {
+            Icon(
+                imageVector = Icons.Default.Email,
+                contentDescription = "Message",
+                tint = Color.Black,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+        } else if (isCall) {
+            Icon(
+                imageVector = Icons.Default.Phone,
+                contentDescription = "Call",
                 tint = Color.Black,
                 modifier = Modifier.padding(top = 4.dp)
             )
@@ -303,6 +343,13 @@ fun MissedCallItem(info: MissedCallInfo, onClick: () -> Unit, onDismiss: () -> U
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
+        Icon(
+            imageVector = Icons.Default.Phone,
+            contentDescription = "Missed Call",
+            tint = Color.Black,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(text = "Missed Call", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.Black)
             Text(text = info.name ?: info.number, fontSize = 16.sp, color = Color.Black)

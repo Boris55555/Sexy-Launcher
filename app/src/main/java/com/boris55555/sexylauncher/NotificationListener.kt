@@ -127,13 +127,25 @@ class NotificationListener : NotificationListenerService() {
 
         // 1.5 Message related (Always show)
         val isMessageRelated = sbn.notification.category == Notification.CATEGORY_MESSAGE ||
-                packageName == "org.mlm.mages" ||
-                packageName == "com.mudita.messages" ||
-                packageName == "ch.threema.app.libre" ||
                 packageName.contains("messaging") ||
                 packageName.contains("sms") ||
+                packageName.contains("chat") ||
+                packageName.contains("messenger") ||
+                packageName.contains("whatsapp") ||
+                packageName.contains("telegram") ||
+                packageName.contains("threema") ||
+                packageName.contains("viber") ||
+                packageName.contains("discord") ||
+                packageName.contains("slack") ||
+                packageName.contains("matrix") ||
+                packageName.contains("element") ||
+                packageName.contains("fluffychat") ||
+                packageName.contains("sunup") ||
+                packageName == "org.mlm.mages" ||
+                packageName == "com.mudita.messages" ||
                 fullContent.contains("viesti") ||
-                fullContent.contains("message")
+                fullContent.contains("message") ||
+                fullContent.contains("chat")
 
         if (isMessageRelated) return true
 

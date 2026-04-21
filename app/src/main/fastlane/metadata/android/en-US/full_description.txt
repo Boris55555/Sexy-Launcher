@@ -1,0 +1,9 @@
+Sexy Launcher is a minimalist, distraction-free launcher designed specifically for devices with E-ink displays and Mudita phones.
+
+Key features:
+- Extremely lightweight and fast.
+- Configurable battery percentage visibility.
+- Improved missed call and message notification tracking.
+- Distraction-free interface.
+- Support for Mudita-specific apps and hardware.
+- Privacy-focused: no trackers, no ads.
