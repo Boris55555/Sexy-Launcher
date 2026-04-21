@@ -203,7 +203,7 @@ fun getNotificationCount(sbn: StatusBarNotification): Int {
     }
     
     // 3. Check for specific count extra (some apps use this)
-    val count = extras.getInt(Notification.EXTRA_NUMBER, 0)
+    val count = extras.getInt("android.number", 0)
     if (count > 0) return count
     
     return 1
