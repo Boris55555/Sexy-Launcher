@@ -163,8 +163,8 @@ class NotificationListener : NotificationListenerService() {
             return true
         }
 
-        // 3. Group summaries are usually noise
-        if (isGroupSummary) return false
+        // 3. Group summaries are usually noise, but keep them for messages/calls if they are the main content
+        if (isGroupSummary && !isCallRelated && !isMessageRelated) return false
 
         // 4. General Download/Podcast/Media related
         val isDownloadRelated = sbn.notification.category == Notification.CATEGORY_PROGRESS ||

@@ -187,6 +187,28 @@ fun getNotificationCategory(sbn: StatusBarNotification, context: Context): Notif
     }
 }
 
+fun getNotificationCount(sbn: StatusBarNotification): Int {
+    val extras = sbn.notification.extras
+    
+    // 1. Check for MessagingStyle messages
+    val messages = extras.getParcelableArray("android.messages")
+    if (messages != null && messages.isNotEmpty()) {
+        return messages.size
+    }
+    
+    // 2. Check for InboxStyle lines
+    val lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+    if (lines != null && lines.isNotEmpty()) {
+        return lines.size
+    }
+    
+    // 3. Check for specific count extra (some apps use this)
+    val count = extras.getInt(Notification.EXTRA_NUMBER, 0)
+    if (count > 0) return count
+    
+    return 1
+}
+
 @Composable
 fun NotificationIndicator(notifications: List<StatusBarNotification>, onClick: () -> Unit) {
     val context = LocalContext.current
@@ -198,14 +220,16 @@ fun NotificationIndicator(notifications: List<StatusBarNotification>, onClick: (
         notifications.forEach { sbn ->
             val category = getNotificationCategory(sbn, context)
             if (category != NotificationCategory.CALLS) {
-                result[category] = (result[category] ?: 0) + 1
+                val count = getNotificationCount(sbn)
+                result[category] = (result[category] ?: 0) + count
             }
         }
 
         // Special handling for CALLS to sync with missedCallsCount and avoid double counting
         val callNotifications = notifications.filter { getNotificationCategory(it, context) == NotificationCategory.CALLS }
-        val missedCallNotificationsCount = callNotifications.count { it.notification.category == Notification.CATEGORY_MISSED_CALL }
-        val otherCallNotificationsCount = callNotifications.size - missedCallNotificationsCount
+        
+        // Count actual notifications that are not the missed call notifications we track via log
+        val otherCallNotificationsCount = callNotifications.filter { it.notification.category != Notification.CATEGORY_MISSED_CALL }.sumOf { getNotificationCount(it) }
         
         // Final call count = (other call notifications like Voicemail) + (actual missed calls from log)
         val finalCallCount = otherCallNotificationsCount + missedCallsCount
@@ -277,10 +301,10 @@ fun FavoriteAppItem(
                      app.packageName.contains("telecom")
 
     val totalCount = if (isPhoneApp) {
-        val missedCallNotificationsCount = notifications.count { it.notification.category == Notification.CATEGORY_MISSED_CALL }
-        (notifications.size - missedCallNotificationsCount) + missedCallsCount
+        val otherCallNotificationsCount = notifications.filter { it.notification.category != Notification.CATEGORY_MISSED_CALL }.sumOf { getNotificationCount(it) }
+        otherCallNotificationsCount + missedCallsCount
     } else {
-        notifications.size
+        notifications.sumOf { getNotificationCount(it) }
     }
 
     Column(
