@@ -4,6 +4,7 @@ import android.app.Notification
 import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
+import android.provider.CallLog
 import android.service.notification.StatusBarNotification
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -30,7 +31,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -41,16 +44,74 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.boris55555.sexylauncher.reminders.RemindersRepository
 
+data class MissedCallInfo(
+    val id: Long,
+    val number: String,
+    val date: Long,
+    val name: String?
+)
+
 @Composable
 fun NotificationsScreen(remindersRepository: RemindersRepository, onDismiss: () -> Unit) {
     val notifications by NotificationListener.notifications.collectAsState()
-    val sortedNotifications = remember(notifications) {
-        notifications.sortedByDescending { it.postTime }
-    }
     val context = LocalContext.current
+    
+    var missedCallsFromLog by remember { mutableStateOf<List<MissedCallInfo>>(emptyList()) }
 
-    LaunchedEffect(sortedNotifications) {
-        if (sortedNotifications.isEmpty()) {
+    LaunchedEffect(Unit) {
+        val calls = mutableListOf<MissedCallInfo>()
+        try {
+            val cursor = context.contentResolver.query(
+                CallLog.Calls.CONTENT_URI,
+                arrayOf(CallLog.Calls._ID, CallLog.Calls.NUMBER, CallLog.Calls.DATE, CallLog.Calls.CACHED_NAME),
+                "${CallLog.Calls.TYPE} = ${CallLog.Calls.MISSED_TYPE} AND (${CallLog.Calls.NEW} = 1 OR ${CallLog.Calls.IS_READ} = 0)",
+                null,
+                "${CallLog.Calls.DATE} DESC"
+            )
+            cursor?.use {
+                val idIdx = it.getColumnIndex(CallLog.Calls._ID)
+                val numIdx = it.getColumnIndex(CallLog.Calls.NUMBER)
+                val dateIdx = it.getColumnIndex(CallLog.Calls.DATE)
+                val nameIdx = it.getColumnIndex(CallLog.Calls.CACHED_NAME)
+                while (it.moveToNext()) {
+                    calls.add(MissedCallInfo(
+                        it.getLong(idIdx),
+                        it.getString(numIdx),
+                        it.getLong(dateIdx),
+                        it.getString(nameIdx)
+                    ))
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        missedCallsFromLog = calls
+    }
+
+    val combinedItems = remember(notifications, missedCallsFromLog) {
+        val items = mutableListOf<Any>()
+        items.addAll(notifications)
+        
+        // Only add missed calls that don't already have a notification
+        val existingMissedCallPackages = notifications.filter { 
+            it.notification.category == Notification.CATEGORY_MISSED_CALL || 
+            it.packageName.contains("dialer") || 
+            it.packageName.contains("phone") 
+        }.map { it.packageName }.toSet()
+
+        if (existingMissedCallPackages.isEmpty()) {
+            items.addAll(missedCallsFromLog)
+        }
+        
+        items.sortedWith { a, b ->
+            val timeA = if (a is StatusBarNotification) a.postTime else (a as MissedCallInfo).date
+            val timeB = if (b is StatusBarNotification) b.postTime else (b as MissedCallInfo).date
+            timeB.compareTo(timeA)
+        }
+    }
+
+    LaunchedEffect(combinedItems) {
+        if (combinedItems.isEmpty()) {
             onDismiss()
         }
     }
@@ -73,43 +134,88 @@ fun NotificationsScreen(remindersRepository: RemindersRepository, onDismiss: () 
                 color = Color.Black
             )
             LazyColumn(modifier = Modifier.weight(1f)) {
-                items(sortedNotifications, key = { it.key }) { sbn ->
-                    NotificationItem(
-                        sbn = sbn,
-                        onClick = {
-                            try {
-                                sbn.notification.contentIntent.send()
-                            } catch (e: Exception) {
-                                val pm = context.packageManager
-                                var launchIntent = pm.getLaunchIntentForPackage(sbn.packageName)
-                                if (launchIntent == null) {
-                                    // A more robust way to find the launch intent if the first one fails
-                                    val intent = Intent(Intent.ACTION_MAIN, null).apply {
-                                        addCategory(Intent.CATEGORY_LAUNCHER)
-                                        `package` = sbn.packageName
-                                    }
-                                    val resolveInfo = pm.queryIntentActivities(intent, 0)
-                                    if (resolveInfo.isNotEmpty()) {
-                                        val activityInfo = resolveInfo[0].activityInfo
-                                        launchIntent = Intent(Intent.ACTION_MAIN).apply {
+                items(combinedItems, key = { 
+                    if (it is StatusBarNotification) it.key else "call_${(it as MissedCallInfo).id}" 
+                }) { item ->
+                    if (item is StatusBarNotification) {
+                        NotificationItem(
+                            sbn = item,
+                            onClick = {
+                                try {
+                                    item.notification.contentIntent.send()
+                                } catch (e: Exception) {
+                                    val pm = context.packageManager
+                                    var launchIntent = pm.getLaunchIntentForPackage(item.packageName)
+                                    if (launchIntent == null) {
+                                        val intent = Intent(Intent.ACTION_MAIN, null).apply {
                                             addCategory(Intent.CATEGORY_LAUNCHER)
-                                            component = ComponentName(activityInfo.packageName, activityInfo.name)
+                                            `package` = item.packageName
+                                        }
+                                        val resolveInfo = pm.queryIntentActivities(intent, 0)
+                                        if (resolveInfo.isNotEmpty()) {
+                                            val activityInfo = resolveInfo[0].activityInfo
+                                            launchIntent = Intent(Intent.ACTION_MAIN).apply {
+                                                addCategory(Intent.CATEGORY_LAUNCHER)
+                                                component = ComponentName(activityInfo.packageName, activityInfo.name)
+                                            }
                                         }
                                     }
-                                }
 
-                                launchIntent?.let {
-                                    it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    context.startActivity(it)
+                                    launchIntent?.let {
+                                        it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        context.startActivity(it)
+                                    }
+                                }
+                                if (item.notification.category in setOf(Notification.CATEGORY_MESSAGE, Notification.CATEGORY_CALL, Notification.CATEGORY_SOCIAL)) {
+                                    NotificationListener.instance?.dismissNotification(item.key)
+                                }
+                            },
+                            onDismiss = { NotificationListener.instance?.dismissNotification(item.key) }
+                        )
+                    } else if (item is MissedCallInfo) {
+                        MissedCallItem(
+                            info = item,
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW).apply {
+                                    type = CallLog.Calls.CONTENT_TYPE
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                                // Mark as read/new=0 when clicked
+                                try {
+                                    val values = android.content.ContentValues()
+                                    values.put(CallLog.Calls.NEW, 0)
+                                    values.put(CallLog.Calls.IS_READ, 1)
+                                    context.contentResolver.update(
+                                        CallLog.Calls.CONTENT_URI,
+                                        values,
+                                        "${CallLog.Calls._ID} = ${item.id}",
+                                        null
+                                    )
+                                    missedCallsFromLog = missedCallsFromLog.filter { it.id != item.id }
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            },
+                            onDismiss = {
+                                try {
+                                    val values = android.content.ContentValues()
+                                    values.put(CallLog.Calls.NEW, 0)
+                                    values.put(CallLog.Calls.IS_READ, 1)
+                                    context.contentResolver.update(
+                                        CallLog.Calls.CONTENT_URI,
+                                        values,
+                                        "${CallLog.Calls._ID} = ${item.id}",
+                                        null
+                                    )
+                                    missedCallsFromLog = missedCallsFromLog.filter { it.id != item.id }
+                                    NotificationListener.instance?.requestRefresh()
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
                                 }
                             }
-                            // Always dismiss communication notifications on click
-                            if (sbn.notification.category in setOf(Notification.CATEGORY_MESSAGE, Notification.CATEGORY_CALL, Notification.CATEGORY_SOCIAL)) {
-                                NotificationListener.instance?.dismissNotification(sbn.key)
-                            }
-                        },
-                        onDismiss = { NotificationListener.instance?.dismissNotification(sbn.key) }
-                    )
+                        )
+                    }
                     Divider(color = Color.Black, modifier = Modifier.padding(horizontal = 16.dp))
                 }
             }
@@ -183,6 +289,28 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss:
             IconButton(onClick = onDismiss) {
                 Icon(Icons.Default.Close, contentDescription = "Dismiss Notification", tint = Color.Black)
             }
+        }
+    }
+}
+
+@Composable
+fun MissedCallItem(info: MissedCallInfo, onClick: () -> Unit, onDismiss: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = "Missed Call", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.Black)
+            Text(text = info.name ?: info.number, fontSize = 16.sp, color = Color.Black)
+            val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(info.date))
+            Text(text = time, fontSize = 14.sp, color = Color.Black)
+        }
+        IconButton(onClick = onDismiss) {
+            Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color.Black)
         }
     }
 }

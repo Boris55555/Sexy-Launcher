@@ -225,7 +225,7 @@ fun AppListScreen(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.Start
             ) {
                 items(listItems) { item ->
                     when (item) {
@@ -239,7 +239,8 @@ fun AppListScreen(
                                     text = item.toString(),
                                     modifier = Modifier
                                         .clickable { onLockedLetterChanged(item) },
-                                    fontSize = 20.sp
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
@@ -373,18 +374,23 @@ fun AppListItem(app: AppInfo, showAppIcons: Boolean, onClick: () -> Unit, onLong
 
     Row(
         modifier = Modifier
+            .fillMaxWidth()
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(8.dp),
+            .padding(start = 64.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
+        horizontalArrangement = Arrangement.Start
     ) {
-        if (appIcon != null) {
-            Image(
-                painter = rememberDrawablePainter(drawable = appIcon),
-                contentDescription = "${app.name} icon",
-                modifier = Modifier.size(40.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
+        if (showAppIcons) {
+            Box(modifier = Modifier.size(40.dp)) {
+                if (appIcon != null) {
+                    Image(
+                        painter = rememberDrawablePainter(drawable = appIcon),
+                        contentDescription = "${app.name} icon",
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(16.dp))
         }
         Text(
             text = app.name,

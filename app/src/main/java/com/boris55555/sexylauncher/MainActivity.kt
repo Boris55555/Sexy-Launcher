@@ -40,13 +40,18 @@ private const val KEY_DISABLE_DURASPEED_NOTIFICATIONS = "disable_duraspeed_notif
 private const val KEY_DATE_THEME_LIGHT = "date_theme_light"
 private const val KEY_SHOW_APP_ICONS = "show_app_icons"
 private const val KEY_BRIGHTNESS_GESTURE_ENABLED = "brightness_gesture_enabled"
+private const val KEY_BATTERY_THRESHOLD = "battery_threshold"
 private const val DEFAULT_FAVORITE_COUNT = 4
+private const val DEFAULT_BATTERY_THRESHOLD = 50
 
 class FavoritesRepository(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private val _favoriteCount = MutableStateFlow(prefs.getInt(KEY_FAVORITE_COUNT, DEFAULT_FAVORITE_COUNT))
     val favoriteCount = _favoriteCount.asStateFlow()
+
+    private val _batteryThreshold = MutableStateFlow(prefs.getInt(KEY_BATTERY_THRESHOLD, DEFAULT_BATTERY_THRESHOLD))
+    val batteryThreshold = _batteryThreshold.asStateFlow()
 
     private val _favorites = MutableStateFlow(getFavoritesList())
     val favorites = _favorites.asStateFlow()
@@ -150,6 +155,9 @@ class FavoritesRepository(private val context: Context) {
             }
             KEY_SHOW_APP_ICONS -> {
                 _showAppIcons.value = prefs.getBoolean(KEY_SHOW_APP_ICONS, false)
+            }
+            KEY_BATTERY_THRESHOLD -> {
+                _batteryThreshold.value = prefs.getInt(KEY_BATTERY_THRESHOLD, DEFAULT_BATTERY_THRESHOLD)
             }
         }
     }
@@ -280,6 +288,10 @@ class FavoritesRepository(private val context: Context) {
     fun saveShowAppIcons(show: Boolean) {
         prefs.edit().putBoolean(KEY_SHOW_APP_ICONS, show).apply()
     }
+
+    fun saveBatteryThreshold(threshold: Int) {
+        prefs.edit().putInt(KEY_BATTERY_THRESHOLD, threshold).apply()
+    }
 }
 
 enum class Screen {
@@ -301,9 +313,9 @@ class MainActivity : ComponentActivity() {
     private var previousScreen: Screen? = null
 
     private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { _: Boolean ->
-        // Handle permission result if needed
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        // Handle permissions results
     }
 
     private fun navigateTo(screen: Screen) {
@@ -480,15 +492,25 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestPermissions() {
+        val permissionsToRequest = mutableListOf<String>()
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.READ_PHONE_STATE)
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.READ_CALL_LOG)
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
             if (!alarmManager.canScheduleExactAlarms()) {

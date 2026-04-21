@@ -136,6 +136,7 @@ fun MainHomeScreen(
     val swipeRightAction by favoritesRepository.swipeRightAction.collectAsState()
     val catIconAction by favoritesRepository.catIconAction.collectAsState()
     val showAppIcons by favoritesRepository.showAppIcons.collectAsState()
+    val batteryThreshold by favoritesRepository.batteryThreshold.collectAsState()
 
     val favoriteApps = remember(favoritePackages, customNames) {
         favoritePackages.map { pkgName ->
@@ -338,7 +339,7 @@ fun MainHomeScreen(
                 ) {
                     DateText(favoritesRepository)
                 }
-                if (batteryLevel != null && batteryLevel!! <= 50) {
+                if (batteryLevel != null && batteryThreshold > 0 && (batteryThreshold == 100 || batteryLevel!! <= batteryThreshold)) {
                     Text(
                         text = "($batteryLevel%)",
                         modifier = Modifier.align(Alignment.TopEnd),

@@ -3,6 +3,7 @@ package com.boris55555.sexylauncher
 import android.app.Notification
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
+import android.provider.CallLog
 import android.service.notification.StatusBarNotification
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -123,9 +124,10 @@ enum class NotificationCategory(val icon: ImageVector) {
 @Composable
 fun NotificationIndicator(notifications: List<StatusBarNotification>, onClick: () -> Unit) {
     val context = LocalContext.current
+    val missedCallsCount by NotificationListener.missedCallsCount.collectAsState()
 
-    val groupedNotifications = remember(notifications) {
-        notifications.groupingBy {
+    val groupedNotifications = remember(notifications, missedCallsCount) {
+        val result = notifications.groupingBy {
             val packageName = it.packageName.lowercase(Locale.getDefault())
             when {
                 it.packageName == context.packageName -> NotificationCategory.REMINDERS
@@ -136,14 +138,31 @@ fun NotificationIndicator(notifications: List<StatusBarNotification>, onClick: (
                 packageName.contains("thunderbird")
                     -> NotificationCategory.EMAIL
                 it.notification.category == Notification.CATEGORY_MESSAGE ||
-                packageName.contains("matrix")
+                packageName.contains("matrix") ||
+                packageName.contains("messaging") ||
+                packageName.contains("mms") ||
+                packageName.contains("sms")
                     -> NotificationCategory.MESSAGES
-                it.notification.category == Notification.CATEGORY_CALL || it.notification.category == Notification.CATEGORY_MISSED_CALL
+                it.notification.category == Notification.CATEGORY_CALL || 
+                it.notification.category == Notification.CATEGORY_MISSED_CALL ||
+                packageName.contains("dialer") ||
+                packageName.contains("telecom") ||
+                packageName.contains("phone") ||
+                packageName == "com.mudita.dial"
                     -> NotificationCategory.CALLS
                 it.notification.category == Notification.CATEGORY_EVENT -> NotificationCategory.CALENDAR
                 else -> NotificationCategory.OTHER
             }
-        }.eachCount()
+        }.eachCount().toMutableMap()
+
+        // Add missed calls from call log if they are not already counted via notifications
+        if (missedCallsCount > 0) {
+            val currentCalls = result[NotificationCategory.CALLS] ?: 0
+            if (missedCallsCount > currentCalls) {
+                result[NotificationCategory.CALLS] = missedCallsCount
+            }
+        }
+        result
     }
 
     if (groupedNotifications.isNotEmpty()) {
@@ -189,6 +208,7 @@ fun FavoriteAppItem(
 ) {
     val context = LocalContext.current
     val packageManager = context.packageManager
+    val missedCallsCount by NotificationListener.missedCallsCount.collectAsState()
 
     val appIcon: Drawable? = if (showAppIcons) {
         try {
@@ -198,6 +218,17 @@ fun FavoriteAppItem(
         }
     } else {
         null
+    }
+
+    // Determine if this is the phone app
+    val isPhoneApp = app.packageName == "com.mudita.dial" || 
+                     app.packageName.contains("dialer") || 
+                     app.packageName.contains("telecom")
+
+    val totalCount = if (isPhoneApp) {
+        maxOf(notifications.size, missedCallsCount)
+    } else {
+        notifications.size
     }
 
     Column(
@@ -225,7 +256,7 @@ fun FavoriteAppItem(
                 overflow = TextOverflow.Ellipsis,
                 color = Color.Black
             )
-            if (notifications.isNotEmpty()) {
+            if (totalCount > 0) {
                 Box(
                     modifier = Modifier
                         .padding(start = 8.dp)
@@ -235,7 +266,7 @@ fun FavoriteAppItem(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (notifications.size > 99) "99+" else notifications.size.toString(),
+                        text = if (totalCount > 99) "99+" else totalCount.toString(),
                         color = Color.Black,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
@@ -243,29 +274,65 @@ fun FavoriteAppItem(
                 }
             }
         }
-        if (notifications.isNotEmpty()) {
+        
+        var previewText: String? = null
+        
+        if (isPhoneApp && missedCallsCount > 0) {
+            // Priority: Show missed call info if it's the phone app and we have missed calls
+            try {
+                val cursor = context.contentResolver.query(
+                    CallLog.Calls.CONTENT_URI,
+                    arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME),
+                    "${CallLog.Calls.TYPE} = ${CallLog.Calls.MISSED_TYPE} AND (${CallLog.Calls.NEW} = 1 OR ${CallLog.Calls.IS_READ} = 0)",
+                    null,
+                    "${CallLog.Calls.DATE} DESC"
+                )
+                cursor?.use {
+                    if (it.moveToFirst()) {
+                        val nameIdx = it.getColumnIndex(CallLog.Calls.CACHED_NAME)
+                        val numIdx = it.getColumnIndex(CallLog.Calls.NUMBER)
+                        
+                        val name = if (nameIdx != -1) it.getString(nameIdx) else null
+                        val number = if (numIdx != -1) it.getString(numIdx) else null
+                        
+                        val displayInfo = if (!name.isNullOrBlank()) name else number
+                        if (!displayInfo.isNullOrBlank()) {
+                            previewText = "Missed: $displayInfo"
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Fallback will be handled below
+            }
+            if (previewText == null) {
+                previewText = "Missed call"
+            }
+        } 
+        
+        // If we still don't have a preview (or it's not a phone app/no missed calls), check notifications
+        if (previewText == null && notifications.isNotEmpty()) {
             val firstNotification = notifications.first().notification
             val extras = firstNotification.extras
-            val sender = extras.getString(Notification.EXTRA_TITLE)
-            val message = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+            val title = extras.getString("android.title") ?: extras.getString(Notification.EXTRA_TITLE)
+            val text = extras.getCharSequence("android.text") ?: extras.getCharSequence(Notification.EXTRA_TEXT)
 
-            val notificationPreview = when {
-                !sender.isNullOrBlank() && !message.isNullOrBlank() -> "$sender: $message"
-                !message.isNullOrBlank() -> message
-                !sender.isNullOrBlank() -> sender
+            previewText = when {
+                !title.isNullOrBlank() && !text.isNullOrBlank() -> "$title: $text"
+                !text.isNullOrBlank() -> text.toString()
+                !title.isNullOrBlank() -> title
                 else -> null
             }
+        }
 
-            if (!notificationPreview.isNullOrBlank()) {
-                Text(
-                    text = notificationPreview,
-                    fontSize = 18.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 4.dp),
-                    color = Color.Black
-                )
-            }
+        if (!previewText.isNullOrBlank()) {
+            Text(
+                text = previewText!!,
+                fontSize = 18.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp),
+                color = Color.Black
+            )
         }
     }
 }

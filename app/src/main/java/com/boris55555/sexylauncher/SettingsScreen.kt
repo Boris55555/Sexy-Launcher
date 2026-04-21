@@ -1,8 +1,11 @@
 package com.boris55555.sexylauncher
 
+import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -39,8 +42,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -70,11 +75,13 @@ fun SettingsScreen(
     val disableDuraSpeedNotifications by favoritesRepository.disableDuraSpeedNotifications.collectAsState()
     val dateThemeLight by favoritesRepository.dateThemeLight.collectAsState()
     val showAppIcons by favoritesRepository.showAppIcons.collectAsState()
+    val batteryThreshold by favoritesRepository.batteryThreshold.collectAsState()
 
     var showHelpDialog by remember { mutableStateOf(false) }
 
     val favoriteCount by favoritesRepository.favoriteCount.collectAsState()
     var sliderPosition by remember(favoriteCount) { mutableFloatStateOf(favoriteCount.toFloat()) }
+    var batterySliderPosition by remember(batteryThreshold) { mutableFloatStateOf(batteryThreshold.toFloat()) }
 
     val alarmAppName = remember(alarmAppPackage) {
         alarmAppPackage?.let {
@@ -200,19 +207,36 @@ fun SettingsScreen(
 
             HorizontalDivider(color = Color.Black)
 
+            var hasPhonePermission by remember {
+                mutableStateOf(
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED &&
+                            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
+                )
+            }
+
+            val permissionLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestMultiplePermissions()
+            ) { permissions ->
+                hasPhonePermission = permissions.values.all { it }
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .clickable(enabled = !hasPhonePermission) {
+                        permissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.READ_PHONE_STATE,
+                                Manifest.permission.READ_CALL_LOG
+                            )
+                        )
+                    }
                     .padding(vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Disable DuraSpeed notifications", fontSize = 18.sp, color = Color.Black)
-                Switch(
-                    checked = disableDuraSpeedNotifications,
-                    onCheckedChange = { favoritesRepository.saveDisableDuraSpeedNotifications(it) },
-                    colors = eInkSwitchColors
-                )
+                Text("Phone & Call Log Access", fontSize = 18.sp, color = Color.Black)
+                Text(if (hasPhonePermission) "Granted" else "Tap to grant", color = Color.Black)
             }
 
             HorizontalDivider(color = Color.Black)
@@ -460,6 +484,34 @@ fun SettingsScreen(
                 )
             }
 
+            HorizontalDivider(color = Color.Black)
+
+            Column(modifier = Modifier.padding(vertical = 16.dp)) {
+                val threshold = batterySliderPosition.roundToInt()
+                val batteryText = when (threshold) {
+                    0 -> "Never"
+                    100 -> "Always"
+                    else -> "$threshold%"
+                }
+                Text("Show battery level when at or below: $batteryText", fontSize = 18.sp, color = Color.Black)
+                Slider(
+                    value = batterySliderPosition,
+                    onValueChange = { batterySliderPosition = it },
+                    valueRange = 0f..100f,
+                    steps = 9,
+                    onValueChangeFinished = {
+                        favoritesRepository.saveBatteryThreshold(batterySliderPosition.roundToInt())
+                    },
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color.Black,
+                        activeTrackColor = Color.Black,
+                        inactiveTrackColor = Color.Black,
+                        activeTickColor = Color.White,
+                        inactiveTickColor = Color.White
+                    )
+                )
+            }
+
             if (!isHomeLocked) {
                 HorizontalDivider(color = Color.Black)
 
@@ -525,6 +577,28 @@ fun SettingsScreen(
                 Switch(
                     checked = hideLauncherFromAppView,
                     onCheckedChange = { favoritesRepository.saveHideLauncherFromAppView(it) },
+                    colors = eInkSwitchColors
+                )
+            }
+
+            HorizontalDivider(color = Color.Black)
+
+            Spacer(modifier = Modifier.height(32.dp))
+            Text("Experimental Settings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.Black)
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider(color = Color.Black)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Disable DuraSpeed notifications", fontSize = 18.sp, color = Color.Black)
+                Switch(
+                    checked = disableDuraSpeedNotifications,
+                    onCheckedChange = { favoritesRepository.saveDisableDuraSpeedNotifications(it) },
                     colors = eInkSwitchColors
                 )
             }
