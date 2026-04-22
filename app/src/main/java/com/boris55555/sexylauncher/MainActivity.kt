@@ -39,10 +39,14 @@ private const val KEY_CAT_ICON_ACTION = "cat_icon_action"
 private const val KEY_DISABLE_DURASPEED_NOTIFICATIONS = "disable_duraspeed_notifications"
 private const val KEY_DATE_THEME_LIGHT = "date_theme_light"
 private const val KEY_SHOW_APP_ICONS = "show_app_icons"
-private const val KEY_BRIGHTNESS_GESTURE_ENABLED = "brightness_gesture_enabled"
 private const val KEY_BATTERY_THRESHOLD = "battery_threshold"
+private const val KEY_SELECTED_FONT = "selected_font"
+private const val KEY_FONT_SIZE_HOME = "font_size_home"
+private const val KEY_FONT_SIZE_ALL_APPS = "font_size_all_apps"
+private const val KEY_FONT_SIZE_NOTIFICATIONS = "font_size_notifications"
 private const val DEFAULT_FAVORITE_COUNT = 4
 private const val DEFAULT_BATTERY_THRESHOLD = 50
+private const val DEFAULT_FONT = "Sans Serif"
 
 class FavoritesRepository(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -77,9 +81,6 @@ class FavoritesRepository(private val context: Context) {
     private val _gesturesEnabled = MutableStateFlow(prefs.getBoolean(KEY_GESTURES_ENABLED, false))
     val gesturesEnabled = _gesturesEnabled.asStateFlow()
 
-    private val _brightnessGestureEnabled = MutableStateFlow(prefs.getBoolean(KEY_BRIGHTNESS_GESTURE_ENABLED, false))
-    val brightnessGestureEnabled = _brightnessGestureEnabled.asStateFlow()
-
     private val _swipeLeftAction = MutableStateFlow(prefs.getString(KEY_SWIPE_LEFT_ACTION, "none") ?: "none")
     val swipeLeftAction = _swipeLeftAction.asStateFlow()
 
@@ -97,6 +98,18 @@ class FavoritesRepository(private val context: Context) {
 
     private val _showAppIcons = MutableStateFlow(prefs.getBoolean(KEY_SHOW_APP_ICONS, false))
     val showAppIcons = _showAppIcons.asStateFlow()
+
+    private val _selectedFont = MutableStateFlow(prefs.getString(KEY_SELECTED_FONT, DEFAULT_FONT) ?: DEFAULT_FONT)
+    val selectedFont = _selectedFont.asStateFlow()
+
+    private val _fontSizeHome = MutableStateFlow(prefs.getString(KEY_FONT_SIZE_HOME, "Normal") ?: "Normal")
+    val fontSizeHome = _fontSizeHome.asStateFlow()
+
+    private val _fontSizeAllApps = MutableStateFlow(prefs.getString(KEY_FONT_SIZE_ALL_APPS, "Normal") ?: "Normal")
+    val fontSizeAllApps = _fontSizeAllApps.asStateFlow()
+
+    private val _fontSizeNotifications = MutableStateFlow(prefs.getString(KEY_FONT_SIZE_NOTIFICATIONS, "Normal") ?: "Normal")
+    val fontSizeNotifications = _fontSizeNotifications.asStateFlow()
 
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
@@ -124,9 +137,6 @@ class FavoritesRepository(private val context: Context) {
             }
             KEY_GESTURES_ENABLED -> {
                 _gesturesEnabled.value = prefs.getBoolean(KEY_GESTURES_ENABLED, false)
-            }
-            KEY_BRIGHTNESS_GESTURE_ENABLED -> {
-                _brightnessGestureEnabled.value = prefs.getBoolean(KEY_BRIGHTNESS_GESTURE_ENABLED, false)
             }
             KEY_SWIPE_LEFT_ACTION -> {
                 val action = prefs.getString(KEY_SWIPE_LEFT_ACTION, "none") ?: "none"
@@ -158,6 +168,18 @@ class FavoritesRepository(private val context: Context) {
             }
             KEY_BATTERY_THRESHOLD -> {
                 _batteryThreshold.value = prefs.getInt(KEY_BATTERY_THRESHOLD, DEFAULT_BATTERY_THRESHOLD)
+            }
+            KEY_SELECTED_FONT -> {
+                _selectedFont.value = prefs.getString(KEY_SELECTED_FONT, DEFAULT_FONT) ?: DEFAULT_FONT
+            }
+            KEY_FONT_SIZE_HOME -> {
+                _fontSizeHome.value = prefs.getString(KEY_FONT_SIZE_HOME, "Normal") ?: "Normal"
+            }
+            KEY_FONT_SIZE_ALL_APPS -> {
+                _fontSizeAllApps.value = prefs.getString(KEY_FONT_SIZE_ALL_APPS, "Normal") ?: "Normal"
+            }
+            KEY_FONT_SIZE_NOTIFICATIONS -> {
+                _fontSizeNotifications.value = prefs.getString(KEY_FONT_SIZE_NOTIFICATIONS, "Normal") ?: "Normal"
             }
         }
     }
@@ -261,10 +283,6 @@ class FavoritesRepository(private val context: Context) {
         prefs.edit().putBoolean(KEY_GESTURES_ENABLED, enabled).apply()
     }
 
-    fun saveBrightnessGestureEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_BRIGHTNESS_GESTURE_ENABLED, enabled).apply()
-    }
-
     fun saveSwipeLeftAction(action: String) {
         prefs.edit().putString(KEY_SWIPE_LEFT_ACTION, action).apply()
     }
@@ -291,6 +309,22 @@ class FavoritesRepository(private val context: Context) {
 
     fun saveBatteryThreshold(threshold: Int) {
         prefs.edit().putInt(KEY_BATTERY_THRESHOLD, threshold).apply()
+    }
+
+    fun saveSelectedFont(font: String) {
+        prefs.edit().putString(KEY_SELECTED_FONT, font).apply()
+    }
+
+    fun saveFontSizeHome(size: String) {
+        prefs.edit().putString(KEY_FONT_SIZE_HOME, size).apply()
+    }
+
+    fun saveFontSizeAllApps(size: String) {
+        prefs.edit().putString(KEY_FONT_SIZE_ALL_APPS, size).apply()
+    }
+
+    fun saveFontSizeNotifications(size: String) {
+        prefs.edit().putString(KEY_FONT_SIZE_NOTIFICATIONS, size).apply()
     }
 }
 
@@ -381,7 +415,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            SexyLauncherTheme {
+            SexyLauncherTheme(selectedFontName = favoritesRepository.selectedFont.collectAsState().value) {
                 if (showPickerForIndex != null) {
                     AppListScreen(
                         isPickerMode = true,
@@ -472,6 +506,7 @@ class MainActivity : ComponentActivity() {
                         )
                         Screen.Notifications -> NotificationsScreen(
                             remindersRepository = remindersRepository,
+                            favoritesRepository = favoritesRepository,
                             onDismiss = { _currentScreen.value = Screen.Home }
                         )
                         Screen.Settings -> SettingsScreen(

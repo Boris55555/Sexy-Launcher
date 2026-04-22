@@ -13,6 +13,8 @@ import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.BatteryManager
+import android.telecom.TelecomManager
+import android.telephony.TelephonyManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -61,7 +63,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.boris55555.sexylauncher.birthdays.BirthdaysRepository
-import com.boris55555.sexylauncher.utils.BrightnessHelper
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -120,8 +121,6 @@ fun MainHomeScreen(
     val context = LocalContext.current
     val packageManager = context.packageManager
     var showRefreshOverlay by remember { mutableStateOf(false) }
-    var showBrightnessButton by remember { mutableStateOf(false) }
-    var brightnessButtonPosition by remember { mutableStateOf<Offset?>(null) }
 
     val favoritePackages by favoritesRepository.favorites.collectAsState()
     val favoriteCount by favoritesRepository.favoriteCount.collectAsState()
@@ -131,12 +130,18 @@ fun MainHomeScreen(
     val customNames by favoritesRepository.customNames.collectAsState()
     val birthdays by birthdaysRepository.birthdays.collectAsState()
     val gesturesEnabled by favoritesRepository.gesturesEnabled.collectAsState()
-    val brightnessGestureEnabled by favoritesRepository.brightnessGestureEnabled.collectAsState()
     val swipeLeftAction by favoritesRepository.swipeLeftAction.collectAsState()
     val swipeRightAction by favoritesRepository.swipeRightAction.collectAsState()
     val catIconAction by favoritesRepository.catIconAction.collectAsState()
     val showAppIcons by favoritesRepository.showAppIcons.collectAsState()
     val batteryThreshold by favoritesRepository.batteryThreshold.collectAsState()
+    val fontSizeHome by favoritesRepository.fontSizeHome.collectAsState()
+
+    val fontSizeAdjustment = when (fontSizeHome) {
+        "Small" -> -2
+        "Big" -> 2
+        else -> 0
+    }
 
     val favoriteApps = remember(favoritePackages, customNames) {
         favoritePackages.map { pkgName ->
@@ -281,19 +286,10 @@ fun MainHomeScreen(
                 onFavoritesSwipeUp = { if (currentPage < pageCount - 1) onCurrentPageChanged(currentPage + 1) },
                 onFavoritesSwipeDown = { if (currentPage > 0) onCurrentPageChanged(currentPage - 1) }
             )
-            .pointerInput(isHomeLocked, brightnessGestureEnabled, favoritesArea) {
+            .pointerInput(isHomeLocked, favoritesArea) {
                 detectTapGestures(
                     onLongPress = { if (!isHomeLocked) onShowSettingsClicked() },
-                    onDoubleTap = { showRefreshOverlay = true },
-                    onTap = { offset ->
-                        if (brightnessGestureEnabled) {
-                            val isTapOnEmptySpace = favoritesArea?.contains(offset)?.not() ?: true
-                            if (isTapOnEmptySpace) {
-                                brightnessButtonPosition = offset
-                                showBrightnessButton = true
-                            }
-                        }
-                    }
+                    onDoubleTap = { showRefreshOverlay = true }
                 )
             }
     ) {
@@ -320,7 +316,7 @@ fun MainHomeScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Icon(Icons.Filled.AccessAlarm, contentDescription = "Next Alarm", tint = Color.Black)
-                        Text(text = nextAlarm!!, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        Text(text = nextAlarm!!, fontSize = (20 + fontSizeAdjustment).sp, fontWeight = FontWeight.Bold, color = Color.Black)
                     }
                 }
                 Column(
@@ -343,7 +339,7 @@ fun MainHomeScreen(
                     Text(
                         text = "($batteryLevel%)",
                         modifier = Modifier.align(Alignment.TopEnd),
-                        fontSize = 16.sp,
+                        fontSize = (16 + fontSizeAdjustment).sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.Black
                     )
@@ -378,7 +374,7 @@ fun MainHomeScreen(
                                 val age = ChronoUnit.YEARS.between(birthday.date, today)
                                 Text(
                                     text = "🎂 ${birthday.name} $age years!",
-                                    fontSize = 18.sp,
+                                    fontSize = (18 + fontSizeAdjustment).sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.Black,
                                     maxLines = 1
@@ -451,15 +447,63 @@ fun MainHomeScreen(
                                     } 
                                 }, 
                                 onClick = { 
-                                    val launchIntent = packageManager.getLaunchIntentForPackage(app.packageName)
-                                    if (launchIntent != null) {
-                                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        context.startActivity(launchIntent)
+                                    val isPhoneApp = app.packageName == "com.mudita.dial" || 
+                                                     app.packageName.contains("dialer") || 
+                                                     app.packageName.contains("telecom")
+
+                                    val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+                                    val isCallActive = telephonyManager.callState != TelephonyManager.CALL_STATE_IDLE
+
+                                    if (isPhoneApp && isCallActive) {
+                                        // If it's the phone app and a call is active, try to bring the in-call UI to front
+                                        val intent = Intent(Intent.ACTION_MAIN)
+                                        intent.addCategory(Intent.CATEGORY_LAUNCHER)
+                                        intent.`package` = app.packageName
+                                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                                        
+                                        // Also try TelecomManager if API level allows
+                                        val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+                                        try {
+                                            // showInCallScreen(false) brings the in-call screen to the foreground
+                                            telecomManager.showInCallScreen(false)
+                                        } catch (e: SecurityException) {
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            context.startActivity(intent)
+                                        }
+                                    } else {
+                                        val appNotifications = notifications.filter { it.packageName == app.packageName }
+                                        val callNotification = appNotifications.find { sbn ->
+                                            getNotificationCategory(sbn, context) == NotificationCategory.CALLS &&
+                                            (sbn.notification.flags and android.app.Notification.FLAG_ONGOING_EVENT) != 0
+                                        }
+
+                                        if (callNotification != null && callNotification.notification.contentIntent != null) {
+                                            try {
+                                                callNotification.notification.contentIntent.send()
+                                            } catch (e: Exception) {
+                                                val launchIntent = packageManager.getLaunchIntentForPackage(app.packageName)
+                                                if (launchIntent != null) {
+                                                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    context.startActivity(launchIntent)
+                                                }
+                                            }
+                                        } else {
+                                            val launchIntent = packageManager.getLaunchIntentForPackage(app.packageName)
+                                            if (launchIntent != null) {
+                                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                context.startActivity(launchIntent)
+                                            }
+                                        }
                                     }
+
                                     notifications.filter { it.packageName == app.packageName }.forEach { sbn ->
-                                        NotificationListener.instance?.dismissNotification(sbn.key)
+                                        if (sbn.notification.category != android.app.Notification.CATEGORY_CALL) {
+                                            NotificationListener.instance?.dismissNotification(sbn.key)
+                                        }
                                     }
-                                }
+                                },
+                                fontSizeAdjustment = fontSizeAdjustment
                             )
                         } else {
                             Row(
@@ -471,7 +515,7 @@ fun MainHomeScreen(
                             ) {
                                 Text(
                                     text = "[Press here + ]",
-                                    fontSize = 32.sp,
+                                    fontSize = (32 + fontSizeAdjustment).sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.Black
                                 )
@@ -546,19 +590,6 @@ fun MainHomeScreen(
             }
         }
 
-        if (showBrightnessButton) {
-            brightnessButtonPosition?.let { position ->
-                BrightnessToggleButton(
-                    position = position,
-                    onTimeout = { showBrightnessButton = false },
-                    onClick = {
-                        BrightnessHelper.toggleBrightness(context, (context as Activity).window)
-                        showBrightnessButton = false
-                    }
-                )
-            }
-        }
-
         // Refresh overlay on top of everything
         if (showRefreshOverlay) {
             Box(modifier = Modifier
@@ -569,50 +600,6 @@ fun MainHomeScreen(
                 showRefreshOverlay = false
             }
         }
-    }
-}
-
-@Composable
-private fun BrightnessToggleButton(
-    position: Offset,
-    onTimeout: () -> Unit,
-    onClick: () -> Unit
-) {
-    val context = LocalContext.current
-    val window = (context as Activity).window
-    val currentBrightness = window.attributes.screenBrightness
-    // System default brightness is a negative value. Treat it as "light on".
-    val isLightOn = currentBrightness < 0f || currentBrightness > 0.1f
-
-    LaunchedEffect(Unit) {
-        delay(3000L)
-        onTimeout()
-    }
-
-    val density = LocalDensity.current
-    val buttonSize = 56.dp
-    val buttonSizePx = with(density) { buttonSize.toPx() }
-
-    Box(
-        modifier = Modifier
-            .offset { IntOffset(
-                (position.x - buttonSizePx / 2).roundToInt(),
-                (position.y - buttonSizePx / 2).roundToInt()
-            ) }
-            .size(buttonSize)
-            .clip(CircleShape)
-            .background(Color.White)
-            .border(BorderStroke(2.dp, Color.Black), CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            // Use DarkMode icon as a button to turn lights off, and LightMode to turn them on.
-            imageVector = if (isLightOn) Icons.Default.DarkMode else Icons.Default.LightMode,
-            contentDescription = "Toggle Brightness",
-            tint = Color.Black,
-            modifier = Modifier.size(32.dp)
-        )
     }
 }
 

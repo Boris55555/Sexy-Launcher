@@ -279,7 +279,8 @@ fun FavoriteAppItem(
     notifications: List<StatusBarNotification>, 
     showAppIcons: Boolean,
     onLongClick: () -> Unit, 
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    fontSizeAdjustment: Int = 0
 ) {
     val context = LocalContext.current
     val packageManager = context.packageManager
@@ -326,7 +327,7 @@ fun FavoriteAppItem(
             }
             Text(
                 text = app.name,
-                fontSize = 32.sp,
+                fontSize = (32 + fontSizeAdjustment).sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -403,7 +404,7 @@ fun FavoriteAppItem(
         if (!previewText.isNullOrBlank()) {
             Text(
                 text = previewText!!,
-                fontSize = 18.sp,
+                fontSize = (18 + fontSizeAdjustment).sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 4.dp),

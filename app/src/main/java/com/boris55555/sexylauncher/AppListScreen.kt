@@ -75,6 +75,14 @@ fun AppListScreen(
     val customNames by favoritesRepository.customNames.collectAsState()
     val hideLauncherFromAppView by favoritesRepository.hideLauncherFromAppView.collectAsState()
     val showAppIcons by favoritesRepository.showAppIcons.collectAsState()
+    val fontSizeAllApps by favoritesRepository.fontSizeAllApps.collectAsState()
+
+    val fontSizeAdjustment = when (fontSizeAllApps) {
+        "Small" -> -2
+        "Big" -> 2
+        else -> 0
+    }
+
     var appToEdit by remember { mutableStateOf<AppInfo?>(null) }
     var refreshKey by remember { mutableStateOf(0) } // State to trigger refresh
 
@@ -219,7 +227,7 @@ fun AppListScreen(
                         .fillMaxWidth()
                         .padding(16.dp),
                     textAlign = TextAlign.Center,
-                    fontSize = 24.sp
+                    fontSize = (24 + fontSizeAdjustment).sp
                 )
             }
             LazyColumn(
@@ -239,7 +247,7 @@ fun AppListScreen(
                                     text = item.toString(),
                                     modifier = Modifier
                                         .clickable { onLockedLetterChanged(item) },
-                                    fontSize = 20.sp,
+                                    fontSize = (20 + fontSizeAdjustment).sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -269,7 +277,8 @@ fun AppListScreen(
                                             }
                                         }
                                     }
-                                }
+                                },
+                                fontSizeAdjustment = fontSizeAdjustment
                             )
                         }
                     }
@@ -358,7 +367,13 @@ fun AlphabetScroller(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun AppListItem(app: AppInfo, showAppIcons: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
+fun AppListItem(
+    app: AppInfo,
+    showAppIcons: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    fontSizeAdjustment: Int = 0
+) {
     val context = LocalContext.current
     val packageManager = context.packageManager
 
@@ -397,7 +412,7 @@ fun AppListItem(app: AppInfo, showAppIcons: Boolean, onClick: () -> Unit, onLong
             }
             Text(
                 text = app.name,
-                fontSize = 24.sp,
+                fontSize = (24 + fontSizeAdjustment).sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

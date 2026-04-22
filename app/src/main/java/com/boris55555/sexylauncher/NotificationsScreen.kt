@@ -54,9 +54,21 @@ data class MissedCallInfo(
 )
 
 @Composable
-fun NotificationsScreen(remindersRepository: RemindersRepository, onDismiss: () -> Unit) {
+fun NotificationsScreen(
+    remindersRepository: RemindersRepository,
+    favoritesRepository: FavoritesRepository,
+    onDismiss: () -> Unit
+) {
     val notifications by NotificationListener.notifications.collectAsState()
     val context = LocalContext.current
+    val fontSizeNotifications by favoritesRepository.fontSizeNotifications.collectAsState()
+
+    val fontSizeAdjustment = when (fontSizeNotifications) {
+        "Small" -> -2
+        "Big" -> 2
+        else -> 0
+    }
+
     
     var missedCallsFromLog by remember { mutableStateOf<List<MissedCallInfo>>(emptyList()) }
 
@@ -131,7 +143,7 @@ fun NotificationsScreen(remindersRepository: RemindersRepository, onDismiss: () 
         Column(modifier = Modifier.fillMaxSize()) {
             Text(
                 text = "Notifications",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineMedium.copy(fontSize = (28 + fontSizeAdjustment).sp),
                 modifier = Modifier.padding(16.dp),
                 color = Color.Black
             )
@@ -172,7 +184,8 @@ fun NotificationsScreen(remindersRepository: RemindersRepository, onDismiss: () 
                                     NotificationListener.instance?.dismissNotification(item.key)
                                 }
                             },
-                            onDismiss = { NotificationListener.instance?.dismissNotification(item.key) }
+                            onDismiss = { NotificationListener.instance?.dismissNotification(item.key) },
+                            fontSizeAdjustment = fontSizeAdjustment
                         )
                     } else if (item is MissedCallInfo) {
                         MissedCallItem(
@@ -215,7 +228,8 @@ fun NotificationsScreen(remindersRepository: RemindersRepository, onDismiss: () 
                                 } catch (e: Exception) {
                                     e.printStackTrace()
                                 }
-                            }
+                            },
+                            fontSizeAdjustment = fontSizeAdjustment
                         )
                     }
                     Divider(color = Color.Black, modifier = Modifier.padding(horizontal = 16.dp))
@@ -226,7 +240,12 @@ fun NotificationsScreen(remindersRepository: RemindersRepository, onDismiss: () 
 }
 
 @Composable
-fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss: () -> Unit) {
+fun NotificationItem(
+    sbn: StatusBarNotification,
+    onClick: () -> Unit,
+    onDismiss: () -> Unit,
+    fontSizeAdjustment: Int = 0
+) {
     val context = LocalContext.current
     val packageManager = context.packageManager
 
@@ -299,12 +318,12 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss:
         Column(
             modifier = Modifier.weight(1f)
         ) {
-            Text(text = appName, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.Black)
+            Text(text = appName, fontWeight = FontWeight.Bold, fontSize = (18 + fontSizeAdjustment).sp, color = Color.Black)
             if (!title.isNullOrBlank()) {
-                Text(text = title, fontSize = 16.sp, color = Color.Black)
+                Text(text = title, fontSize = (16 + fontSizeAdjustment).sp, color = Color.Black)
             }
             if (!text.isNullOrBlank()) {
-                Text(text = text.toString(), fontSize = 14.sp, color = Color.Black)
+                Text(text = text.toString(), fontSize = (14 + fontSizeAdjustment).sp, color = Color.Black)
             }
         }
         if (sbn.isClearable) {
@@ -316,7 +335,12 @@ fun NotificationItem(sbn: StatusBarNotification, onClick: () -> Unit, onDismiss:
 }
 
 @Composable
-fun MissedCallItem(info: MissedCallInfo, onClick: () -> Unit, onDismiss: () -> Unit) {
+fun MissedCallItem(
+    info: MissedCallInfo,
+    onClick: () -> Unit,
+    onDismiss: () -> Unit,
+    fontSizeAdjustment: Int = 0
+) {
     Row(
         modifier = Modifier
             .clickable { onClick() }
@@ -333,10 +357,10 @@ fun MissedCallItem(info: MissedCallInfo, onClick: () -> Unit, onDismiss: () -> U
         )
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = "Missed Call", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.Black)
-            Text(text = info.name ?: info.number, fontSize = 16.sp, color = Color.Black)
+            Text(text = "Missed Call", fontWeight = FontWeight.Bold, fontSize = (18 + fontSizeAdjustment).sp, color = Color.Black)
+            Text(text = info.name ?: info.number, fontSize = (16 + fontSizeAdjustment).sp, color = Color.Black)
             val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(info.date))
-            Text(text = time, fontSize = 14.sp, color = Color.Black)
+            Text(text = time, fontSize = (14 + fontSizeAdjustment).sp, color = Color.Black)
         }
         IconButton(onClick = onDismiss) {
             Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color.Black)

@@ -68,7 +68,6 @@ fun SettingsScreen(
     val weekStartsOnSunday by favoritesRepository.weekStartsOnSunday.collectAsState()
     val hideLauncherFromAppView by favoritesRepository.hideLauncherFromAppView.collectAsState()
     val gesturesEnabled by favoritesRepository.gesturesEnabled.collectAsState()
-    val brightnessGestureEnabled by favoritesRepository.brightnessGestureEnabled.collectAsState()
     val swipeLeftAction by favoritesRepository.swipeLeftAction.collectAsState()
     val swipeRightAction by favoritesRepository.swipeRightAction.collectAsState()
     val catIconAction by favoritesRepository.catIconAction.collectAsState()
@@ -76,6 +75,10 @@ fun SettingsScreen(
     val dateThemeLight by favoritesRepository.dateThemeLight.collectAsState()
     val showAppIcons by favoritesRepository.showAppIcons.collectAsState()
     val batteryThreshold by favoritesRepository.batteryThreshold.collectAsState()
+    val selectedFont by favoritesRepository.selectedFont.collectAsState()
+    val fontSizeHome by favoritesRepository.fontSizeHome.collectAsState()
+    val fontSizeAllApps by favoritesRepository.fontSizeAllApps.collectAsState()
+    val fontSizeNotifications by favoritesRepository.fontSizeNotifications.collectAsState()
 
     var showHelpDialog by remember { mutableStateOf(false) }
 
@@ -407,24 +410,6 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Enable Brightness Gesture", fontSize = 18.sp, color = Color.Black)
-                Switch(
-                    checked = brightnessGestureEnabled,
-                    onCheckedChange = { favoritesRepository.saveBrightnessGestureEnabled(it) },
-                    colors = eInkSwitchColors
-                )
-            }
-
-
-            HorizontalDivider(color = Color.Black)
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
                 Text("The week starts on Sunday", fontSize = 18.sp, color = Color.Black)
                 Switch(
                     checked = weekStartsOnSunday,
@@ -483,6 +468,57 @@ fun SettingsScreen(
                     colors = eInkSwitchColors
                 )
             }
+
+            HorizontalDivider(color = Color.Black)
+
+            Text("Font Settings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.Black, modifier = Modifier.padding(vertical = 8.dp))
+            
+            var showFontMenu by remember { mutableStateOf(false) }
+            val fonts = listOf(
+                "Sans Serif", 
+                "Serif", 
+                "Monospace"
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Font Family", fontSize = 18.sp, color = Color.Black)
+                Box {
+                    EInkButton(onClick = { showFontMenu = true }) {
+                        Text(selectedFont)
+                    }
+                    DropdownMenu(
+                        expanded = showFontMenu,
+                        onDismissRequest = { showFontMenu = false }
+                    ) {
+                        fonts.forEach { font ->
+                            DropdownMenuItem(
+                                text = { Text(font) },
+                                onClick = {
+                                    favoritesRepository.saveSelectedFont(font)
+                                    showFontMenu = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            val fontSizes = listOf("Small", "Normal", "Big")
+
+            // Home Font Size
+            FontSizeSelector("Home Font Size", fontSizeHome, fontSizes) { favoritesRepository.saveFontSizeHome(it) }
+            
+            // All Apps Font Size
+            FontSizeSelector("All Apps Font Size", fontSizeAllApps, fontSizes) { favoritesRepository.saveFontSizeAllApps(it) }
+
+            // Notifications Font Size
+            FontSizeSelector("Notifications Font Size", fontSizeNotifications, fontSizes) { favoritesRepository.saveFontSizeNotifications(it) }
 
             HorizontalDivider(color = Color.Black)
 
@@ -646,6 +682,39 @@ fun SettingsScreen(
                     },
                 tint = Color.Black
             )
+        }
+    }
+}
+
+@Composable
+fun FontSizeSelector(label: String, selectedSize: String, sizes: List<String>, onSizeSelected: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, fontSize = 18.sp, color = Color.Black)
+        Box {
+            EInkButton(onClick = { expanded = true }) {
+                Text(selectedSize)
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                sizes.forEach { size ->
+                    DropdownMenuItem(
+                        text = { Text(size) },
+                        onClick = {
+                            onSizeSelected(size)
+                            expanded = false
+                        }
+                    )
+                }
+            }
         }
     }
 }
