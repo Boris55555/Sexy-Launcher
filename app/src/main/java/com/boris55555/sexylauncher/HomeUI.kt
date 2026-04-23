@@ -19,9 +19,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -310,10 +313,15 @@ fun FavoriteAppItem(
 
     Column(
         modifier = Modifier
-            .padding(8.dp)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .fillMaxWidth()
+            .height((76 + fontSizeAdjustment * 2).dp) // Fixed height to prevent jumping
+            .padding(horizontal = 8.dp),
+        verticalArrangement = Arrangement.Center
     ) {
         Row(
+            modifier = Modifier
+                .wrapContentWidth()
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Start
         ) {
@@ -407,7 +415,9 @@ fun FavoriteAppItem(
                 fontSize = (18 + fontSizeAdjustment).sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier
+                    .padding(top = 4.dp)
+                    .combinedClickable(onClick = onClick, onLongClick = onLongClick),
                 color = Color.Black
             )
         }

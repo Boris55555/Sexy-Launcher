@@ -257,22 +257,40 @@ fun NotificationItem(
 
     val extras = sbn.notification.extras
     val title = extras.getString("android.title") ?: extras.getString("android.conversationTitle")
-    var text: CharSequence? = extras.getCharSequence("android.text") ?: extras.getCharSequence("android.bigText")
-
-    // Handle MessagingStyle notifications
+    
+    // Collect all messages if available
+    val allMessages = mutableListOf<String>()
     val messages = extras.getParcelableArray("android.messages")
     if (messages != null && messages.isNotEmpty()) {
-        val lastMessage = messages.last()
-        if (lastMessage is Bundle) {
-            text = lastMessage.getCharSequence("text") ?: text
+        // Android stores messages in chronological order (oldest first)
+        // We want newest first, so we reverse it
+        for (i in messages.indices.reversed()) {
+            val m = messages[i]
+            if (m is Bundle) {
+                val mText = m.getCharSequence("text")
+                val mSender = m.getCharSequence("sender")
+                if (!mText.isNullOrBlank()) {
+                    if (!mSender.isNullOrBlank() && mSender != title) {
+                        allMessages.add("$mSender: $mText")
+                    } else {
+                        allMessages.add(mText.toString())
+                    }
+                }
+            }
         }
     }
 
-    // Handle InboxStyle notifications
-    if (text.isNullOrBlank()) {
-        val lines = extras.getCharSequenceArray("android.text.lines")
-        if (lines != null && lines.isNotEmpty()) {
-            text = lines.last()
+    var text: CharSequence? = if (allMessages.isNotEmpty()) {
+        null // We will handle allMessages separately
+    } else {
+        extras.getCharSequence("android.text") ?: extras.getCharSequence("android.bigText")
+    }
+
+    // Handle InboxStyle notifications (e.g. Gmail)
+    val lines = extras.getCharSequenceArray("android.text.lines")
+    if (text.isNullOrBlank() && allMessages.isEmpty() && lines != null && lines.isNotEmpty()) {
+        for (i in lines.indices.reversed()) {
+            allMessages.add(lines[i].toString())
         }
     }
 
@@ -322,7 +340,11 @@ fun NotificationItem(
             if (!title.isNullOrBlank()) {
                 Text(text = title, fontSize = (16 + fontSizeAdjustment).sp, color = Color.Black)
             }
-            if (!text.isNullOrBlank()) {
+            if (allMessages.isNotEmpty()) {
+                allMessages.forEach { msg ->
+                    Text(text = msg, fontSize = (14 + fontSizeAdjustment).sp, color = Color.Black, modifier = Modifier.padding(top = 2.dp))
+                }
+            } else if (!text.isNullOrBlank()) {
                 Text(text = text.toString(), fontSize = (14 + fontSizeAdjustment).sp, color = Color.Black)
             }
         }

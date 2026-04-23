@@ -648,7 +648,7 @@ fun SettingsScreen(
                     .padding(vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Help", fontSize = 18.sp, color = Color.Black)
+                Text("Help", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
             }
         }
 

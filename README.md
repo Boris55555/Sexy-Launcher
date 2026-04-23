@@ -7,7 +7,7 @@ A minimalist, e-ink friendly launcher for Android, designed specifically for the
 - **Minimalist Home Screen**: Displays your favorite apps, the current date, next alarm, customizable battery level indicator, and birthday reminders.
 - **Customizable Battery Indicator**: Set a threshold (0-100%) in the Control Panel to determine when the battery level is displayed.
 - **Customizable Favorites**: Choose the number of favorite app slots on your home screen.
-- **Integrated Notifications**: A dedicated screen for all your notifications, with categorized icons (messages, calls, email) on the home screen for a quick overview.
+- **Integrated Notifications**: A dedicated screen for all your notifications, showing message history for conversations (newest first).
 - **App Drawer**: A simple A-Z list of all your applications with a fast-scroll alphabet index.
 - **App Customization**: Long-press an app in the drawer to rename or uninstall it.
 - **Gesture Control**:

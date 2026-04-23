@@ -186,6 +186,7 @@ class FavoritesRepository(private val context: Context) {
 
     init {
         prefs.registerOnSharedPreferenceChangeListener(listener)
+        
         // Initial check to clean up old values
         val leftAction = prefs.getString(KEY_SWIPE_LEFT_ACTION, "none") ?: "none"
         if (leftAction == "notifications") {
@@ -194,6 +195,29 @@ class FavoritesRepository(private val context: Context) {
         val rightAction = prefs.getString(KEY_SWIPE_RIGHT_ACTION, "none") ?: "none"
         if (rightAction == "notifications") {
             saveSwipeRightAction("none")
+        }
+
+        // Mudita Kompakt defaults: auto-set Alarm and Calendar if they exist and no user choice has been made
+        if (prefs.getString(KEY_ALARM_APP, null) == null) {
+            val muditaAlarm = "com.mudita.alarm"
+            if (isAppInstalled(muditaAlarm)) {
+                saveAlarmApp(muditaAlarm)
+            }
+        }
+        if (prefs.getString(KEY_CALENDAR_APP, null) == null) {
+            val muditaCalendar = "com.mudita.calendar"
+            if (isAppInstalled(muditaCalendar)) {
+                saveCalendarApp(muditaCalendar)
+            }
+        }
+    }
+
+    private fun isAppInstalled(packageName: String): Boolean {
+        return try {
+            context.packageManager.getPackageInfo(packageName, 0)
+            true
+        } catch (e: PackageManager.NameNotFoundException) {
+            false
         }
     }
 
