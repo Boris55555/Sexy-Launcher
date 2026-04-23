@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -62,25 +63,26 @@ fun MiniPlayer(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp) // Smaller padding
+            .clip(RoundedCornerShape(8.dp))
             .background(Color.White)
-            .border(BorderStroke(2.dp, Color.Black), shape = RoundedCornerShape(12.dp))
+            .border(BorderStroke(2.dp, Color.Black), shape = RoundedCornerShape(8.dp))
             .clickable {
                 try {
                     mediaController?.sessionActivity?.send()
                 } catch (e: Exception) {}
             }
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 48.dp), // More padding to avoid edge issues
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.Start
             ) {
                 Text(
                     text = title, 
@@ -88,12 +90,12 @@ fun MiniPlayer(
                     maxLines = 1, 
                     overflow = TextOverflow.Ellipsis, 
                     color = Color.Black,
-                    fontSize = 18.sp
+                    fontSize = 14.sp // Smaller font
                 )
                 if (artist.isNotBlank()) {
                     Text(
                         text = artist, 
-                        fontSize = 14.sp, 
+                        fontSize = 11.sp, // Smaller font
                         maxLines = 1, 
                         overflow = TextOverflow.Ellipsis, 
                         color = Color.Black
@@ -101,34 +103,43 @@ fun MiniPlayer(
                 }
             }
             
-            Spacer(Modifier.height(8.dp))
-
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { mediaController?.transportControls?.skipToPrevious() }) {
-                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous", tint = Color.Black)
+                IconButton(
+                    onClick = { mediaController?.transportControls?.skipToPrevious() },
+                    modifier = Modifier.size(32.dp) // Smaller buttons
+                ) {
+                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous", tint = Color.Black, modifier = Modifier.size(20.dp))
                 }
-                IconButton(onClick = {
-                    if (isPlaying) {
-                        mediaController?.transportControls?.pause()
-                    } else {
-                        mediaController?.transportControls?.play()
-                    }
-                }) {
+                IconButton(
+                    onClick = {
+                        if (isPlaying) {
+                            mediaController?.transportControls?.pause()
+                        } else {
+                            mediaController?.transportControls?.play()
+                        }
+                    },
+                    modifier = Modifier.size(36.dp)
+                ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                         contentDescription = "Play/Pause",
-                        tint = Color.Black
+                        tint = Color.Black,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
-                IconButton(onClick = { mediaController?.transportControls?.skipToNext() }) {
-                    Icon(Icons.Filled.SkipNext, contentDescription = "Next", tint = Color.Black)
+                IconButton(
+                    onClick = { mediaController?.transportControls?.skipToNext() },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(Icons.Filled.SkipNext, contentDescription = "Next", tint = Color.Black, modifier = Modifier.size(20.dp))
                 }
-                IconButton(onClick = onClose) {
-                    Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.Black)
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.Black, modifier = Modifier.size(18.dp))
                 }
             }
         }

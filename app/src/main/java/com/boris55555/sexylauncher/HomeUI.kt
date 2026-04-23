@@ -314,7 +314,7 @@ fun FavoriteAppItem(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height((76 + fontSizeAdjustment * 2).dp) // Fixed height to prevent jumping
+            .height((60 + fontSizeAdjustment * 2).dp) // Reduced fixed height
             .padding(horizontal = 8.dp),
         verticalArrangement = Arrangement.Center
     ) {
@@ -412,11 +412,11 @@ fun FavoriteAppItem(
         if (!previewText.isNullOrBlank()) {
             Text(
                 text = previewText!!,
-                fontSize = (18 + fontSizeAdjustment).sp,
+                fontSize = (14 + fontSizeAdjustment).sp, // Reduced from 18.sp
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
-                    .padding(top = 4.dp)
+                    .padding(top = 2.dp) // Also slightly reduced top padding
                     .combinedClickable(onClick = onClick, onLongClick = onLongClick),
                 color = Color.Black
             )

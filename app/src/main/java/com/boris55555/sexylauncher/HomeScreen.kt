@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -193,46 +194,51 @@ fun MainHomeScreen(
         }
     }
 
+    val mediaSessionManager = remember { context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager }
+    val componentName = remember { ComponentName(context, NotificationListener::class.java) }
+
+    fun refreshMediaController() {
+        val controllers = try {
+            mediaSessionManager.getActiveSessions(componentName)
+        } catch (e: Exception) {
+            null
+        }
+        val activeController = controllers?.firstOrNull { 
+            val state = it.playbackState?.state
+            state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_PAUSED || state == PlaybackState.STATE_BUFFERING
+        }
+
+        if (activeController != null && activeController.packageName != mediaController?.packageName) {
+            mediaController?.unregisterCallback(controllerCallback)
+            mediaController = activeController
+            activeController.registerCallback(controllerCallback)
+            mediaMetadata = activeController.metadata
+            playbackState = activeController.playbackState
+        }
+    }
+
     DisposableEffect(context) {
         if (!isNotificationServiceEnabled(context)) {
             return@DisposableEffect onDispose {}
         }
 
-        val mediaSessionManager = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
-        val componentName = ComponentName(context, NotificationListener::class.java)
-
         val sessionListener = MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
-            val newController = controllers?.firstOrNull { 
-                val state = it.playbackState?.state
-                state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_PAUSED
-            }
-
-            if (newController?.packageName != mediaController?.packageName) {
-                mediaController?.unregisterCallback(controllerCallback)
-                mediaController = newController
-                newController?.registerCallback(controllerCallback)
-                controllerCallback.onMetadataChanged(newController?.metadata)
-                controllerCallback.onPlaybackStateChanged(newController?.playbackState)
-            }
+            refreshMediaController()
         }
 
         mediaSessionManager.addOnActiveSessionsChangedListener(sessionListener, componentName)
-
-        val initialControllers = mediaSessionManager.getActiveSessions(componentName)
-        val initialController = initialControllers?.firstOrNull { 
-            val state = it.playbackState?.state
-            state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_PAUSED
-        }
-        if (initialController != null) {
-            mediaController = initialController
-            initialController.registerCallback(controllerCallback)
-            controllerCallback.onMetadataChanged(initialController.metadata)
-            controllerCallback.onPlaybackStateChanged(initialController.playbackState)
-        }
+        refreshMediaController()
 
         onDispose {
             mediaController?.unregisterCallback(controllerCallback)
             mediaSessionManager.removeOnActiveSessionsChangedListener(sessionListener)
+        }
+    }
+
+    // Refresh when returning to home or when notifications change
+    LaunchedEffect(notifications) {
+        if (mediaController == null) {
+            refreshMediaController()
         }
     }
 
@@ -388,12 +394,12 @@ fun MainHomeScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.weight(0.2f))
+            Spacer(modifier = Modifier.weight(0.3f))
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 80.dp),
+                    .padding(bottom = 48.dp), // Enough space for MiniPlayer
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Page indicators
@@ -577,7 +583,12 @@ fun MainHomeScreen(
         }
 
         if (mediaController != null) {
-             Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+            ) {
                 MiniPlayer(
                     mediaMetadata = mediaMetadata,
                     playbackState = playbackState,
