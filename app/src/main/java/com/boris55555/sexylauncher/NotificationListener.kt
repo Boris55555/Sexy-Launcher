@@ -125,7 +125,7 @@ class NotificationListener : NotificationListenerService() {
 
         if (isCallRelated) return true
 
-        // 1.5 Message related (Always show)
+        // 1.5 Message related (Always show, but filter out summaries)
         val isMessageRelated = sbn.notification.category == Notification.CATEGORY_MESSAGE ||
                 packageName.contains("messaging") ||
                 packageName.contains("sms") ||
@@ -147,7 +147,25 @@ class NotificationListener : NotificationListenerService() {
                 fullContent.contains("message") ||
                 fullContent.contains("chat")
 
-        if (isMessageRelated) return true
+        if (isMessageRelated) {
+            // Filter out redundant summaries for messaging apps (like "Element Classic: 1 notification")
+            if (isGroupSummary) return false
+            
+            // If the content is just the app name + "notification", it's likely a duplicate/summary
+            if (text.contains("notification") || text.contains("ilmoitus")) {
+                val appName = try {
+                    applicationContext.packageManager.getApplicationLabel(
+                        applicationContext.packageManager.getApplicationInfo(sbn.packageName, 0)
+                    ).toString().lowercase(Locale.getDefault())
+                } catch (e: Exception) { "" }
+                
+                if (title.contains(appName) && (text.contains("1") || text.isEmpty())) {
+                    return false
+                }
+            }
+            
+            return true
+        }
 
         // 2. Specific Whitelist for Mudita Maps
         if (packageName.contains("mudita.maps")) {

@@ -7,7 +7,7 @@ A minimalist, e-ink friendly launcher for Android, designed specifically for the
 - **Minimalist Home Screen**: Displays your favorite apps, the current date, next alarm, customizable battery level indicator, and birthday reminders.
 - **Customizable Battery Indicator**: Set a threshold (0-100%) in the Control Panel to determine when the battery level is displayed.
 - **Customizable Favorites**: Choose the number of favorite app slots on your home screen.
-- **Integrated Notifications**: A dedicated screen for all your notifications, showing message history for conversations (newest first).
+- **Integrated Notifications**: A dedicated screen for all your notifications, with intelligent filtering to remove redundant app summaries and message history for conversations.
 - **MiniPlayer**: A compact media controller that appears automatically when music is playing, with play/pause and skip controls.
 - **Mudita Integration**: Optimized for Mudita Kompakt with automatic default app detection (Alarm, Calendar).
 - **Layout Stability**: Fixed-height rows and optimized spacing to prevent UI "jumping" on the home screen.
