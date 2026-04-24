@@ -13,7 +13,10 @@ import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.BatteryManager
+import android.os.Build
 import android.telecom.TelecomManager
+import android.telephony.SignalStrength
+import android.telephony.TelephonyCallback
 import android.telephony.TelephonyManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -42,9 +45,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessAlarm
+import androidx.compose.material.icons.filled.Battery0Bar
+import androidx.compose.material.icons.filled.Battery2Bar
+import androidx.compose.material.icons.filled.Battery4Bar
+import androidx.compose.material.icons.filled.Battery6Bar
+import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material.icons.filled.SignalCellular0Bar
+import androidx.compose.material.icons.filled.SignalCellular4Bar
+import androidx.compose.material.icons.filled.SignalCellularNull
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -61,6 +73,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.boris55555.sexylauncher.birthdays.BirthdaysRepository
@@ -135,8 +148,8 @@ fun MainHomeScreen(
     val swipeRightAction by favoritesRepository.swipeRightAction.collectAsState()
     val catIconAction by favoritesRepository.catIconAction.collectAsState()
     val showAppIcons by favoritesRepository.showAppIcons.collectAsState()
-    val batteryThreshold by favoritesRepository.batteryThreshold.collectAsState()
     val fontSizeHome by favoritesRepository.fontSizeHome.collectAsState()
+    val use24hFormat by favoritesRepository.use24hFormat.collectAsState()
 
     val fontSizeAdjustment = when (fontSizeHome) {
         "Small" -> -2
@@ -243,15 +256,31 @@ fun MainHomeScreen(
     }
 
     val pageCount = (favoriteCount + 3) / 4
-    var nextAlarm by remember { mutableStateOf<String?>(null) }
+    var nextAlarmTime by remember { mutableStateOf<String?>(null) }
+    var nextAlarmDay by remember { mutableStateOf<String?>(null) }
 
     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
     fun updateAlarm() {
         val nextAlarmClock = alarmManager.nextAlarmClock
-        nextAlarm = nextAlarmClock?.let {
-            val calendar = Calendar.getInstance().apply { timeInMillis = it.triggerTime }
-            SimpleDateFormat("HH:mm", Locale.getDefault()).format(calendar.time)
+        if (nextAlarmClock != null) {
+            val now = Calendar.getInstance()
+            val alarmCalendar = Calendar.getInstance().apply { timeInMillis = nextAlarmClock.triggerTime }
+            
+            nextAlarmTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(alarmCalendar.time)
+            
+            nextAlarmDay = when {
+                now.get(Calendar.YEAR) == alarmCalendar.get(Calendar.YEAR) &&
+                now.get(Calendar.DAY_OF_YEAR) == alarmCalendar.get(Calendar.DAY_OF_YEAR) -> null
+                
+                now.get(Calendar.YEAR) == alarmCalendar.get(Calendar.YEAR) &&
+                now.get(Calendar.DAY_OF_YEAR) + 1 == alarmCalendar.get(Calendar.DAY_OF_YEAR) -> "Tomorrow"
+                
+                else -> SimpleDateFormat("EEE", Locale.getDefault()).format(alarmCalendar.time)
+            }
+        } else {
+            nextAlarmTime = null
+            nextAlarmDay = null
         }
     }
 
@@ -267,6 +296,15 @@ fun MainHomeScreen(
     }
 
     val batteryLevel by context.batteryLevel().collectAsState(initial = null)
+    val signalLevel by context.signalLevel().collectAsState(initial = 0)
+    var showStatusDetails by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showStatusDetails) {
+        if (showStatusDetails) {
+            delay(3000)
+            showStatusDetails = false
+        }
+    }
     var favoritesArea by remember { mutableStateOf<Rect?>(null) }
 
     fun handleSwipe(action: String) {
@@ -302,11 +340,75 @@ fun MainHomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp)
+                .padding(top = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            val hideStatusBar by favoritesRepository.hideStatusBar.collectAsState()
+
             Box(modifier = Modifier.fillMaxWidth()) {
-                if (nextAlarm != null) {
+                if (hideStatusBar) {
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .padding(top = 8.dp) // Added small padding to align with calendar text
+                            .clickable {
+                                alarmAppPackage?.let {
+                                    val launchIntent = packageManager.getLaunchIntentForPackage(it)
+                                    if (launchIntent != null) {
+                                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        context.startActivity(launchIntent)
+                                    }
+                                }
+                            },
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        var currentTime by remember(use24hFormat) { 
+                            val pattern = if (use24hFormat) "HH:mm" else "h:mm a"
+                            mutableStateOf(SimpleDateFormat(pattern, Locale.getDefault()).format(Calendar.getInstance().time)) 
+                        }
+                        LaunchedEffect(use24hFormat) {
+                            while (true) {
+                                val pattern = if (use24hFormat) "HH:mm" else "h:mm a"
+                                currentTime = SimpleDateFormat(pattern, Locale.getDefault()).format(Calendar.getInstance().time)
+                                delay(1000)
+                            }
+                        }
+                        Text(
+                            text = currentTime,
+                            fontSize = ((if (use24hFormat) 24 else 20) + fontSizeAdjustment).sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                        if (nextAlarmTime != null) {
+                            Column(horizontalAlignment = Alignment.Start) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Filled.AccessAlarm, 
+                                        contentDescription = null, 
+                                        tint = Color.Black, 
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = nextAlarmTime!!,
+                                        fontSize = (12 + fontSizeAdjustment).sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Black
+                                    )
+                                }
+                                if (nextAlarmDay != null) {
+                                    Text(
+                                        text = nextAlarmDay!!,
+                                        fontSize = (10 + fontSizeAdjustment).sp,
+                                        fontWeight = FontWeight.Normal,
+                                        color = Color.Black
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else if (nextAlarmTime != null) {
                     Column(
                         modifier = Modifier
                             .align(Alignment.TopStart)
@@ -319,15 +421,22 @@ fun MainHomeScreen(
                                     }
                                 }
                             },
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.Start
                     ) {
-                        Icon(Icons.Filled.AccessAlarm, contentDescription = "Next Alarm", tint = Color.Black)
-                        Text(text = nextAlarm!!, fontSize = (20 + fontSizeAdjustment).sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.AccessAlarm, contentDescription = "Next Alarm", tint = Color.Black, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(text = nextAlarmTime!!, fontSize = (20 + fontSizeAdjustment).sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        }
+                        if (nextAlarmDay != null) {
+                            Text(text = nextAlarmDay!!, fontSize = (14 + fontSizeAdjustment).sp, fontWeight = FontWeight.Normal, color = Color.Black)
+                        }
                     }
                 }
-                Column(
+
+                Box(
                     modifier = Modifier
-                        .align(Alignment.TopCenter)
+                        .align(Alignment.Center)
                         .clickable {
                             calendarAppPackage?.let {
                                 val launchIntent = packageManager.getLaunchIntentForPackage(it)
@@ -336,19 +445,42 @@ fun MainHomeScreen(
                                     context.startActivity(launchIntent)
                                 }
                             }
-                        },
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        }
                 ) {
                     DateText(favoritesRepository)
                 }
-                if (batteryLevel != null && batteryThreshold > 0 && (batteryThreshold == 100 || batteryLevel!! <= batteryThreshold)) {
-                    Text(
-                        text = "($batteryLevel%)",
-                        modifier = Modifier.align(Alignment.TopEnd),
-                        fontSize = (16 + fontSizeAdjustment).sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 12.dp) // Moved more to the right (away from calendar)
+                        .clickable { showStatusDetails = !showStatusDetails },
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    if (showStatusDetails) {
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = "LTE ${signalLevel * 25}%",
+                                fontSize = (10 + fontSizeAdjustment).sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
+                            )
+                            Text(
+                                text = "BAT ${batteryLevel ?: 0}%",
+                                fontSize = (10 + fontSizeAdjustment).sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
+                            )
+                        }
+                    } else {
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            SignalIcon(signalLevel)
+                            BatteryIcon(batteryLevel)
+                        }
+                    }
                 }
             }
 
@@ -631,3 +763,78 @@ fun Context.batteryLevel(): Flow<Int> = callbackFlow {
     registerReceiver(batteryReceiver, filter)
     awaitClose { unregisterReceiver(batteryReceiver) }
 }
+
+fun Context.signalLevel(): Flow<Int> = callbackFlow {
+    val telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+    
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val callback = object : TelephonyCallback(), TelephonyCallback.SignalStrengthsListener {
+            override fun onSignalStrengthsChanged(signalStrength: SignalStrength) {
+                trySend(signalStrength.level)
+            }
+        }
+        telephonyManager.registerTelephonyCallback(mainExecutor, callback)
+        awaitClose { telephonyManager.unregisterTelephonyCallback(callback) }
+    } else {
+        // Fallback for older versions if needed, though Mudita Kompakt is Android 11+
+        trySend(0)
+        awaitClose { }
+    }
+}
+
+@Composable
+fun SignalIcon(level: Int) {
+    // level is 0-4, Horizontal dots
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        for (i in 1..4) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .then(
+                        if (i <= level) {
+                            Modifier.background(Color.Black, shape = CircleShape)
+                        } else {
+                            Modifier.border(1.dp, Color.Black, shape = CircleShape)
+                        }
+                    )
+            )
+        }
+    }
+}
+
+@Composable
+fun BatteryIcon(level: Int?) {
+    if (level == null) return
+    val barLevel = when {
+        level > 75 -> 4
+        level > 50 -> 3
+        level > 25 -> 2
+        level > 5 -> 1
+        else -> 0
+    }
+    
+    // Horizontal dots battery
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        for (i in 1..4) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .then(
+                        if (i <= barLevel) {
+                            Modifier.background(Color.Black, shape = CircleShape)
+                        } else {
+                            Modifier.border(1.dp, Color.Black, shape = CircleShape)
+                        }
+                    )
+            )
+        }
+    }
+}
+
+

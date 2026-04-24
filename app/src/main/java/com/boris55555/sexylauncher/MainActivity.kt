@@ -9,6 +9,8 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.KeyEvent
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -44,6 +46,8 @@ private const val KEY_SELECTED_FONT = "selected_font"
 private const val KEY_FONT_SIZE_HOME = "font_size_home"
 private const val KEY_FONT_SIZE_ALL_APPS = "font_size_all_apps"
 private const val KEY_FONT_SIZE_NOTIFICATIONS = "font_size_notifications"
+private const val KEY_HIDE_STATUS_BAR = "hide_status_bar"
+private const val KEY_USE_24H_FORMAT = "use_24h_format"
 private const val DEFAULT_FAVORITE_COUNT = 4
 private const val DEFAULT_BATTERY_THRESHOLD = 50
 private const val DEFAULT_FONT = "Sans Serif"
@@ -96,6 +100,9 @@ class FavoritesRepository(private val context: Context) {
     private val _dateThemeLight = MutableStateFlow(prefs.getBoolean(KEY_DATE_THEME_LIGHT, false))
     val dateThemeLight = _dateThemeLight.asStateFlow()
 
+    private val _use24hFormat = MutableStateFlow(prefs.getBoolean(KEY_USE_24H_FORMAT, true))
+    val use24hFormat = _use24hFormat.asStateFlow()
+
     private val _showAppIcons = MutableStateFlow(prefs.getBoolean(KEY_SHOW_APP_ICONS, false))
     val showAppIcons = _showAppIcons.asStateFlow()
 
@@ -110,6 +117,9 @@ class FavoritesRepository(private val context: Context) {
 
     private val _fontSizeNotifications = MutableStateFlow(prefs.getString(KEY_FONT_SIZE_NOTIFICATIONS, "Normal") ?: "Normal")
     val fontSizeNotifications = _fontSizeNotifications.asStateFlow()
+
+    private val _hideStatusBar = MutableStateFlow(prefs.getBoolean(KEY_HIDE_STATUS_BAR, true))
+    val hideStatusBar = _hideStatusBar.asStateFlow()
 
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
@@ -163,6 +173,9 @@ class FavoritesRepository(private val context: Context) {
             KEY_DATE_THEME_LIGHT -> {
                 _dateThemeLight.value = prefs.getBoolean(KEY_DATE_THEME_LIGHT, false)
             }
+            KEY_USE_24H_FORMAT -> {
+                _use24hFormat.value = prefs.getBoolean(KEY_USE_24H_FORMAT, true)
+            }
             KEY_SHOW_APP_ICONS -> {
                 _showAppIcons.value = prefs.getBoolean(KEY_SHOW_APP_ICONS, false)
             }
@@ -180,6 +193,9 @@ class FavoritesRepository(private val context: Context) {
             }
             KEY_FONT_SIZE_NOTIFICATIONS -> {
                 _fontSizeNotifications.value = prefs.getString(KEY_FONT_SIZE_NOTIFICATIONS, "Normal") ?: "Normal"
+            }
+            KEY_HIDE_STATUS_BAR -> {
+                _hideStatusBar.value = prefs.getBoolean(KEY_HIDE_STATUS_BAR, false)
             }
         }
     }
@@ -327,6 +343,10 @@ class FavoritesRepository(private val context: Context) {
         prefs.edit().putBoolean(KEY_DATE_THEME_LIGHT, isLight).apply()
     }
 
+    fun saveUse24hFormat(use24h: Boolean) {
+        prefs.edit().putBoolean(KEY_USE_24H_FORMAT, use24h).apply()
+    }
+
     fun saveShowAppIcons(show: Boolean) {
         prefs.edit().putBoolean(KEY_SHOW_APP_ICONS, show).apply()
     }
@@ -349,6 +369,10 @@ class FavoritesRepository(private val context: Context) {
 
     fun saveFontSizeNotifications(size: String) {
         prefs.edit().putString(KEY_FONT_SIZE_NOTIFICATIONS, size).apply()
+    }
+
+    fun saveHideStatusBar(hide: Boolean) {
+        prefs.edit().putBoolean(KEY_HIDE_STATUS_BAR, hide).apply()
     }
 }
 
@@ -390,6 +414,23 @@ class MainActivity : ComponentActivity() {
         requestPermissions()
 
         setContent {
+            val hideStatusBar by favoritesRepository.hideStatusBar.collectAsState()
+
+            LaunchedEffect(hideStatusBar) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    val controller = window.insetsController
+                    if (controller != null) {
+                        if (hideStatusBar) {
+                            controller.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+                            controller.systemBarsBehavior =
+                                WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                        } else {
+                            controller.show(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+                        }
+                    }
+                }
+            }
+
             val currentScreen by _currentScreen.collectAsState()
             var showPickerForIndex by remember { mutableStateOf<Int?>(null) }
             var showAlarmAppPicker by remember { mutableStateOf(false) }

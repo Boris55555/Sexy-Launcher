@@ -74,17 +74,16 @@ fun SettingsScreen(
     val disableDuraSpeedNotifications by favoritesRepository.disableDuraSpeedNotifications.collectAsState()
     val dateThemeLight by favoritesRepository.dateThemeLight.collectAsState()
     val showAppIcons by favoritesRepository.showAppIcons.collectAsState()
-    val batteryThreshold by favoritesRepository.batteryThreshold.collectAsState()
     val selectedFont by favoritesRepository.selectedFont.collectAsState()
     val fontSizeHome by favoritesRepository.fontSizeHome.collectAsState()
     val fontSizeAllApps by favoritesRepository.fontSizeAllApps.collectAsState()
     val fontSizeNotifications by favoritesRepository.fontSizeNotifications.collectAsState()
+    val use24hFormat by favoritesRepository.use24hFormat.collectAsState()
 
     var showHelpDialog by remember { mutableStateOf(false) }
 
     val favoriteCount by favoritesRepository.favoriteCount.collectAsState()
     var sliderPosition by remember(favoriteCount) { mutableFloatStateOf(favoriteCount.toFloat()) }
-    var batterySliderPosition by remember(batteryThreshold) { mutableFloatStateOf(batteryThreshold.toFloat()) }
 
     val alarmAppName = remember(alarmAppPackage) {
         alarmAppPackage?.let {
@@ -522,29 +521,18 @@ fun SettingsScreen(
 
             HorizontalDivider(color = Color.Black)
 
-            Column(modifier = Modifier.padding(vertical = 16.dp)) {
-                val threshold = batterySliderPosition.roundToInt()
-                val batteryText = when (threshold) {
-                    0 -> "Never"
-                    100 -> "Always"
-                    else -> "$threshold%"
-                }
-                Text("Show battery level when at or below: $batteryText", fontSize = 18.sp, color = Color.Black)
-                Slider(
-                    value = batterySliderPosition,
-                    onValueChange = { batterySliderPosition = it },
-                    valueRange = 0f..100f,
-                    steps = 9,
-                    onValueChangeFinished = {
-                        favoritesRepository.saveBatteryThreshold(batterySliderPosition.roundToInt())
-                    },
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color.Black,
-                        activeTrackColor = Color.Black,
-                        inactiveTrackColor = Color.Black,
-                        activeTickColor = Color.White,
-                        inactiveTickColor = Color.White
-                    )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Use 24h clock format", fontSize = 18.sp, color = Color.Black)
+                Switch(
+                    checked = use24hFormat,
+                    onCheckedChange = { favoritesRepository.saveUse24hFormat(it) },
+                    colors = eInkSwitchColors
                 )
             }
 
