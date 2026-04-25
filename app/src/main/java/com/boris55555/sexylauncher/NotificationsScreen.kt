@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Divider
@@ -294,11 +295,7 @@ fun NotificationItem(
         }
     }
 
-    val isReminder = sbn.packageName == context.packageName
-
     val category = getNotificationCategory(sbn, context)
-    val isMessage = category == NotificationCategory.MESSAGES
-    val isCall = category == NotificationCategory.CALLS
 
     Row(
         modifier = Modifier
@@ -308,31 +305,14 @@ fun NotificationItem(
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        if (isReminder) {
-            Icon(
-                imageVector = Icons.Default.Notifications,
-                contentDescription = "Reminder",
-                tint = Color.Black,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-        } else if (isMessage) {
-            Icon(
-                imageVector = Icons.Default.Email,
-                contentDescription = "Message",
-                tint = Color.Black,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-        } else if (isCall) {
-            Icon(
-                imageVector = Icons.Default.Phone,
-                contentDescription = "Call",
-                tint = Color.Black,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-        }
+        Icon(
+            imageVector = category.icon,
+            contentDescription = category.name,
+            tint = Color.Black,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+
         Column(
             modifier = Modifier.weight(1f)
         ) {

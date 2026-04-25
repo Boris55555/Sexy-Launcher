@@ -167,6 +167,25 @@ class NotificationListener : NotificationListenerService() {
             return true
         }
 
+        // 1.7 Audio/Media (Keep playing media notifications)
+        val isAudioRelated = sbn.notification.category == Notification.CATEGORY_TRANSPORT ||
+                sbn.notification.category == Notification.CATEGORY_SERVICE ||
+                packageName.contains("audio") ||
+                packageName.contains("music") ||
+                packageName.contains("player") ||
+                packageName.contains("calmcast") ||
+                packageName.contains("tubular") ||
+                packageName.contains("newpipe") ||
+                packageName.contains("antennapod") ||
+                packageName.contains("spotify") ||
+                packageName.contains("podcast") ||
+                packageName == "com.mudita.audio.player" ||
+                fullContent.contains("playing") ||
+                fullContent.contains("soittaa") ||
+                fullContent.contains("toistetaan")
+
+        if (isAudioRelated && isOngoing) return true
+
         // 2. Specific Whitelist for Mudita Maps
         if (packageName.contains("mudita.maps")) {
             if (isGroupSummary) return false

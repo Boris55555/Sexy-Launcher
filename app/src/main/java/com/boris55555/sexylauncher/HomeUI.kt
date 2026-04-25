@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.AlternateEmail
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.AlertDialog
@@ -122,6 +123,7 @@ enum class NotificationCategory(val icon: ImageVector) {
     CALLS(Icons.Default.Phone),
     CALENDAR(Icons.Default.CalendarToday),
     REMINDERS(Icons.Default.Notifications),
+    AUDIO(Icons.Default.MusicNote),
     OTHER(Icons.Default.Android)
 }
 
@@ -178,6 +180,26 @@ fun getNotificationCategory(sbn: StatusBarNotification, context: Context): Notif
         packageName == "com.mudita.messages" ||
         fullContent.contains("viesti") ||
         fullContent.contains("message") ||
+        fullContent.contains("chat")
+            -> NotificationCategory.MESSAGES
+
+        // 3.5 Audio / Media
+        sbn.notification.category == Notification.CATEGORY_TRANSPORT ||
+        sbn.notification.category == Notification.CATEGORY_SERVICE ||
+        packageName.contains("audio") ||
+        packageName.contains("music") ||
+        packageName.contains("player") ||
+        packageName.contains("calmcast") ||
+        packageName.contains("tubular") ||
+        packageName.contains("newpipe") ||
+        packageName.contains("antennapod") ||
+        packageName.contains("spotify") ||
+        packageName.contains("podcast") ||
+        packageName == "com.mudita.audio.player" ||
+        fullContent.contains("playing") ||
+        fullContent.contains("soittaa") ||
+        fullContent.contains("toistetaan")
+            -> NotificationCategory.AUDIO
         fullContent.contains("chat")
             -> NotificationCategory.MESSAGES
             
