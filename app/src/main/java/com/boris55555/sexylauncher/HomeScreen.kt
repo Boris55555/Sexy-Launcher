@@ -50,6 +50,7 @@ import androidx.compose.material.icons.filled.Battery2Bar
 import androidx.compose.material.icons.filled.Battery4Bar
 import androidx.compose.material.icons.filled.Battery6Bar
 import androidx.compose.material.icons.filled.BatteryFull
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.NetworkCheck
@@ -466,7 +467,7 @@ fun MainHomeScreen(
                                 color = Color.Black
                             )
                             Text(
-                                text = "BAT ${batteryLevel ?: 0}%",
+                                text = "BAT ${batteryLevel?.level ?: 0}%",
                                 fontSize = (10 + fontSizeAdjustment).sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Black
@@ -746,17 +747,23 @@ fun MainHomeScreen(
     }
 }
 
-fun Context.batteryLevel(): Flow<Int> = callbackFlow {
+data class BatteryState(val level: Int, val isCharging: Boolean)
+
+fun Context.batteryLevel(): Flow<BatteryState> = callbackFlow {
     val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val level: Int = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             val scale: Int = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+            val status: Int = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+            val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || 
+                             status == BatteryManager.BATTERY_STATUS_FULL
+            
             val percentage = if (level != -1 && scale != -1) {
                 (level * 100 / scale.toFloat()).toInt()
             } else {
                 -1
             }
-            trySend(percentage)
+            trySend(BatteryState(percentage, isCharging))
         }
     }
     val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
@@ -806,8 +813,9 @@ fun SignalIcon(level: Int) {
 }
 
 @Composable
-fun BatteryIcon(level: Int?) {
-    if (level == null) return
+fun BatteryIcon(state: BatteryState?) {
+    if (state == null) return
+    val level = state.level
     val barLevel = when {
         level > 75 -> 4
         level > 50 -> 3
@@ -821,6 +829,15 @@ fun BatteryIcon(level: Int?) {
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (state.isCharging) {
+            Icon(
+                imageVector = Icons.Default.Bolt,
+                contentDescription = "Charging",
+                modifier = Modifier.size(14.dp),
+                tint = Color.Black
+            )
+            Spacer(modifier = Modifier.width(2.dp))
+        }
         for (i in 1..4) {
             Box(
                 modifier = Modifier
