@@ -1,6 +1,11 @@
-# Sexy Launcher
+# Sexy Launcher 3.1.6
 
 A minimalist, e-ink friendly launcher designed specifically for the **Mudita Kompakt**.
+
+## New in 3.1.6
+- **Enhanced Audio/Media Support**: Dedicated `MusicNote` icon and category for apps like Mudita Audio, Calmcast, Tubular, NewPipe, and AntennaPod. Ongoing media notifications are now preserved.
+- **Charging Indicator**: A black `Bolt` icon appears in the status bar when the device is plugged in.
+- **Active Call Status**: Real-time call info ("Calling", "Incoming call", "On a call") displayed directly on the home screen under the Phone app, including contact name lookup.
 
 ## Designed for Focus
 Sexy Launcher provides a clean, fast, and intentional user experience, replacing clutter with essential information.

@@ -61,10 +61,32 @@ class NotificationListener : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         updateNotifications()
+        updateCallStatus(sbn)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         updateNotifications()
+        // If a call notification is removed, we might want to clear the active call info
+        // but TelephonyManager usually handles the idle state better.
+    }
+
+    private fun updateCallStatus(sbn: StatusBarNotification?) {
+        if (sbn == null) return
+        val packageName = sbn.packageName.lowercase(Locale.getDefault())
+        if (packageName.contains("dialer") || packageName.contains("telecom") || packageName.contains("phone") || packageName == "com.mudita.dial") {
+            val extras = sbn.notification.extras
+            val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
+            val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
+            
+            val fullContent = "$title $text".lowercase(Locale.getDefault())
+            
+            // Check for outgoing call
+            if (fullContent.contains("calling") || fullContent.contains("soitetaan") || fullContent.contains("valitsee")) {
+                MainActivity.updateActiveCallInfo("Calling: $title")
+            } else if (fullContent.contains("on a call") || fullContent.contains("puhelu käynnissä") || fullContent.contains("active call")) {
+                MainActivity.updateActiveCallInfo("On a call: $title")
+            }
+        }
     }
 
     private fun updateNotifications() {

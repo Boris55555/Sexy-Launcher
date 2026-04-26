@@ -212,7 +212,8 @@ fun SettingsScreen(
             var hasPhonePermission by remember {
                 mutableStateOf(
                     ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED &&
-                            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
+                            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED &&
+                            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
                 )
             }
 
@@ -229,7 +230,8 @@ fun SettingsScreen(
                         permissionLauncher.launch(
                             arrayOf(
                                 Manifest.permission.READ_PHONE_STATE,
-                                Manifest.permission.READ_CALL_LOG
+                                Manifest.permission.READ_CALL_LOG,
+                                Manifest.permission.READ_CONTACTS
                             )
                         )
                     }
@@ -237,7 +239,7 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Phone & Call Log Access", fontSize = 18.sp, color = Color.Black)
+                Text("Phone, Calls & Contacts Access", fontSize = 18.sp, color = Color.Black)
                 Text(if (hasPhonePermission) "Granted" else "Tap to grant", color = Color.Black)
             }
 

@@ -332,6 +332,8 @@ fun FavoriteAppItem(
     } else {
         notifications.sumOf { getNotificationCount(it) }
     }
+    
+    val activeCallInfo by MainActivity.activeCallInfo.collectAsState()
 
     Column(
         modifier = Modifier
@@ -384,7 +386,9 @@ fun FavoriteAppItem(
         
         var previewText: String? = null
         
-        if (isPhoneApp && missedCallsCount > 0) {
+        if (isPhoneApp && activeCallInfo != null) {
+            previewText = activeCallInfo
+        } else if (isPhoneApp && missedCallsCount > 0) {
             // Priority: Show missed call info if it's the phone app and we have missed calls
             try {
                 val cursor = context.contentResolver.query(

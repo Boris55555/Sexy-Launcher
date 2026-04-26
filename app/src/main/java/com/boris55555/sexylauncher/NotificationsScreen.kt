@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.provider.CallLog
 import android.service.notification.StatusBarNotification
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -103,8 +104,16 @@ fun NotificationsScreen(
         missedCallsFromLog = calls
     }
 
-    val combinedItems = remember(notifications, missedCallsFromLog) {
+    val activeCallInfo by MainActivity.activeCallInfo.collectAsState()
+
+    val combinedItems = remember(notifications, missedCallsFromLog, activeCallInfo) {
         val items = mutableListOf<Any>()
+        
+        // Add active call info as a special item at the top if it exists
+        activeCallInfo?.let { 
+            items.add("ActiveCall:$it")
+        }
+        
         items.addAll(notifications)
         
         // Only add missed calls that don't already have a notification
@@ -119,8 +128,17 @@ fun NotificationsScreen(
         }
         
         items.sortedWith { a, b ->
-            val timeA = if (a is StatusBarNotification) a.postTime else (a as MissedCallInfo).date
-            val timeB = if (b is StatusBarNotification) b.postTime else (b as MissedCallInfo).date
+            // Active call always stays at top (index 0 basically if we sort by a very large timestamp)
+            val timeA = when(a) {
+                is String -> Long.MAX_VALUE 
+                is StatusBarNotification -> a.postTime 
+                else -> (a as MissedCallInfo).date
+            }
+            val timeB = when(b) {
+                is String -> Long.MAX_VALUE
+                is StatusBarNotification -> b.postTime
+                else -> (b as MissedCallInfo).date
+            }
             timeB.compareTo(timeA)
         }
     }
@@ -150,9 +168,28 @@ fun NotificationsScreen(
             )
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(combinedItems, key = { 
-                    if (it is StatusBarNotification) it.key else "call_${(it as MissedCallInfo).id}" 
+                    when (it) {
+                        is StatusBarNotification -> it.key
+                        is String -> it
+                        else -> "call_${(it as MissedCallInfo).id}"
+                    }
                 }) { item ->
-                    if (item is StatusBarNotification) {
+                    if (item is String && item.startsWith("ActiveCall:")) {
+                        val callText = item.removePrefix("ActiveCall:")
+                        ActiveCallItem(
+                            info = callText,
+                            onClick = {
+                                try {
+                                    val intent = Intent(Intent.ACTION_DIAL)
+                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            },
+                            fontSizeAdjustment = fontSizeAdjustment
+                        )
+                    } else if (item is StatusBarNotification) {
                         NotificationItem(
                             sbn = item,
                             onClick = {
@@ -366,6 +403,43 @@ fun MissedCallItem(
         }
         IconButton(onClick = onDismiss) {
             Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color.Black)
+        }
+    }
+}
+
+@Composable
+fun ActiveCallItem(
+    info: String,
+    onClick: () -> Unit,
+    fontSizeAdjustment: Int = 0
+) {
+    Row(
+        modifier = Modifier
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .fillMaxWidth()
+            .background(Color.Black.copy(alpha = 0.05f)), // Subtle background to highlight active call
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.Phone,
+            contentDescription = "Active Call",
+            tint = Color.Black
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Ongoing Session", 
+                fontWeight = FontWeight.Bold, 
+                fontSize = (14 + fontSizeAdjustment).sp, 
+                color = Color.Black
+            )
+            Text(
+                text = info, 
+                fontSize = (18 + fontSizeAdjustment).sp, 
+                color = Color.Black,
+                fontWeight = FontWeight.ExtraBold
+            )
         }
     }
 }

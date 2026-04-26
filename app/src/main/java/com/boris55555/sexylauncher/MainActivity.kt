@@ -24,6 +24,11 @@ import com.boris55555.sexylauncher.reminders.RemindersScreen
 import com.boris55555.sexylauncher.ui.theme.SexyLauncherTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import android.telephony.TelephonyManager
+import android.telephony.PhoneStateListener
+import android.telephony.TelephonyCallback
+import android.provider.ContactsContract
+import android.net.Uri
 
 private const val PREFS_NAME = "SexyLauncherPrefs"
 private const val KEY_FAVORITES = "favorite_apps"
@@ -394,6 +399,15 @@ class MainActivity : ComponentActivity() {
     private val _currentPage = MutableStateFlow(0)
     private var previousScreen: Screen? = null
 
+    companion object {
+        private val _activeCallInfo = MutableStateFlow<String?>(null)
+        val activeCallInfo = _activeCallInfo.asStateFlow()
+
+        fun updateActiveCallInfo(info: String?) {
+            _activeCallInfo.value = info
+        }
+    }
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -606,10 +620,15 @@ class MainActivity : ComponentActivity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
             permissionsToRequest.add(Manifest.permission.READ_CALL_LOG)
         }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.READ_CONTACTS)
+        }
 
         if (permissionsToRequest.isNotEmpty()) {
             requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
         }
+        
+        listenToCallState()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
@@ -618,6 +637,62 @@ class MainActivity : ComponentActivity() {
                 startActivity(intent)
             }
         }
+    }
+
+    private fun listenToCallState() {
+        val telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            telephonyManager.registerTelephonyCallback(mainExecutor, object : TelephonyCallback(), TelephonyCallback.CallStateListener {
+                override fun onCallStateChanged(state: Int) {
+                    updateCallInfo(state, null)
+                }
+            })
+        } else {
+            @Suppress("DEPRECATION")
+            telephonyManager.listen(object : PhoneStateListener() {
+                override fun onCallStateChanged(state: Int, phoneNumber: String?) {
+                    updateCallInfo(state, phoneNumber)
+                }
+            }, PhoneStateListener.LISTEN_CALL_STATE)
+        }
+    }
+
+    private fun updateCallInfo(state: Int, phoneNumber: String?) {
+        val info = when (state) {
+            TelephonyManager.CALL_STATE_RINGING -> "Incoming call"
+            TelephonyManager.CALL_STATE_OFFHOOK -> "On a call"
+            else -> null
+        }
+        
+        if (info == null) {
+            _activeCallInfo.value = null
+            return
+        }
+
+        // If we already have a detailed status (from notification listener), don't downgrade to generic
+        val current = _activeCallInfo.value
+        if (state == TelephonyManager.CALL_STATE_OFFHOOK && current != null && current.contains(":")) {
+            return
+        }
+
+        // Try to get contact name if we have a number
+        val name = phoneNumber?.let { getContactName(it) }
+        _activeCallInfo.value = if (name != null) "$info: $name" else info
+    }
+
+    private fun getContactName(phoneNumber: String): String? {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            return null
+        }
+        val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumber))
+        val projection = arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME)
+        contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                return cursor.getString(0)
+            }
+        }
+        return null
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
