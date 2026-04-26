@@ -1,6 +1,10 @@
-# Sexy Launcher 3.1.9
+# Sexy Launcher 3.1.10
 
 A minimalist, e-ink friendly launcher designed specifically for the **Mudita Kompakt**.
+
+## New in 3.1.10
+- **Reliability Fix**: Moved call status tracking to the background notification service to ensure active calls are detected even when the launcher is in the background.
+- **Optimized Performance**: Improved real-time call info updates for the Mudita Kompakt dialer and other non-standard phone apps.
 
 ## New in 3.1.9
 - **Improved Call Tracking**: Added direct CallLog monitoring to detect outgoing "Calling" state and contact names, specifically for the Mudita Kompakt's default phone app which doesn't use standard notifications.

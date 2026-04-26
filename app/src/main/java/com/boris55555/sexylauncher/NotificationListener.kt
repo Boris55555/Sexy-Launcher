@@ -1,13 +1,21 @@
 package com.boris55555.sexylauncher
 
+import android.Manifest
 import android.app.Notification
 import android.content.Context
+import android.content.pm.PackageManager
 import android.database.ContentObserver
+import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.CallLog
+import android.provider.ContactsContract
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.telephony.TelephonyCallback
+import android.telephony.TelephonyManager
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
@@ -15,6 +23,8 @@ import java.util.Locale
 class NotificationListener : NotificationListenerService() {
 
     private var callLogObserver: ContentObserver? = null
+    private var telephonyManager: TelephonyManager? = null
+    private var telephonyCallback: Any? = null
 
     companion object {
         private val _notifications = MutableStateFlow<List<StatusBarNotification>>(emptyList())
@@ -34,6 +44,7 @@ class NotificationListener : NotificationListenerService() {
         val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
                 updateNotifications()
+                checkLastOutgoingCall()
             }
         }
         try {
@@ -44,6 +55,7 @@ class NotificationListener : NotificationListenerService() {
         }
         
         updateMissedCallsCount()
+        listenToCallState()
     }
 
     override fun onDestroy() {
@@ -51,7 +63,118 @@ class NotificationListener : NotificationListenerService() {
         callLogObserver?.let {
             contentResolver.unregisterContentObserver(it)
         }
+        unregisterTelephonyListener()
         instance = null
+    }
+
+    private fun listenToCallState() {
+        telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val callback = object : TelephonyCallback(), TelephonyCallback.CallStateListener {
+                override fun onCallStateChanged(state: Int) {
+                    updateCallInfo(state, null)
+                }
+            }
+            telephonyManager?.registerTelephonyCallback(mainExecutor, callback)
+            telephonyCallback = callback
+        } else {
+            val listener = object : android.telephony.PhoneStateListener() {
+                @Deprecated("Deprecated in Java")
+                override fun onCallStateChanged(state: Int, phoneNumber: String?) {
+                    updateCallInfo(state, phoneNumber)
+                }
+            }
+            @Suppress("DEPRECATION")
+            telephonyManager?.listen(listener, android.telephony.PhoneStateListener.LISTEN_CALL_STATE)
+            telephonyCallback = listener
+        }
+    }
+
+    private fun unregisterTelephonyListener() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (telephonyCallback as? TelephonyCallback)?.let {
+                telephonyManager?.unregisterTelephonyCallback(it)
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            telephonyManager?.listen(telephonyCallback as? android.telephony.PhoneStateListener, android.telephony.PhoneStateListener.LISTEN_NONE)
+        }
+    }
+
+    private fun checkLastOutgoingCall() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
+            return
+        }
+
+        if (telephonyManager?.callState != TelephonyManager.CALL_STATE_OFFHOOK) {
+            return
+        }
+
+        val cursor = contentResolver.query(
+            CallLog.Calls.CONTENT_URI,
+            arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.TYPE),
+            null,
+            null,
+            CallLog.Calls.DATE + " DESC LIMIT 1"
+        )
+
+        cursor?.use {
+            if (it.moveToFirst()) {
+                val type = it.getInt(it.getColumnIndexOrThrow(CallLog.Calls.TYPE))
+                if (type == CallLog.Calls.OUTGOING_TYPE) {
+                    val number = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.NUMBER))
+                    val name = getContactName(number)
+                    val displayName = name ?: number
+                    
+                    // Only update if we are not already in a more specific state
+                    val current = MainActivity.activeCallInfo.value
+                    if (current == null || current == "On a call") {
+                        MainActivity.updateActiveCallInfo("Calling: $displayName")
+                    }
+                }
+            }
+        }
+    }
+
+    private fun updateCallInfo(state: Int, phoneNumber: String?) {
+        val info = when (state) {
+            TelephonyManager.CALL_STATE_RINGING -> "Incoming call"
+            TelephonyManager.CALL_STATE_OFFHOOK -> "On a call"
+            else -> null
+        }
+        
+        if (info == null) {
+            MainActivity.updateActiveCallInfo(null)
+            return
+        }
+
+        // If we already have a detailed status (from notification listener or outgoing check), don't downgrade to generic
+        val current = MainActivity.activeCallInfo.value
+        if (state == TelephonyManager.CALL_STATE_OFFHOOK && current != null && current.contains(":")) {
+            return
+        }
+
+        // Try to get contact name if we have a number
+        val name = phoneNumber?.let { getContactName(it) }
+        MainActivity.updateActiveCallInfo(if (name != null) "$info: $name" else info)
+    }
+
+    private fun getContactName(phoneNumber: String): String? {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            return null
+        }
+        val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumber))
+        val projection = arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME)
+        return try {
+            contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    cursor.getString(0)
+                } else null
+            }
+        } catch (e: Exception) {
+            null
+        }
     }
 
     override fun onListenerConnected() {

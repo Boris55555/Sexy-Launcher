@@ -25,11 +25,6 @@ import com.boris55555.sexylauncher.ui.theme.SexyLauncherTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import android.telephony.TelephonyManager
-import android.telephony.PhoneStateListener
-import android.telephony.TelephonyCallback
-import android.provider.ContactsContract
-import android.provider.CallLog
-import android.net.Uri
 
 private const val PREFS_NAME = "SexyLauncherPrefs"
 private const val KEY_FAVORITES = "favorite_apps"
@@ -629,8 +624,6 @@ class MainActivity : ComponentActivity() {
             requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
         }
         
-        listenToCallState()
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
             if (!alarmManager.canScheduleExactAlarms()) {
@@ -638,111 +631,6 @@ class MainActivity : ComponentActivity() {
                 startActivity(intent)
             }
         }
-    }
-
-    private fun listenToCallState() {
-        val telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            telephonyManager.registerTelephonyCallback(mainExecutor, object : TelephonyCallback(), TelephonyCallback.CallStateListener {
-                override fun onCallStateChanged(state: Int) {
-                    // On Android 12+, we can't get the phone number here anymore for privacy reasons
-                    // unless we are the default dialer. But we can still update the basic state.
-                    updateCallInfo(state, null)
-                }
-            })
-        } else {
-            @Suppress("DEPRECATION")
-            telephonyManager.listen(object : PhoneStateListener() {
-                override fun onCallStateChanged(state: Int, phoneNumber: String?) {
-                    updateCallInfo(state, phoneNumber)
-                }
-            }, PhoneStateListener.LISTEN_CALL_STATE)
-        }
-
-        // Add Outgoing Call Observer
-        contentResolver.registerContentObserver(
-            CallLog.Calls.CONTENT_URI,
-            true,
-            object : android.database.ContentObserver(android.os.Handler(mainLooper)) {
-                override fun onChange(selfChange: Boolean) {
-                    checkLastOutgoingCall()
-                }
-            }
-        )
-    }
-
-    private fun checkLastOutgoingCall() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
-            return
-        }
-
-        val telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-        if (telephonyManager.callState != TelephonyManager.CALL_STATE_OFFHOOK) {
-            return
-        }
-
-        val cursor = contentResolver.query(
-            CallLog.Calls.CONTENT_URI,
-            arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.TYPE),
-            null,
-            null,
-            CallLog.Calls.DATE + " DESC LIMIT 1"
-        )
-
-        cursor?.use {
-            if (it.moveToFirst()) {
-                val type = it.getInt(it.getColumnIndexOrThrow(CallLog.Calls.TYPE))
-                if (type == CallLog.Calls.OUTGOING_TYPE) {
-                    val number = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.NUMBER))
-                    val name = getContactName(number)
-                    val displayName = name ?: number
-                    
-                    // Only update if we are not already in a more specific state
-                    val current = _activeCallInfo.value
-                    if (current == null || current == "On a call") {
-                        _activeCallInfo.value = "Calling: $displayName"
-                    }
-                }
-            }
-        }
-    }
-
-    private fun updateCallInfo(state: Int, phoneNumber: String?) {
-        val info = when (state) {
-            TelephonyManager.CALL_STATE_RINGING -> "Incoming call"
-            TelephonyManager.CALL_STATE_OFFHOOK -> "On a call"
-            else -> null
-        }
-        
-        if (info == null) {
-            _activeCallInfo.value = null
-            return
-        }
-
-        // If we already have a detailed status (from notification listener), don't downgrade to generic
-        val current = _activeCallInfo.value
-        if (state == TelephonyManager.CALL_STATE_OFFHOOK && current != null && current.contains(":")) {
-            return
-        }
-
-        // Try to get contact name if we have a number
-        val name = phoneNumber?.let { getContactName(it) }
-        _activeCallInfo.value = if (name != null) "$info: $name" else info
-    }
-
-    private fun getContactName(phoneNumber: String): String? {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
-            return null
-        }
-        val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumber))
-        val projection = arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME)
-        contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                return cursor.getString(0)
-            }
-        }
-        return null
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
