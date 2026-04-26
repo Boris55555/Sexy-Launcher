@@ -1,6 +1,9 @@
-# Sexy Launcher 3.1.8
+# Sexy Launcher 3.1.9
 
 A minimalist, e-ink friendly launcher designed specifically for the **Mudita Kompakt**.
+
+## New in 3.1.9
+- **Improved Call Tracking**: Added direct CallLog monitoring to detect outgoing "Calling" state and contact names, specifically for the Mudita Kompakt's default phone app which doesn't use standard notifications.
 
 ## New in 3.1.8
 - **Permission Fixes**: Fixed Contact Access permission request by adding it to the Manifest.

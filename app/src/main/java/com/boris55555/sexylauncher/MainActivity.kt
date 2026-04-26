@@ -28,6 +28,7 @@ import android.telephony.TelephonyManager
 import android.telephony.PhoneStateListener
 import android.telephony.TelephonyCallback
 import android.provider.ContactsContract
+import android.provider.CallLog
 import android.net.Uri
 
 private const val PREFS_NAME = "SexyLauncherPrefs"
@@ -645,6 +646,8 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             telephonyManager.registerTelephonyCallback(mainExecutor, object : TelephonyCallback(), TelephonyCallback.CallStateListener {
                 override fun onCallStateChanged(state: Int) {
+                    // On Android 12+, we can't get the phone number here anymore for privacy reasons
+                    // unless we are the default dialer. But we can still update the basic state.
                     updateCallInfo(state, null)
                 }
             })
@@ -655,6 +658,53 @@ class MainActivity : ComponentActivity() {
                     updateCallInfo(state, phoneNumber)
                 }
             }, PhoneStateListener.LISTEN_CALL_STATE)
+        }
+
+        // Add Outgoing Call Observer
+        contentResolver.registerContentObserver(
+            CallLog.Calls.CONTENT_URI,
+            true,
+            object : android.database.ContentObserver(android.os.Handler(mainLooper)) {
+                override fun onChange(selfChange: Boolean) {
+                    checkLastOutgoingCall()
+                }
+            }
+        )
+    }
+
+    private fun checkLastOutgoingCall() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
+            return
+        }
+
+        val telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        if (telephonyManager.callState != TelephonyManager.CALL_STATE_OFFHOOK) {
+            return
+        }
+
+        val cursor = contentResolver.query(
+            CallLog.Calls.CONTENT_URI,
+            arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.TYPE),
+            null,
+            null,
+            CallLog.Calls.DATE + " DESC LIMIT 1"
+        )
+
+        cursor?.use {
+            if (it.moveToFirst()) {
+                val type = it.getInt(it.getColumnIndexOrThrow(CallLog.Calls.TYPE))
+                if (type == CallLog.Calls.OUTGOING_TYPE) {
+                    val number = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.NUMBER))
+                    val name = getContactName(number)
+                    val displayName = name ?: number
+                    
+                    // Only update if we are not already in a more specific state
+                    val current = _activeCallInfo.value
+                    if (current == null || current == "On a call") {
+                        _activeCallInfo.value = "Calling: $displayName"
+                    }
+                }
+            }
         }
     }
 
