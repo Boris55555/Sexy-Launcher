@@ -62,6 +62,17 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     var hasNotificationPermission by remember { mutableStateOf(isNotificationServiceEnabled(context)) }
+    var hasPhonePermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED &&
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    var hasContactsPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
+        )
+    }
     val alarmAppPackage by favoritesRepository.alarmAppPackage.collectAsState()
     val calendarAppPackage by favoritesRepository.calendarAppPackage.collectAsState()
     val isHomeLocked by favoritesRepository.isHomeLocked.collectAsState()
@@ -133,6 +144,18 @@ fun SettingsScreen(
             if (isEnabled != hasNotificationPermission) {
                 hasNotificationPermission = isEnabled
             }
+            
+            val phoneEnabled = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED &&
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
+            if (phoneEnabled != hasPhonePermission) {
+                hasPhonePermission = phoneEnabled
+            }
+
+            val contactsEnabled = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
+            if (contactsEnabled != hasContactsPermission) {
+                hasContactsPermission = contactsEnabled
+            }
+
             delay(1000)
         }
     }
@@ -209,29 +232,26 @@ fun SettingsScreen(
 
             HorizontalDivider(color = Color.Black)
 
-            var hasPhonePermission by remember {
-                mutableStateOf(
-                    ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED &&
-                            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED &&
-                            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
-                )
-            }
-
-            val permissionLauncher = rememberLauncherForActivityResult(
+            val phonePermissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions()
             ) { permissions ->
                 hasPhonePermission = permissions.values.all { it }
+            }
+
+            val contactsPermissionLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { isGranted ->
+                hasContactsPermission = isGranted
             }
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(enabled = !hasPhonePermission) {
-                        permissionLauncher.launch(
+                        phonePermissionLauncher.launch(
                             arrayOf(
                                 Manifest.permission.READ_PHONE_STATE,
-                                Manifest.permission.READ_CALL_LOG,
-                                Manifest.permission.READ_CONTACTS
+                                Manifest.permission.READ_CALL_LOG
                             )
                         )
                     }
@@ -239,8 +259,24 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Phone, Calls & Contacts Access", fontSize = 18.sp, color = Color.Black)
+                Text("Phone Call Access", fontSize = 18.sp, color = Color.Black)
                 Text(if (hasPhonePermission) "Granted" else "Tap to grant", color = Color.Black)
+            }
+
+            HorizontalDivider(color = Color.Black)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !hasContactsPermission) {
+                        contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+                    }
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Contact Access", fontSize = 18.sp, color = Color.Black)
+                Text(if (hasContactsPermission) "Granted" else "Tap to grant", color = Color.Black)
             }
 
             HorizontalDivider(color = Color.Black)
