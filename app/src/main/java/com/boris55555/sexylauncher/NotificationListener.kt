@@ -44,7 +44,7 @@ class NotificationListener : NotificationListenerService() {
         val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
                 updateNotifications()
-                checkLastOutgoingCall()
+                checkLastCallInfo()
             }
         }
         try {
@@ -102,18 +102,18 @@ class NotificationListener : NotificationListenerService() {
         }
     }
 
-    private fun checkLastOutgoingCall() {
+    private fun checkLastCallInfo() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
             return
         }
 
-        if (telephonyManager?.callState != TelephonyManager.CALL_STATE_OFFHOOK) {
+        if (telephonyManager?.callState == TelephonyManager.CALL_STATE_IDLE) {
             return
         }
 
         val cursor = contentResolver.query(
             CallLog.Calls.CONTENT_URI,
-            arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.TYPE),
+            arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.TYPE, CallLog.Calls.CACHED_NAME),
             null,
             null,
             CallLog.Calls.DATE + " DESC LIMIT 1"
@@ -122,15 +122,21 @@ class NotificationListener : NotificationListenerService() {
         cursor?.use {
             if (it.moveToFirst()) {
                 val type = it.getInt(it.getColumnIndexOrThrow(CallLog.Calls.TYPE))
-                if (type == CallLog.Calls.OUTGOING_TYPE) {
-                    val number = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.NUMBER))
-                    val name = getContactName(number)
-                    val displayName = name ?: number
-                    
-                    // Only update if we are not already in a more specific state
-                    val current = MainActivity.activeCallInfo.value
-                    if (current == null || current == "On a call") {
+                val number = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.NUMBER))
+                val cachedName = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.CACHED_NAME))
+                val name = cachedName ?: getContactName(number)
+                val displayName = name ?: number
+                
+                val currentState = telephonyManager?.callState
+                when {
+                    currentState == TelephonyManager.CALL_STATE_RINGING -> {
+                        MainActivity.updateActiveCallInfo("Incoming: $displayName")
+                    }
+                    type == CallLog.Calls.OUTGOING_TYPE && currentState == TelephonyManager.CALL_STATE_OFFHOOK -> {
                         MainActivity.updateActiveCallInfo("Calling: $displayName")
+                    }
+                    currentState == TelephonyManager.CALL_STATE_OFFHOOK -> {
+                        MainActivity.updateActiveCallInfo("On a call: $displayName")
                     }
                 }
             }
@@ -138,26 +144,30 @@ class NotificationListener : NotificationListenerService() {
     }
 
     private fun updateCallInfo(state: Int, phoneNumber: String?) {
-        val info = when (state) {
-            TelephonyManager.CALL_STATE_RINGING -> "Incoming call"
-            TelephonyManager.CALL_STATE_OFFHOOK -> "On a call"
-            else -> null
-        }
-        
-        if (info == null) {
+        if (state == TelephonyManager.CALL_STATE_IDLE) {
             MainActivity.updateActiveCallInfo(null)
-            return
-        }
-
-        // If we already have a detailed status (from notification listener or outgoing check), don't downgrade to generic
-        val current = MainActivity.activeCallInfo.value
-        if (state == TelephonyManager.CALL_STATE_OFFHOOK && current != null && current.contains(":")) {
             return
         }
 
         // Try to get contact name if we have a number
         val name = phoneNumber?.let { getContactName(it) }
-        MainActivity.updateActiveCallInfo(if (name != null) "$info: $name" else info)
+        val displayName = name ?: phoneNumber
+
+        val info = when (state) {
+            TelephonyManager.CALL_STATE_RINGING -> if (displayName != null) "Incoming: $displayName" else "Incoming call"
+            TelephonyManager.CALL_STATE_OFFHOOK -> if (displayName != null) "On a call: $displayName" else "On a call"
+            else -> null
+        }
+        
+        if (info != null) {
+            // If we have a generic "On a call" or "Incoming call", try to enrich it from CallLog
+            if (!info.contains(":")) {
+                MainActivity.updateActiveCallInfo(info)
+                checkLastCallInfo()
+            } else {
+                MainActivity.updateActiveCallInfo(info)
+            }
+        }
     }
 
     private fun getContactName(phoneNumber: String): String? {
