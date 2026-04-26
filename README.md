@@ -1,6 +1,10 @@
-# Sexy Launcher 3.1.6
+# Sexy Launcher 3.1.8
 
 A minimalist, e-ink friendly launcher designed specifically for the **Mudita Kompakt**.
+
+## New in 3.1.8
+- **Permission Fixes**: Fixed Contact Access permission request by adding it to the Manifest.
+- **Enhanced Settings**: Separated Phone and Contact permissions for better control.
 
 ## New in 3.1.6
 - **Enhanced Audio/Media Support**: Dedicated `MusicNote` icon and category for apps like Mudita Audio, Calmcast, Tubular, NewPipe, and AntennaPod. Ongoing media notifications are now preserved.
