@@ -6,7 +6,9 @@ import android.content.Intent
 import android.os.Bundle
 import android.provider.CallLog
 import android.service.notification.StatusBarNotification
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -17,16 +19,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.boris55555.sexylauncher.reminders.RemindersRepository
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 data class MissedCallInfo(
     val id: Long,
@@ -62,6 +63,7 @@ fun NotificationsScreen(
     onDismiss: () -> Unit
 ) {
     val notifications by NotificationListener.notifications.collectAsState()
+    val activeCallInfo by NotificationListener.activeCall.collectAsState()
     val context = LocalContext.current
     val fontSizeNotifications by favoritesRepository.fontSizeNotifications.collectAsState()
 
@@ -71,10 +73,28 @@ fun NotificationsScreen(
         else -> 0
     }
 
-    
     var missedCallsFromLog by remember { mutableStateOf<List<MissedCallInfo>>(emptyList()) }
 
+    var previousActiveCallInfo by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(activeCallInfo) {
+        // Auto-dismiss if a call was answered (transition from Incoming/Calling to Call)
+        val wasPending = previousActiveCallInfo?.startsWith("Incoming:") == true || 
+                        previousActiveCallInfo?.startsWith("Calling:") == true
+        val isNowActive = activeCallInfo?.startsWith("Call:") == true
+        
+        if (wasPending && isNowActive) {
+            onDismiss()
+        }
+        previousActiveCallInfo = activeCallInfo
+    }
+
     LaunchedEffect(Unit) {
+        // Force a refresh of notifications and active call info when screen opens
+        NotificationListener.instance?.requestRefresh()
+        NotificationListener.instance?.refreshCallInfo()
+    }
+
+    LaunchedEffect(notifications) {
         val calls = mutableListOf<MissedCallInfo>()
         try {
             val cursor = context.contentResolver.query(
@@ -104,53 +124,31 @@ fun NotificationsScreen(
         missedCallsFromLog = calls
     }
 
-    val activeCallInfo by MainActivity.activeCallInfo.collectAsState()
-
-    val combinedItems = remember(notifications, missedCallsFromLog, activeCallInfo) {
-        val items = mutableListOf<Any>()
-        
-        // Add active call info as a special item at the top if it exists
-        activeCallInfo?.let { 
-            items.add("ActiveCall:$it")
+    val otherItems = remember(notifications, missedCallsFromLog) {
+        val list = mutableListOf<Any>()
+        // Filter out ongoing call notifications from the main list as they are shown in ActiveCallItem
+        val filteredNotifications = notifications.filter { sbn ->
+            val isOngoing = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
+            val pkg = sbn.packageName.lowercase()
+            val isCall = sbn.notification.category == Notification.CATEGORY_CALL || 
+                         pkg.contains("dialer") || pkg.contains("telecom") || 
+                         pkg.contains("phone") || pkg.contains("mudita.dial") || pkg.contains("incallui")
+            
+            !(isOngoing && isCall)
         }
-        
-        items.addAll(notifications)
-        
-        // Only add missed calls that don't already have a notification
-        val existingMissedCallPackages = notifications.filter { 
-            it.notification.category == Notification.CATEGORY_MISSED_CALL || 
-            it.packageName.contains("dialer") || 
-            it.packageName.contains("phone") 
-        }.map { it.packageName }.toSet()
-
-        if (existingMissedCallPackages.isEmpty()) {
-            items.addAll(missedCallsFromLog)
-        }
-        
-        items.sortedWith { a, b ->
-            // Active call always stays at top (index 0 basically if we sort by a very large timestamp)
-            val timeA = when(a) {
-                is String -> Long.MAX_VALUE 
-                is StatusBarNotification -> a.postTime 
-                else -> (a as MissedCallInfo).date
-            }
-            val timeB = when(b) {
-                is String -> Long.MAX_VALUE
-                is StatusBarNotification -> b.postTime
-                else -> (b as MissedCallInfo).date
-            }
+        list.addAll(filteredNotifications)
+        list.addAll(missedCallsFromLog)
+        list.sortWith { a, b ->
+            val timeA = if (a is StatusBarNotification) a.postTime else (a as MissedCallInfo).date
+            val timeB = if (b is StatusBarNotification) b.postTime else (b as MissedCallInfo).date
             timeB.compareTo(timeA)
         }
-    }
-
-    LaunchedEffect(combinedItems) {
-        if (combinedItems.isEmpty()) {
-            onDismiss()
-        }
+        list
     }
 
     Box(modifier = Modifier
         .fillMaxSize()
+        .background(Color.White)
         .pointerInput(Unit) {
             detectHorizontalDragGestures { change, dragAmount ->
                 if (dragAmount > 50) { // Swipe Right
@@ -166,111 +164,175 @@ fun NotificationsScreen(
                 modifier = Modifier.padding(16.dp),
                 color = Color.Black
             )
-            LazyColumn(modifier = Modifier.weight(1f)) {
-                items(combinedItems, key = { 
-                    when (it) {
-                        is StatusBarNotification -> it.key
-                        is String -> it
-                        else -> "call_${(it as MissedCallInfo).id}"
-                    }
-                }) { item ->
-                    if (item is String && item.startsWith("ActiveCall:")) {
-                        val callText = item.removePrefix("ActiveCall:")
-                        ActiveCallItem(
-                            info = callText,
-                            onClick = {
-                                try {
+
+            // ACTIVE CALL
+            if (activeCallInfo != null) {
+                ActiveCallItem(
+                    info = activeCallInfo!!,
+                    onClick = {
+                        val telecomManager = context.getSystemService(android.telecom.TelecomManager::class.java)
+                        var success = false
+                        try {
+                            telecomManager?.showInCallScreen(false)
+                            success = true
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+
+                        if (!success) {
+                            // Fallback to finding the notification intent
+                            val callNotif = notifications.find { sbn ->
+                                val pkg = sbn.packageName.lowercase()
+                                val cat = sbn.notification.category
+                                val isOngoing = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
+                                
+                                (cat == Notification.CATEGORY_CALL || 
+                                 pkg.contains("dialer") || pkg.contains("telecom") || 
+                                 pkg.contains("phone") || pkg.contains("mudita.dial") || pkg.contains("incallui")) && 
+                                isOngoing
+                            }
+
+                            try {
+                                if (callNotif != null) {
+                                    val intent = callNotif.notification.fullScreenIntent ?: callNotif.notification.contentIntent
+                                    intent?.send()
+                                } else {
                                     val intent = Intent(Intent.ACTION_DIAL)
-                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
                                     context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
                                 }
-                            },
-                            fontSizeAdjustment = fontSizeAdjustment
-                        )
-                    } else if (item is StatusBarNotification) {
-                        NotificationItem(
-                            sbn = item,
-                            onClick = {
-                                try {
-                                    item.notification.contentIntent.send()
-                                } catch (e: Exception) {
-                                    val pm = context.packageManager
-                                    var launchIntent = pm.getLaunchIntentForPackage(item.packageName)
-                                    if (launchIntent == null) {
-                                        val intent = Intent(Intent.ACTION_MAIN, null).apply {
-                                            addCategory(Intent.CATEGORY_LAUNCHER)
-                                            `package` = item.packageName
-                                        }
-                                        val resolveInfo = pm.queryIntentActivities(intent, 0)
-                                        if (resolveInfo.isNotEmpty()) {
-                                            val activityInfo = resolveInfo[0].activityInfo
-                                            launchIntent = Intent(Intent.ACTION_MAIN).apply {
-                                                addCategory(Intent.CATEGORY_LAUNCHER)
-                                                component = ComponentName(activityInfo.packageName, activityInfo.name)
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                        onDismiss()
+                    },
+                    fontSizeAdjustment = fontSizeAdjustment
+                )
+            }
+
+            if (otherItems.isEmpty() && activeCallInfo == null) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(text = "No notifications", color = Color.Gray)
+                }
+            } else {
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    items(otherItems, key = { 
+                        if (it is StatusBarNotification) it.key else "call_${(it as MissedCallInfo).id}"
+                    }) { item ->
+                        when (item) {
+                            is StatusBarNotification -> {
+                                NotificationItem(
+                                    sbn = item,
+                                    onClick = {
+                                        val pkg = item.packageName.lowercase()
+                                        val isPhoneApp = pkg.contains("dialer") || pkg.contains("telecom") || 
+                                                         pkg.contains("phone") || pkg.contains("mudita.dial")
+                                        
+                                        val telephonyManager = context.getSystemService(android.telephony.TelephonyManager::class.java)
+                                        val isCallActive = telephonyManager?.callState != android.telephony.TelephonyManager.CALL_STATE_IDLE
+
+                                        if (isPhoneApp && isCallActive) {
+                                            val telecomManager = context.getSystemService(android.telecom.TelecomManager::class.java)
+                                            try {
+                                                telecomManager?.showInCallScreen(false)
+                                            } catch (e: Exception) {
+                                                try {
+                                                    val intent = item.notification.fullScreenIntent ?: item.notification.contentIntent
+                                                    intent?.send()
+                                                } catch (e2: Exception) {
+                                                    val launchIntent = context.packageManager.getLaunchIntentForPackage(item.packageName)
+                                                    launchIntent?.let {
+                                                        it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                        context.startActivity(it)
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            try {
+                                                val intent = item.notification.fullScreenIntent ?: item.notification.contentIntent
+                                                intent?.send()
+                                            } catch (e: Exception) {
+                                                val pm = context.packageManager
+                                                var launchIntent = pm.getLaunchIntentForPackage(item.packageName)
+                                                if (launchIntent == null) {
+                                                    val intent = Intent(Intent.ACTION_MAIN, null).apply {
+                                                        addCategory(Intent.CATEGORY_LAUNCHER)
+                                                        `package` = item.packageName
+                                                    }
+                                                    val resolveInfo = pm.queryIntentActivities(intent, 0)
+                                                    if (resolveInfo.isNotEmpty()) {
+                                                        val activityInfo = resolveInfo[0].activityInfo
+                                                        launchIntent = Intent(Intent.ACTION_MAIN).apply {
+                                                            addCategory(Intent.CATEGORY_LAUNCHER)
+                                                            component = ComponentName(activityInfo.packageName, activityInfo.name)
+                                                        }
+                                                    }
+                                                }
+
+                                                launchIntent?.let {
+                                                    it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    context.startActivity(it)
+                                                }
                                             }
                                         }
-                                    }
 
-                                    launchIntent?.let {
-                                        it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        context.startActivity(it)
-                                    }
-                                }
-                                if (item.notification.category in setOf(Notification.CATEGORY_MESSAGE, Notification.CATEGORY_CALL, Notification.CATEGORY_SOCIAL)) {
-                                    NotificationListener.instance?.dismissNotification(item.key)
-                                }
-                            },
-                            onDismiss = { NotificationListener.instance?.dismissNotification(item.key) },
-                            fontSizeAdjustment = fontSizeAdjustment
-                        )
-                    } else if (item is MissedCallInfo) {
-                        MissedCallItem(
-                            info = item,
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW).apply {
-                                    type = CallLog.Calls.CONTENT_TYPE
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                                context.startActivity(intent)
-                                // Mark as read/new=0 when clicked
-                                try {
-                                    val values = android.content.ContentValues()
-                                    values.put(CallLog.Calls.NEW, 0)
-                                    values.put(CallLog.Calls.IS_READ, 1)
-                                    context.contentResolver.update(
-                                        CallLog.Calls.CONTENT_URI,
-                                        values,
-                                        "${CallLog.Calls._ID} = ${item.id}",
-                                        null
-                                    )
-                                    missedCallsFromLog = missedCallsFromLog.filter { it.id != item.id }
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
-                            },
-                            onDismiss = {
-                                try {
-                                    val values = android.content.ContentValues()
-                                    values.put(CallLog.Calls.NEW, 0)
-                                    values.put(CallLog.Calls.IS_READ, 1)
-                                    context.contentResolver.update(
-                                        CallLog.Calls.CONTENT_URI,
-                                        values,
-                                        "${CallLog.Calls._ID} = ${item.id}",
-                                        null
-                                    )
-                                    missedCallsFromLog = missedCallsFromLog.filter { it.id != item.id }
-                                    NotificationListener.instance?.requestRefresh()
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
-                            },
-                            fontSizeAdjustment = fontSizeAdjustment
-                        )
+                                        if (item.notification.category in setOf(Notification.CATEGORY_MESSAGE, Notification.CATEGORY_CALL, Notification.CATEGORY_SOCIAL)) {
+                                            NotificationListener.instance?.dismissNotification(item.key)
+                                        }
+                                        onDismiss() // Sulje ilmoitusnäkymä kun viesti avataan
+                                    },
+                                    onDismiss = { NotificationListener.instance?.dismissNotification(item.key) },
+                                    fontSizeAdjustment = fontSizeAdjustment
+                                )
+                            }
+                            is MissedCallInfo -> {
+                                MissedCallItem(
+                                    info = item,
+                                    onClick = {
+                                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                                            type = CallLog.Calls.CONTENT_TYPE
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(intent)
+                                        try {
+                                            val values = android.content.ContentValues()
+                                            values.put(CallLog.Calls.NEW, 0)
+                                            values.put(CallLog.Calls.IS_READ, 1)
+                                            context.contentResolver.update(
+                                                CallLog.Calls.CONTENT_URI,
+                                                values,
+                                                "${CallLog.Calls._ID} = ${item.id}",
+                                                null
+                                            )
+                                            missedCallsFromLog = missedCallsFromLog.filter { it.id != item.id }
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        }
+                                    },
+                                    onDismiss = {
+                                        try {
+                                            val values = android.content.ContentValues()
+                                            values.put(CallLog.Calls.NEW, 0)
+                                            values.put(CallLog.Calls.IS_READ, 1)
+                                            context.contentResolver.update(
+                                                CallLog.Calls.CONTENT_URI,
+                                                values,
+                                                "${CallLog.Calls._ID} = ${item.id}",
+                                                null
+                                            )
+                                            missedCallsFromLog = missedCallsFromLog.filter { it.id != item.id }
+                                            NotificationListener.instance?.requestRefresh()
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        }
+                                    },
+                                    fontSizeAdjustment = fontSizeAdjustment
+                                )
+                            }
+                        }
+                        HorizontalDivider(color = Color.Black, modifier = Modifier.padding(horizontal = 16.dp))
                     }
-                    Divider(color = Color.Black, modifier = Modifier.padding(horizontal = 16.dp))
                 }
             }
         }
@@ -290,18 +352,15 @@ fun NotificationItem(
     val appName = try {
         packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName, 0)).toString()
     } catch (e: Exception) {
-        sbn.packageName // Fallback to package name
+        sbn.packageName
     }
 
     val extras = sbn.notification.extras
     val title = extras.getString("android.title") ?: extras.getString("android.conversationTitle")
     
-    // Collect all messages if available
     val allMessages = mutableListOf<String>()
     val messages = extras.getParcelableArray("android.messages")
     if (messages != null && messages.isNotEmpty()) {
-        // Android stores messages in chronological order (oldest first)
-        // We want newest first, so we reverse it
         for (i in messages.indices.reversed()) {
             val m = messages[i]
             if (m is Bundle) {
@@ -319,12 +378,11 @@ fun NotificationItem(
     }
 
     var text: CharSequence? = if (allMessages.isNotEmpty()) {
-        null // We will handle allMessages separately
+        null
     } else {
         extras.getCharSequence("android.text") ?: extras.getCharSequence("android.bigText")
     }
 
-    // Handle InboxStyle notifications (e.g. Gmail)
     val lines = extras.getCharSequenceArray("android.text.lines")
     if (text.isNullOrBlank() && allMessages.isEmpty() && lines != null && lines.isNotEmpty()) {
         for (i in lines.indices.reversed()) {
@@ -413,32 +471,30 @@ fun ActiveCallItem(
     onClick: () -> Unit,
     fontSizeAdjustment: Int = 0
 ) {
-    Row(
+    Box(
         modifier = Modifier
-            .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 8.dp)
             .fillMaxWidth()
-            .background(Color.Black.copy(alpha = 0.05f)), // Subtle background to highlight active call
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .border(BorderStroke(2.dp, Color.Black), shape = RoundedCornerShape(8.dp))
+            .background(Color.White)
+            .clickable { onClick() }
+            .padding(12.dp)
     ) {
-        Icon(
-            imageVector = Icons.Default.Phone,
-            contentDescription = "Active Call",
-            tint = Color.Black
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "Ongoing Session", 
-                fontWeight = FontWeight.Bold, 
-                fontSize = (14 + fontSizeAdjustment).sp, 
-                color = Color.Black
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Phone,
+                contentDescription = "Active Call",
+                tint = Color.Black,
+                modifier = Modifier.size(24.dp)
             )
+            Spacer(modifier = Modifier.width(16.dp))
             Text(
                 text = info, 
-                fontSize = (18 + fontSizeAdjustment).sp, 
+                fontSize = (20 + fontSizeAdjustment).sp, 
                 color = Color.Black,
-                fontWeight = FontWeight.ExtraBold
+                fontWeight = FontWeight.Bold
             )
         }
     }

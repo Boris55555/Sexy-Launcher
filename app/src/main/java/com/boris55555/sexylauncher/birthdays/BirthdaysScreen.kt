@@ -53,6 +53,8 @@ import com.boris55555.sexylauncher.DateVisualTransformation
 import com.boris55555.sexylauncher.EInkButton
 import com.boris55555.sexylauncher.TimeVisualTransformation
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -60,12 +62,64 @@ import java.time.format.DateTimeParseException
 import java.time.temporal.ChronoUnit
 import kotlin.math.roundToInt
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import java.io.InputStreamReader
+import java.io.File
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BirthdaysScreen(repository: BirthdaysRepository) {
+    val context = LocalContext.current
     val birthdays by repository.birthdays.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var birthdayToEditOrDelete by remember { mutableStateOf<Birthday?>(null) }
+    var importMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val contentResolver = context.contentResolver
+                    // Try to handle as Birday Backup first (SQLite)
+                    val inputStream = contentResolver.openInputStream(uri)
+                    val tempFile = File(context.cacheDir, "import_check")
+                    inputStream?.use { input ->
+                        tempFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+
+                    // Try SQLite import first
+                    val count = repository.importFromBirdayBackup(tempFile)
+                    
+                    withContext(Dispatchers.Main) {
+                        if (count >= 0) {
+                            importMessage = "Imported $count birthdays from Birday backup"
+                        } else {
+                            // If SQLite failed, try JSON as fallback
+                            val jsonString = try { tempFile.readText() } catch(e: Exception) { "" }
+                            val jsonCount = repository.importFromBirdayJson(jsonString)
+                            if (jsonCount >= 0) {
+                                importMessage = "Imported $jsonCount birthdays from JSON"
+                            } else {
+                                importMessage = "Failed to import: Invalid file format"
+                            }
+                        }
+                        tempFile.delete()
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        importMessage = "Error: ${e.message}"
+                    }
+                }
+            }
+        }
+    }
 
     val sortedBirthdays = birthdays.sortedBy {
         val today = LocalDate.now()
@@ -121,8 +175,21 @@ fun BirthdaysScreen(repository: BirthdaysRepository) {
             EInkButton(onClick = { showAddDialog = true }) {
                 Text("Add +")
             }
+            Spacer(modifier = Modifier.width(8.dp))
+            EInkButton(onClick = { importLauncher.launch("*/*") }) {
+                Text("Import")
+            }
         }
         Spacer(modifier = Modifier.height(16.dp))
+
+        importMessage?.let { message ->
+            Text(
+                text = message,
+                color = Color.Black,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                fontWeight = FontWeight.Bold
+            )
+        }
 
         Box(modifier = Modifier.weight(1f)) {
             LazyColumn(

@@ -18,6 +18,13 @@ import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 class NotificationListener : NotificationListenerService() {
@@ -25,37 +32,62 @@ class NotificationListener : NotificationListenerService() {
     private var callLogObserver: ContentObserver? = null
     private var telephonyManager: TelephonyManager? = null
     private var telephonyCallback: Any? = null
+    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var pollingJob: Job? = null
+    private var currentCallStartTime: Long = 0L
 
     companion object {
+        private const val TAG = "SexyNotificationListener"
         private val _notifications = MutableStateFlow<List<StatusBarNotification>>(emptyList())
         val notifications = _notifications.asStateFlow()
 
         private val _missedCallsCount = MutableStateFlow(0)
         val missedCallsCount = _missedCallsCount.asStateFlow()
 
+        private val _activeCall = MutableStateFlow<String?>(null)
+        val activeCall = _activeCall.asStateFlow()
+
         var instance: NotificationListener? = null
+        var lastKnownNumber: String? = null
+        var isIncomingCall: Boolean = false
     }
 
     override fun onCreate() {
         super.onCreate()
         instance = this
         
-        // Register observer for call log changes
-        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-            override fun onChange(selfChange: Boolean) {
-                updateNotifications()
-                checkLastCallInfo()
+        updateMissedCallsCount()
+        tryRegisterObservers()
+    }
+
+    private fun tryRegisterObservers() {
+        Log.d(TAG, "Attempting to register observers...")
+        // Register observer for call log changes if permission granted
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, "READ_CALL_LOG permission granted")
+            if (callLogObserver == null) {
+                val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                    override fun onChange(selfChange: Boolean) {
+                        Log.d(TAG, "Call log changed")
+                        updateNotifications()
+                        checkLastCallInfo()
+                    }
+                }
+                try {
+                    contentResolver.registerContentObserver(CallLog.Calls.CONTENT_URI, true, observer)
+                    callLogObserver = observer
+                    Log.d(TAG, "Call log observer registered")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error registering call log observer", e)
+                }
             }
-        }
-        try {
-            contentResolver.registerContentObserver(CallLog.Calls.CONTENT_URI, true, observer)
-            callLogObserver = observer
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } else {
+            Log.w(TAG, "READ_CALL_LOG permission NOT granted")
         }
         
-        updateMissedCallsCount()
-        listenToCallState()
+        if (telephonyCallback == null) {
+            listenToCallState()
+        }
     }
 
     override fun onDestroy() {
@@ -68,26 +100,45 @@ class NotificationListener : NotificationListenerService() {
     }
 
     private fun listenToCallState() {
-        telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val callback = object : TelephonyCallback(), TelephonyCallback.CallStateListener {
-                override fun onCallStateChanged(state: Int) {
-                    updateCallInfo(state, null)
-                }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "READ_PHONE_STATE permission NOT granted")
+            return
+        }
+
+        try {
+            Log.d(TAG, "Registering telephony callback")
+            telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+            
+            // Check initial state
+            val initialState = telephonyManager?.callState ?: TelephonyManager.CALL_STATE_IDLE
+            if (initialState != TelephonyManager.CALL_STATE_IDLE) {
+                Log.d(TAG, "Initial call state: $initialState")
+                updateCallInfo(initialState, null)
             }
-            telephonyManager?.registerTelephonyCallback(mainExecutor, callback)
-            telephonyCallback = callback
-        } else {
-            val listener = object : android.telephony.PhoneStateListener() {
-                @Deprecated("Deprecated in Java")
-                override fun onCallStateChanged(state: Int, phoneNumber: String?) {
-                    updateCallInfo(state, phoneNumber)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val callback = object : TelephonyCallback(), TelephonyCallback.CallStateListener {
+                    override fun onCallStateChanged(state: Int) {
+                        Log.d(TAG, "Call state changed (S+): $state")
+                        updateCallInfo(state, null)
+                    }
                 }
+                telephonyManager?.registerTelephonyCallback(mainExecutor, callback)
+                telephonyCallback = callback
+            } else {
+                val listener = object : android.telephony.PhoneStateListener() {
+                    @Deprecated("Deprecated in Java")
+                    override fun onCallStateChanged(state: Int, phoneNumber: String?) {
+                        Log.d(TAG, "Call state changed (legacy): $state, number: ${phoneNumber?.take(4)}...")
+                        updateCallInfo(state, phoneNumber)
+                    }
+                }
+                @Suppress("DEPRECATION")
+                telephonyManager?.listen(listener, android.telephony.PhoneStateListener.LISTEN_CALL_STATE)
+                telephonyCallback = listener
             }
-            @Suppress("DEPRECATION")
-            telephonyManager?.listen(listener, android.telephony.PhoneStateListener.LISTEN_CALL_STATE)
-            telephonyCallback = listener
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in listenToCallState", e)
         }
     }
 
@@ -104,97 +155,200 @@ class NotificationListener : NotificationListenerService() {
 
     private fun checkLastCallInfo() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "Cannot check call info: READ_CALL_LOG missing")
             return
         }
 
-        if (telephonyManager?.callState == TelephonyManager.CALL_STATE_IDLE) {
+        try {
+            val currentState = telephonyManager?.callState
+            Log.d(TAG, "checkLastCallInfo, current state: $currentState, startTime: $currentCallStartTime")
+            
+            if (currentState == TelephonyManager.CALL_STATE_IDLE) {
+                safeUpdateCallInfo(null)
+                currentCallStartTime = 0L
+                return
+            }
+
+            val cursor = contentResolver.query(
+                CallLog.Calls.CONTENT_URI,
+                arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.TYPE, CallLog.Calls.CACHED_NAME, CallLog.Calls.DATE),
+                null,
+                null,
+                CallLog.Calls.DATE + " DESC"
+            )
+
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val typeIdx = it.getColumnIndex(CallLog.Calls.TYPE)
+                    val numberIdx = it.getColumnIndex(CallLog.Calls.NUMBER)
+                    val nameIdx = it.getColumnIndex(CallLog.Calls.CACHED_NAME)
+                    val dateIdx = it.getColumnIndex(CallLog.Calls.DATE)
+                    
+                    val type = if (typeIdx != -1) it.getInt(typeIdx) else -1
+                    val number = if (numberIdx != -1) it.getString(numberIdx) else null
+                    val cachedName = if (nameIdx != -1) it.getString(nameIdx) else null
+                    val callDate = if (dateIdx != -1) it.getLong(dateIdx) else 0L
+                    
+                    val name = cachedName ?: getContactName(number)
+                    val displayName = name ?: number ?: "Unknown"
+                    
+                    Log.d(TAG, "Call log check: name=$displayName, date=$callDate, start=$currentCallStartTime")
+
+                    // CRITICAL: Only trust call log entries that started AFTER our current call began
+                    // Use a 5-second buffer (5000ms) in case of system clock slight desync
+                    if (currentCallStartTime > 0 && callDate < (currentCallStartTime - 5000)) {
+                        Log.d(TAG, "Ignoring old call log entry from previous call. Using lastKnownNumber if available.")
+                        
+                        // Fallback: use lastKnownNumber if log is not yet updated
+                        val fallbackNumber = lastKnownNumber
+                        if (fallbackNumber != null) {
+                            val fallbackName = getContactName(fallbackNumber) ?: fallbackNumber
+                            updateUiWithState(currentState ?: TelephonyManager.CALL_STATE_OFFHOOK, fallbackName, type)
+                        } else {
+                            // If we don't even have a lastKnownNumber, we can't do much but use the log's name
+                            // OR just say "Call" if it's clearly old. But usually lastKnownNumber should be set.
+                            updateUiWithState(currentState ?: TelephonyManager.CALL_STATE_OFFHOOK, displayName, type)
+                        }
+                        return@use
+                    }
+
+                    updateUiWithState(currentState ?: TelephonyManager.CALL_STATE_OFFHOOK, displayName, type)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in checkLastCallInfo", e)
+        }
+    }
+
+    private fun updateUiWithState(state: Int, displayName: String, logType: Int) {
+        if (state != TelephonyManager.CALL_STATE_IDLE) {
+            val prefix = when {
+                state == TelephonyManager.CALL_STATE_RINGING -> "Incoming: "
+                state == TelephonyManager.CALL_STATE_OFFHOOK && !isIncomingCall -> "Calling: "
+                else -> "Call: "
+            }
+            safeUpdateCallInfo("$prefix$displayName")
+        }
+    }
+
+    private fun safeUpdateCallInfo(newInfo: String?) {
+        val current = _activeCall.value
+        
+        // Don't overwrite a specific status with a more generic one
+        // Priority: "Calling: Name" / "Incoming: Name" > "Call: Name" > "Call" > null
+        if (newInfo != null && current != null) {
+            val currentIsSpecific = current.contains(":")
+            val newIsSpecific = newInfo.contains(":")
+            
+            if (currentIsSpecific && !newIsSpecific) {
+                return // Keep the more specific one
+            }
+        }
+
+        if (current != newInfo) {
+            _activeCall.value = newInfo
+            MainActivity.updateActiveCallInfo(newInfo)
+            // Immediately refresh notifications to show/update the ActiveCallItem
+            updateNotifications()
+        }
+    }
+
+    fun refreshCallInfo() {
+        val state = telephonyManager?.callState ?: return
+        if (state != TelephonyManager.CALL_STATE_IDLE) {
+            Log.d(TAG, "Refreshing call info due to new number discovery")
+            updateCallInfo(state, null)
+        }
+    }
+
+    private fun updateCallInfo(state: Int, phoneNumber: String?) {
+        if (!phoneNumber.isNullOrEmpty()) {
+            lastKnownNumber = phoneNumber
+        }
+        val finalNumber = phoneNumber ?: lastKnownNumber
+        Log.d(TAG, "updateCallInfo: state=$state, hasNumber=${phoneNumber != null}, lastKnown=${lastKnownNumber != null}")
+        
+        if (state == TelephonyManager.CALL_STATE_IDLE) {
+            pollingJob?.cancel()
+            currentCallStartTime = 0L
+            lastKnownNumber = null
+            isIncomingCall = false
+            safeUpdateCallInfo(null)
             return
         }
 
-        val cursor = contentResolver.query(
-            CallLog.Calls.CONTENT_URI,
-            arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.TYPE, CallLog.Calls.CACHED_NAME),
-            null,
-            null,
-            CallLog.Calls.DATE + " DESC LIMIT 1"
-        )
+        // Record the start time of the call if we don't have it yet
+        if (currentCallStartTime == 0L) {
+            currentCallStartTime = System.currentTimeMillis()
+            isIncomingCall = (state == TelephonyManager.CALL_STATE_RINGING)
+            Log.d(TAG, "Call started at: $currentCallStartTime, incoming: $isIncomingCall")
+        } else if (state == TelephonyManager.CALL_STATE_RINGING) {
+            isIncomingCall = true
+        }
 
-        cursor?.use {
-            if (it.moveToFirst()) {
-                val type = it.getInt(it.getColumnIndexOrThrow(CallLog.Calls.TYPE))
-                val number = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.NUMBER))
-                val cachedName = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.CACHED_NAME))
-                val name = cachedName ?: getContactName(number)
-                val displayName = name ?: number
-                
-                val currentState = telephonyManager?.callState
-                when {
-                    currentState == TelephonyManager.CALL_STATE_RINGING -> {
-                        MainActivity.updateActiveCallInfo("Incoming: $displayName")
-                    }
-                    type == CallLog.Calls.OUTGOING_TYPE && currentState == TelephonyManager.CALL_STATE_OFFHOOK -> {
-                        MainActivity.updateActiveCallInfo("Calling: $displayName")
-                    }
-                    currentState == TelephonyManager.CALL_STATE_OFFHOOK -> {
-                        MainActivity.updateActiveCallInfo("On a call: $displayName")
-                    }
+        // Try to get contact name if we have a number
+        val name = finalNumber?.let { getContactName(it) }
+        val displayName = name ?: finalNumber
+
+        val prefix = when {
+            state == TelephonyManager.CALL_STATE_RINGING -> "Incoming: "
+            state == TelephonyManager.CALL_STATE_OFFHOOK && !isIncomingCall -> "Calling: "
+            else -> "Call: "
+        }
+        
+        val info = if (displayName != null) "$prefix$displayName" else "Call"
+        safeUpdateCallInfo(info)
+
+        // Poll CallLog multiple times to catch the entry as soon as it's written
+        pollingJob?.cancel()
+        pollingJob = serviceScope.launch {
+            repeat(10) { // Try for 10 seconds
+                delay(1000)
+                if (telephonyManager?.callState != TelephonyManager.CALL_STATE_IDLE) {
+                    checkLastCallInfo()
                 }
             }
         }
     }
 
-    private fun updateCallInfo(state: Int, phoneNumber: String?) {
-        if (state == TelephonyManager.CALL_STATE_IDLE) {
-            MainActivity.updateActiveCallInfo(null)
-            return
-        }
-
-        // Try to get contact name if we have a number
-        val name = phoneNumber?.let { getContactName(it) }
-        val displayName = name ?: phoneNumber
-
-        val info = when (state) {
-            TelephonyManager.CALL_STATE_RINGING -> if (displayName != null) "Incoming: $displayName" else "Incoming call"
-            TelephonyManager.CALL_STATE_OFFHOOK -> if (displayName != null) "On a call: $displayName" else "On a call"
-            else -> null
-        }
-        
-        if (info != null) {
-            // If we have a generic "On a call" or "Incoming call", try to enrich it from CallLog
-            if (!info.contains(":")) {
-                MainActivity.updateActiveCallInfo(info)
-                checkLastCallInfo()
-            } else {
-                MainActivity.updateActiveCallInfo(info)
-            }
-        }
-    }
-
-    private fun getContactName(phoneNumber: String): String? {
+    private fun getContactName(phoneNumber: String?): String? {
+        if (phoneNumber.isNullOrBlank()) return null
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "READ_CONTACTS permission NOT granted")
             return null
         }
-        val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumber))
+        
+        // Clean the number (remove spaces, dashes etc) but keep + for international
+        val cleanedNumber = phoneNumber.filter { it.isDigit() || it == '+' }
+        
+        val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(cleanedNumber))
         val projection = arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME)
         return try {
             contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
                 if (cursor.moveToFirst()) {
-                    cursor.getString(0)
-                } else null
+                    val name = cursor.getString(0)
+                    Log.d(TAG, "Contact found for $phoneNumber: $name")
+                    name
+                } else {
+                    Log.d(TAG, "No contact found for $phoneNumber")
+                    null
+                }
             }
         } catch (e: Exception) {
+            Log.e(TAG, "Error querying contacts", e)
             null
         }
     }
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        tryRegisterObservers()
         updateNotifications()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
-        updateNotifications()
         updateCallStatus(sbn)
+        updateNotifications()
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
@@ -206,19 +360,61 @@ class NotificationListener : NotificationListenerService() {
     private fun updateCallStatus(sbn: StatusBarNotification?) {
         if (sbn == null) return
         val packageName = sbn.packageName.lowercase(Locale.getDefault())
-        if (packageName.contains("dialer") || packageName.contains("telecom") || packageName.contains("phone") || packageName == "com.mudita.dial") {
-            val extras = sbn.notification.extras
-            val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
-            val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
+        val category = sbn.notification.category
+        val isOngoing = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
+        
+        val isCallRelated = category == Notification.CATEGORY_CALL ||
+                category == Notification.CATEGORY_MISSED_CALL ||
+                packageName.contains("dialer") ||
+                packageName.contains("telecom") ||
+                packageName.contains("phone") ||
+                packageName.contains("incallui") ||
+                packageName.contains("mudita.dial") ||
+                packageName == "com.mudita.dial"
+
+        if (!isCallRelated) return
+
+        val extras = sbn.notification.extras
+        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
+        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
+        
+        // Try to get number from hidden extra field
+        val extraNumber = extras.getString("android.phone.number")
+        if (!extraNumber.isNullOrEmpty()) {
+            lastKnownNumber = extraNumber
+        }
+        
+        Log.d(TAG, "Call notification: pkg=$packageName, title=$title, text=$text, extraNum=$extraNumber")
+        
+        val fullContent = "$title $text".lowercase(Locale.getDefault())
+        
+        // Try to resolve name from multiple sources
+        var resolvedName: String? = extraNumber?.let { getContactName(it) }
+        
+        if (resolvedName == null && title.isNotEmpty() && 
+            !title.lowercase().contains("dialer") && 
+            !title.lowercase().contains("phone") &&
+            !title.lowercase().contains("calling")) {
+            // If title has numbers, try to extract them
+            val numberInTitle = title.filter { it.isDigit() || it == '+' }
+            resolvedName = if (numberInTitle.length > 3) getContactName(numberInTitle) ?: title else title
+        }
+        
+        if (resolvedName == null && text.isNotEmpty() && !text.contains(":") && text.length > 2) {
+            val numberInText = text.filter { it.isDigit() || it == '+' }
+            resolvedName = if (numberInText.length > 3) getContactName(numberInText) ?: text else text
+        }
+        
+        val finalName = resolvedName ?: ""
+        val isGeneric = finalName.isEmpty()
+
+        // For any ongoing or call-category notification, treat as active call
+        if (isOngoing || category == Notification.CATEGORY_CALL || 
+            fullContent.contains("ongoing") || fullContent.contains("active") || 
+            fullContent.contains("calling") || fullContent.contains("dialing")) {
             
-            val fullContent = "$title $text".lowercase(Locale.getDefault())
-            
-            // Check for outgoing call
-            if (fullContent.contains("calling") || fullContent.contains("soitetaan") || fullContent.contains("valitsee")) {
-                MainActivity.updateActiveCallInfo("Calling: $title")
-            } else if (fullContent.contains("on a call") || fullContent.contains("puhelu käynnissä") || fullContent.contains("active call")) {
-                MainActivity.updateActiveCallInfo("On a call: $title")
-            }
+            val status = if (isGeneric) "Call" else "Call: $finalName"
+            safeUpdateCallInfo(status)
         }
     }
 
@@ -226,7 +422,23 @@ class NotificationListener : NotificationListenerService() {
         val prefs = applicationContext.getSharedPreferences("SexyLauncherPrefs", Context.MODE_PRIVATE)
         val disableDuraSpeed = prefs.getBoolean("disable_duraspeed_notifications", false)
 
-        _notifications.value = (activeNotifications ?: emptyArray()).filter {
+        val activeNotifs = activeNotifications ?: emptyArray()
+        
+        // Ensure active call info is set if there's an active call notification
+        // but we haven't detected it via telephony state yet
+        if (_activeCall.value == null) {
+            activeNotifs.forEach { sbn ->
+                val pkg = sbn.packageName.lowercase(Locale.getDefault())
+                val category = sbn.notification.category
+                if (category == Notification.CATEGORY_CALL || 
+                    pkg.contains("dialer") || pkg.contains("telecom") || 
+                    pkg.contains("phone") || pkg.contains("mudita.dial")) {
+                    updateCallStatus(sbn)
+                }
+            }
+        }
+
+        _notifications.value = activeNotifs.filter {
             isNotificationRelevant(it, disableDuraSpeed)
         }.sortedByDescending { it.postTime }
 
@@ -276,9 +488,13 @@ class NotificationListener : NotificationListenerService() {
                 packageName.contains("dialer") ||
                 packageName.contains("telecom") ||
                 packageName.contains("phone") ||
+                packageName.contains("incallui") ||
+                packageName.contains("mudita.dial") ||
                 packageName == "com.mudita.dial"
 
-        if (isCallRelated) return true
+        if (isCallRelated) {
+            return true
+        }
 
         // 1.5 Message related (Always show, but filter out summaries)
         val isMessageRelated = sbn.notification.category == Notification.CATEGORY_MESSAGE ||
@@ -307,7 +523,7 @@ class NotificationListener : NotificationListenerService() {
             if (isGroupSummary) return false
             
             // If the content is just the app name + "notification", it's likely a duplicate/summary
-            if (text.contains("notification") || text.contains("ilmoitus")) {
+            if (text.contains("notification")) {
                 val appName = try {
                     applicationContext.packageManager.getApplicationLabel(
                         applicationContext.packageManager.getApplicationInfo(sbn.packageName, 0)
@@ -335,9 +551,7 @@ class NotificationListener : NotificationListenerService() {
                 packageName.contains("spotify") ||
                 packageName.contains("podcast") ||
                 packageName == "com.mudita.audio.player" ||
-                fullContent.contains("playing") ||
-                fullContent.contains("soittaa") ||
-                fullContent.contains("toistetaan")
+                fullContent.contains("playing")
 
         if (isAudioRelated && isOngoing) return true
 
@@ -361,13 +575,9 @@ class NotificationListener : NotificationListenerService() {
         // 4. General Download/Podcast/Media related
         val isDownloadRelated = sbn.notification.category == Notification.CATEGORY_PROGRESS ||
                 fullContent.contains("download") ||
-                fullContent.contains("ladataan") ||
-                fullContent.contains("lataus") ||
                 fullContent.contains("podcast") ||
-                fullContent.contains("kartat") ||
                 fullContent.contains("maps") ||
                 fullContent.contains("transfer") ||
-                fullContent.contains("siirretään") ||
                 fullContent.contains("upload") ||
                 hasProgressKey
 
@@ -385,7 +595,10 @@ class NotificationListener : NotificationListenerService() {
         }
 
         // 5. Filtering for other types
-        if (disableDuraSpeed && (packageName.startsWith("com.duraspeed") || fullContent.contains("duraspeed"))) {
+        if (disableDuraSpeed && (packageName.contains("duraspeed") || 
+            packageName.contains("duraspeen") ||
+            fullContent.contains("duraspeed") ||
+            fullContent.contains("duraspeen"))) {
             return false
         }
 

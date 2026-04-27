@@ -148,6 +148,7 @@ fun MainHomeScreen(
     val swipeLeftAction by favoritesRepository.swipeLeftAction.collectAsState()
     val swipeRightAction by favoritesRepository.swipeRightAction.collectAsState()
     val catIconAction by favoritesRepository.catIconAction.collectAsState()
+    val keepAllAppsButton by favoritesRepository.keepAllAppsButton.collectAsState()
     val showAppIcons by favoritesRepository.showAppIcons.collectAsState()
     val fontSizeHome by favoritesRepository.fontSizeHome.collectAsState()
     val use24hFormat by favoritesRepository.use24hFormat.collectAsState()
@@ -666,7 +667,7 @@ fun MainHomeScreen(
             Spacer(modifier = Modifier.weight(0.8f))
         }
 
-        if (!gesturesEnabled) {
+        if (!gesturesEnabled || keepAllAppsButton) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier

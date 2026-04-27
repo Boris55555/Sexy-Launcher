@@ -7,11 +7,16 @@ import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.graphics.drawable.Drawable
 import android.net.Uri
+import android.app.Notification
+import android.service.notification.StatusBarNotification
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -32,7 +37,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,7 +51,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -57,6 +62,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 @Composable
@@ -66,8 +72,10 @@ fun AppListScreen(
     onDismiss: (() -> Unit)? = null,
     onShowSettingsClicked: (() -> Unit)? = null,
     favoritesRepository: FavoritesRepository,
+    usageRepository: UsageRepository? = null,
     onLockedLetterChanged: (Char?) -> Unit,
-    lockedLetter: Char?
+    lockedLetter: Char?,
+    onAppLaunched: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val packageManager = context.packageManager
@@ -76,6 +84,16 @@ fun AppListScreen(
     val hideLauncherFromAppView by favoritesRepository.hideLauncherFromAppView.collectAsState()
     val showAppIcons by favoritesRepository.showAppIcons.collectAsState()
     val fontSizeAllApps by favoritesRepository.fontSizeAllApps.collectAsState()
+    val preferredAppList by favoritesRepository.preferredAppList.collectAsState()
+    val usageMap by (usageRepository?.usageMap ?: MutableStateFlow<Map<String, Int>>(emptyMap())).collectAsState()
+    val favorites by favoritesRepository.favorites.collectAsState()
+
+    val pagerState = rememberPagerState(
+        initialPage = if (preferredAppList == "Top 10" && !isPickerMode) 1 else 0,
+        pageCount = { if (isPickerMode) 1 else 2 }
+    )
+    val coroutineScope = rememberCoroutineScope()
+    val selectedTab = if (pagerState.currentPage == 0) "All Apps" else "Top 10"
 
     val fontSizeAdjustment = when (fontSizeAllApps) {
         "Small" -> -2
@@ -161,39 +179,27 @@ fun AppListScreen(
         )
     }
 
-    val listItems = remember(apps, lockedLetter) {
-        val items = mutableListOf<Any>()
-        if (lockedLetter != null) {
-            val filteredApps = apps.filter { it.name.first().uppercaseChar() == lockedLetter }
-            if (filteredApps.isNotEmpty()) {
-                items.add(lockedLetter!!)
-                items.addAll(filteredApps)
-            }
-        } else {
+    val alphabet = remember(apps) {
+        apps.groupBy { it.name.first().uppercaseChar() }.keys.sorted()
+    }
+
+    val allAppsListState = rememberLazyListState()
+    val top10ListState = rememberLazyListState()
+
+    LaunchedEffect(lockedLetter) {
+        allAppsListState.scrollToItem(0)
+    }
+
+    val indexMap = remember(apps, lockedLetter, pagerState.currentPage) {
+        val map = mutableMapOf<Char, Int>()
+        if (lockedLetter == null && pagerState.currentPage == 0) {
+            val items = mutableListOf<Any>()
             val grouped = apps.groupBy { it.name.first().uppercaseChar() }
             grouped.toSortedMap().forEach { (letter, appsInGroup) ->
                 items.add(letter)
                 items.addAll(appsInGroup)
             }
-        }
-        items
-    }
-
-    val alphabet = remember(apps) {
-        apps.groupBy { it.name.first().uppercaseChar() }.keys.sorted()
-    }
-
-    val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
-
-    LaunchedEffect(lockedLetter) {
-        listState.scrollToItem(0)
-    }
-
-    val indexMap = remember(listItems, lockedLetter) {
-        val map = mutableMapOf<Char, Int>()
-        if (lockedLetter == null) {
-            listItems.forEachIndexed { index, item ->
+            items.forEachIndexed { index, item ->
                 if (item is Char) {
                     map[item] = index
                 }
@@ -221,65 +227,147 @@ fun AppListScreen(
                     Button(onClick = { onDismiss?.invoke() }) { Text("Cancel") }
                 }
             } else {
-                Text(
-                    text = "All Apps",
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    textAlign = TextAlign.Center,
-                    fontSize = (24 + fontSizeAdjustment).sp
-                )
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "All Apps",
+                        modifier = Modifier
+                            .clickable {
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(0)
+                                }
+                            }
+                            .padding(horizontal = 8.dp),
+                        textAlign = TextAlign.Center,
+                        fontSize = (if (selectedTab == "All Apps") 24 else 18).sp,
+                        fontWeight = if (selectedTab == "All Apps") FontWeight.Bold else FontWeight.Normal,
+                        color = Color.Black
+                    )
+                    Text(
+                        text = "|",
+                        fontSize = 24.sp,
+                        color = Color.Black,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                    Text(
+                        text = "Top 10",
+                        modifier = Modifier
+                            .clickable {
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(1)
+                                }
+                            }
+                            .padding(horizontal = 8.dp),
+                        textAlign = TextAlign.Center,
+                        fontSize = (if (selectedTab == "Top 10") 24 else 18).sp,
+                        fontWeight = if (selectedTab == "Top 10") FontWeight.Bold else FontWeight.Normal,
+                        color = Color.Black
+                    )
+                }
             }
-            LazyColumn(
-                state = listState,
+
+            HorizontalPager(
+                state = pagerState,
                 modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.Start
-            ) {
-                items(listItems) { item ->
-                    when (item) {
-                        is Char -> {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
-                            ) {
-                                Text(
-                                    text = item.toString(),
-                                    modifier = Modifier
-                                        .clickable { onLockedLetterChanged(item) },
-                                    fontSize = (20 + fontSizeAdjustment).sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                userScrollEnabled = lockedLetter == null && !isPickerMode
+            ) { page ->
+                val currentTabForPage = if (page == 0) "All Apps" else "Top 10"
+                val listItems = remember(apps, lockedLetter, usageMap, isPickerMode, currentTabForPage, favorites) {
+                    val items = mutableListOf<Any>()
+
+                    if (isPickerMode) {
+                        val grouped = apps.groupBy { it.name.first().uppercaseChar() }
+                        grouped.toSortedMap().forEach { (letter, appsInGroup) ->
+                            items.add(letter)
+                            items.addAll(appsInGroup)
+                        }
+                        return@remember items
+                    }
+
+                    if (currentTabForPage == "Top 10" && lockedLetter == null) {
+                        val topApps = usageMap.entries
+                            .filter { it.key !in favorites }
+                            .sortedByDescending { it.value }
+                            .take(10)
+                            .mapNotNull { entry -> apps.find { it.packageName == entry.key } }
+
+                        items.addAll(topApps)
+                    } else {
+                        if (lockedLetter != null) {
+                            val filteredApps = apps.filter { it.name.first().uppercaseChar() == lockedLetter }
+                            if (filteredApps.isNotEmpty()) {
+                                items.add(lockedLetter!!)
+                                items.addAll(filteredApps)
+                            }
+                        } else {
+                            val grouped = apps.groupBy { it.name.first().uppercaseChar() }
+                            grouped.toSortedMap().forEach { (letter, appsInGroup) ->
+                                items.add(letter)
+                                items.addAll(appsInGroup)
                             }
                         }
-                        is AppInfo -> {
-                            AppListItem(
-                                app = item,
-                                showAppIcons = showAppIcons,
-                                onLongClick = { appToEdit = item },
-                                onClick = {
-                                    if (isPickerMode) {
-                                        onAppSelected?.invoke(item)
-                                    } else {
-                                        if (item.packageName == context.packageName) {
-                                            onShowSettingsClicked?.invoke()
+                    }
+                    items
+                }
+
+                LazyColumn(
+                    state = if (page == 0) allAppsListState else top10ListState,
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    items(listItems) { item ->
+                        when (item) {
+                            is Char -> {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
+                                ) {
+                                    Text(
+                                        text = item.toString(),
+                                        modifier = Modifier
+                                            .clickable { onLockedLetterChanged(item) },
+                                        fontSize = (20 + fontSizeAdjustment).sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            is AppInfo -> {
+                                AppListItem(
+                                    app = item,
+                                    showAppIcons = showAppIcons,
+                                    notifications = notifications,
+                                    onLongClick = { appToEdit = item },
+                                    onClick = {
+                                        if (isPickerMode) {
+                                            onAppSelected?.invoke(item)
                                         } else {
-                                            notifications
-                                                .filter { it.packageName == item.packageName }
-                                                .forEach { sbn ->
-                                                    NotificationListener.instance?.dismissNotification(sbn.key)
+                                            if (item.packageName == context.packageName) {
+                                                onShowSettingsClicked?.invoke()
+                                            } else {
+                                                onAppLaunched?.invoke(item.packageName)
+                                                notifications
+                                                    .filter { it.packageName == item.packageName }
+                                                    .forEach { sbn ->
+                                                        NotificationListener.instance?.dismissNotification(sbn.key)
+                                                    }
+                                                val launchIntent =
+                                                    packageManager.getLaunchIntentForPackage(item.packageName)
+                                                if (launchIntent != null) {
+                                                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    context.startActivity(launchIntent)
                                                 }
-                                            val launchIntent =
-                                                packageManager.getLaunchIntentForPackage(item.packageName)
-                                            if (launchIntent != null) {
-                                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                context.startActivity(launchIntent)
                                             }
                                         }
-                                    }
-                                },
-                                fontSizeAdjustment = fontSizeAdjustment
-                            )
+                                    },
+                                    fontSizeAdjustment = fontSizeAdjustment
+                                )
+                            }
                         }
                     }
                 }
@@ -288,13 +376,13 @@ fun AppListScreen(
 
         AlphabetScroller(
             modifier = Modifier.align(Alignment.CenterEnd),
-            alphabet = alphabet,
+            alphabet = if (selectedTab == "All Apps" || lockedLetter != null) alphabet else emptyList(),
             onLetterSelected = { letter ->
                 if (lockedLetter == null) {
                     val index = indexMap[letter]
                     if (index != null) {
                         coroutineScope.launch {
-                            listState.scrollToItem(index)
+                            allAppsListState.scrollToItem(index)
                         }
                     }
                 }
@@ -370,12 +458,14 @@ fun AlphabetScroller(
 fun AppListItem(
     app: AppInfo,
     showAppIcons: Boolean,
+    notifications: List<StatusBarNotification>,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     fontSizeAdjustment: Int = 0
 ) {
     val context = LocalContext.current
     val packageManager = context.packageManager
+    val missedCallsCount by NotificationListener.missedCallsCount.collectAsState()
 
     val appIcon: Drawable? = if (showAppIcons) {
         try {
@@ -385,6 +475,21 @@ fun AppListItem(
         }
     } else {
         null
+    }
+
+    // Determine if this is the phone app to include missed calls count
+    val isPhoneApp = app.packageName == "com.mudita.dial" || 
+                     app.packageName.contains("dialer") || 
+                     app.packageName.contains("telecom")
+
+    val appNotifications = notifications.filter { 
+        it.packageName.equals(app.packageName, ignoreCase = true) 
+    }
+    val totalCount = if (isPhoneApp) {
+        val otherCallNotificationsCount = appNotifications.filter { it.notification.category != Notification.CATEGORY_MISSED_CALL }.sumOf { getNotificationCount(it) }
+        otherCallNotificationsCount + missedCallsCount
+    } else {
+        appNotifications.sumOf { getNotificationCount(it) }
     }
 
     Row(
@@ -417,6 +522,24 @@ fun AppListItem(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            
+            if (totalCount > 0) {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 12.dp)
+                        .border(BorderStroke(3.dp, Color.Black), shape = CircleShape)
+                        .background(color = Color.White, shape = CircleShape)
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (totalCount > 99) "99+" else totalCount.toString(),
+                        color = Color.Black,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
         }
     }
 }

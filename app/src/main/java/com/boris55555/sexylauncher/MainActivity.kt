@@ -36,6 +36,7 @@ private const val KEY_CUSTOM_NAMES = "custom_app_names_set"
 private const val KEY_WEEK_STARTS_ON_SUNDAY = "week_starts_on_sunday"
 private const val KEY_HIDE_LAUNCHER_FROM_APP_VIEW = "hide_launcher_from_app_view"
 private const val KEY_GESTURES_ENABLED = "gestures_enabled"
+private const val KEY_KEEP_ALL_APPS_BUTTON = "keep_all_apps_button"
 private const val KEY_SWIPE_LEFT_ACTION = "swipe_left_action"
 private const val KEY_SWIPE_RIGHT_ACTION = "swipe_right_action"
 private const val KEY_CAT_ICON_ACTION = "cat_icon_action"
@@ -49,6 +50,7 @@ private const val KEY_FONT_SIZE_ALL_APPS = "font_size_all_apps"
 private const val KEY_FONT_SIZE_NOTIFICATIONS = "font_size_notifications"
 private const val KEY_HIDE_STATUS_BAR = "hide_status_bar"
 private const val KEY_USE_24H_FORMAT = "use_24h_format"
+private const val KEY_PREFERRED_APP_LIST = "preferred_app_list"
 private const val DEFAULT_FAVORITE_COUNT = 4
 private const val DEFAULT_BATTERY_THRESHOLD = 50
 private const val DEFAULT_FONT = "Sans Serif"
@@ -86,6 +88,9 @@ class FavoritesRepository(private val context: Context) {
     private val _gesturesEnabled = MutableStateFlow(prefs.getBoolean(KEY_GESTURES_ENABLED, false))
     val gesturesEnabled = _gesturesEnabled.asStateFlow()
 
+    private val _keepAllAppsButton = MutableStateFlow(prefs.getBoolean(KEY_KEEP_ALL_APPS_BUTTON, false))
+    val keepAllAppsButton = _keepAllAppsButton.asStateFlow()
+
     private val _swipeLeftAction = MutableStateFlow(prefs.getString(KEY_SWIPE_LEFT_ACTION, "none") ?: "none")
     val swipeLeftAction = _swipeLeftAction.asStateFlow()
 
@@ -122,6 +127,9 @@ class FavoritesRepository(private val context: Context) {
     private val _hideStatusBar = MutableStateFlow(prefs.getBoolean(KEY_HIDE_STATUS_BAR, true))
     val hideStatusBar = _hideStatusBar.asStateFlow()
 
+    private val _preferredAppList = MutableStateFlow(prefs.getString(KEY_PREFERRED_APP_LIST, "All Apps") ?: "All Apps")
+    val preferredAppList = _preferredAppList.asStateFlow()
+
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
             KEY_FAVORITE_COUNT, KEY_FAVORITES -> {
@@ -148,6 +156,9 @@ class FavoritesRepository(private val context: Context) {
             }
             KEY_GESTURES_ENABLED -> {
                 _gesturesEnabled.value = prefs.getBoolean(KEY_GESTURES_ENABLED, false)
+            }
+            KEY_KEEP_ALL_APPS_BUTTON -> {
+                _keepAllAppsButton.value = prefs.getBoolean(KEY_KEEP_ALL_APPS_BUTTON, false)
             }
             KEY_SWIPE_LEFT_ACTION -> {
                 val action = prefs.getString(KEY_SWIPE_LEFT_ACTION, "none") ?: "none"
@@ -197,6 +208,9 @@ class FavoritesRepository(private val context: Context) {
             }
             KEY_HIDE_STATUS_BAR -> {
                 _hideStatusBar.value = prefs.getBoolean(KEY_HIDE_STATUS_BAR, false)
+            }
+            KEY_PREFERRED_APP_LIST -> {
+                _preferredAppList.value = prefs.getString(KEY_PREFERRED_APP_LIST, "All Apps") ?: "All Apps"
             }
         }
     }
@@ -324,6 +338,10 @@ class FavoritesRepository(private val context: Context) {
         prefs.edit().putBoolean(KEY_GESTURES_ENABLED, enabled).apply()
     }
 
+    fun saveKeepAllAppsButton(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_KEEP_ALL_APPS_BUTTON, enabled).apply()
+    }
+
     fun saveSwipeLeftAction(action: String) {
         prefs.edit().putString(KEY_SWIPE_LEFT_ACTION, action).apply()
     }
@@ -375,6 +393,10 @@ class FavoritesRepository(private val context: Context) {
     fun saveHideStatusBar(hide: Boolean) {
         prefs.edit().putBoolean(KEY_HIDE_STATUS_BAR, hide).apply()
     }
+
+    fun savePreferredAppList(list: String) {
+        prefs.edit().putString(KEY_PREFERRED_APP_LIST, list).apply()
+    }
 }
 
 enum class Screen {
@@ -388,12 +410,22 @@ enum class Screen {
 
 class MainActivity : ComponentActivity() {
     private lateinit var favoritesRepository: FavoritesRepository
+    private lateinit var usageRepository: UsageRepository
     private lateinit var birthdaysRepository: BirthdaysRepository
     private lateinit var remindersRepository: RemindersRepository
     private val _currentScreen = MutableStateFlow(Screen.Home)
     private var lastBackPressTime = 0L
     private val _currentPage = MutableStateFlow(0)
     private var previousScreen: Screen? = null
+
+    private val screenOffReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+            if (intent?.action == android.content.Intent.ACTION_SCREEN_OFF) {
+                _currentScreen.value = Screen.Home
+                _currentPage.value = 0
+            }
+        }
+    }
 
     companion object {
         private val _activeCallInfo = MutableStateFlow<String?>(null)
@@ -418,8 +450,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         favoritesRepository = FavoritesRepository(this)
+        usageRepository = UsageRepository(this)
         birthdaysRepository = BirthdaysRepository(this)
         remindersRepository = RemindersRepository(this)
+
+        val filter = android.content.IntentFilter(android.content.Intent.ACTION_SCREEN_OFF)
+        registerReceiver(screenOffReceiver, filter)
 
         requestPermissions()
 
@@ -561,6 +597,7 @@ class MainActivity : ComponentActivity() {
                             onShowBirthdaysClicked = { navigateTo(Screen.Birthdays) },
                             onShowRemindersClicked = { navigateTo(Screen.Reminders) },
                             onLaunchAppClicked = { packageName ->
+                                usageRepository.incrementUsage(packageName)
                                 val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
                                 if (launchIntent != null) {
                                     launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -576,8 +613,10 @@ class MainActivity : ComponentActivity() {
                             onDismiss = { _currentScreen.value = Screen.Home },
                             onShowSettingsClicked = { navigateTo(Screen.Settings) },
                             favoritesRepository = favoritesRepository,
+                            usageRepository = usageRepository,
                             onLockedLetterChanged = { lockedLetter = it },
-                            lockedLetter = lockedLetter
+                            lockedLetter = lockedLetter,
+                            onAppLaunched = { pkg -> usageRepository.incrementUsage(pkg) }
                         )
                         Screen.Notifications -> NotificationsScreen(
                             remindersRepository = remindersRepository,
@@ -651,6 +690,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        unregisterReceiver(screenOffReceiver)
         favoritesRepository.cleanup()
         birthdaysRepository.cleanup()
         remindersRepository.cleanup()

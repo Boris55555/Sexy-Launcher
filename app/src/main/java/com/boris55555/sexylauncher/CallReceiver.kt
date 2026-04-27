@@ -29,6 +29,13 @@ class CallReceiver : BroadcastReceiver() {
             }
 
             onCallStateChanged(context, state, number)
+            
+            // Pass the number to NotificationListener for real-time name resolution
+            if (number != null) {
+                NotificationListener.lastKnownNumber = number
+                Log.d("CallReceiver", "Set lastKnownNumber: $number")
+                NotificationListener.instance?.refreshCallInfo()
+            }
         }
     }
 

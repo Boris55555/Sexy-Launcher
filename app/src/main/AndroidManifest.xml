@@ -19,6 +19,9 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <package android:name="com.mediatek.duraspeed" />
+        <package android:name="com.mediatek.duraspeen" />
+        <package android:name="com.duraspeed" />
     </queries>
 
     <application

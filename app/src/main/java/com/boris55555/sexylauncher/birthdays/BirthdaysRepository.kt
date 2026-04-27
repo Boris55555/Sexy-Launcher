@@ -6,7 +6,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.time.LocalDate
 import java.time.LocalTime
+import android.database.sqlite.SQLiteDatabase
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import java.io.File
+import java.io.FileOutputStream
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 
 private const val PREFS_NAME = "BirthdayPrefs"
 private const val KEY_BIRTHDAYS = "birthdays"
@@ -62,6 +68,110 @@ class BirthdaysRepository(private val context: Context) {
 
     fun cleanup() {
         prefs.unregisterOnSharedPreferenceChangeListener(listener)
+    }
+
+    fun importFromBirdayJson(jsonString: String): Int {
+        val gson = Gson()
+        val eventType = object : TypeToken<List<Map<String, Any>>>() {}.type
+        val importedEvents: List<Map<String, Any>> = try {
+            gson.fromJson(jsonString, eventType)
+        } catch (e: Exception) {
+            return -1
+        }
+
+        var importedCount = 0
+        val currentBirthdays = getBirthdays()
+        var nextId = (currentBirthdays.maxOfOrNull { it.id } ?: 0) + 1
+        val updatedBirthdays = currentBirthdays.toMutableList()
+
+        importedEvents.forEach { event ->
+            val name = event["name"] as? String ?: ""
+            val surname = event["surname"] as? String ?: ""
+            val fullName = if (surname.isNotBlank()) "$name $surname" else name
+            val originalDateStr = event["originalDate"] as? String // YYYY-MM-DD
+
+            if (fullName.isNotBlank() && originalDateStr != null) {
+                try {
+                    val date = LocalDate.parse(originalDateStr) // Parses ISO_LOCAL_DATE (YYYY-MM-DD)
+                    
+                    // Check if already exists (basic name + date check)
+                    val exists = currentBirthdays.any { it.name == fullName && it.date == date }
+                    if (!exists) {
+                        val newBirthday = Birthday(id = nextId++, name = fullName, date = date)
+                        updatedBirthdays.add(newBirthday)
+                        alarmScheduler.schedule(newBirthday)
+                        importedCount++
+                    }
+                } catch (e: DateTimeParseException) {
+                    // Skip invalid dates
+                }
+            }
+        }
+
+        if (importedCount > 0) {
+            saveBirthdays(updatedBirthdays)
+        }
+        return importedCount
+    }
+
+    fun importFromBirdayBackup(file: File): Int {
+        var importedCount = 0
+        val tempDbFile = File(context.cacheDir, "temp_birday_import.db")
+        
+        try {
+            // Copy the source file to a temp file we can open as SQLite
+            file.inputStream().use { input ->
+                FileOutputStream(tempDbFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+
+            val db = SQLiteDatabase.openDatabase(tempDbFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
+            val cursor = db.rawQuery("SELECT name, surname, originalDate FROM event", null)
+
+            val currentBirthdays = getBirthdays()
+            var nextId = (currentBirthdays.maxOfOrNull { it.id } ?: 0) + 1
+            val updatedBirthdays = currentBirthdays.toMutableList()
+
+            if (cursor.moveToFirst()) {
+                do {
+                    val name = cursor.getString(0) ?: ""
+                    val surname = cursor.getString(1) ?: ""
+                    val fullName = if (surname.isNotBlank()) "$name $surname" else name
+                    val originalDateStr = cursor.getString(2) // Birday stores as Long or String, but usually String YYYY-MM-DD
+
+                    if (fullName.isNotBlank() && originalDateStr != null) {
+                        try {
+                            // Birday stores dates in ISO format YYYY-MM-DD
+                            val date = LocalDate.parse(originalDateStr)
+                            
+                            val exists = currentBirthdays.any { it.name == fullName && it.date == date }
+                            if (!exists) {
+                                val newBirthday = Birthday(id = nextId++, name = fullName, date = date)
+                                updatedBirthdays.add(newBirthday)
+                                alarmScheduler.schedule(newBirthday)
+                                importedCount++
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("BirthdaysRepository", "Failed to parse date: $originalDateStr for $fullName", e)
+                        }
+                    }
+                } while (cursor.moveToNext())
+            }
+            cursor.close()
+            db.close()
+
+            if (importedCount > 0) {
+                saveBirthdays(updatedBirthdays)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return -1
+        } finally {
+            tempDbFile.delete()
+        }
+
+        return importedCount
     }
 
     private fun saveBirthdays(birthdays: List<Birthday>) {

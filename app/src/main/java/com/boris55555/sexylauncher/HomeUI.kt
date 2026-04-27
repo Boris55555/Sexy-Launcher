@@ -149,6 +149,7 @@ fun getNotificationCategory(sbn: StatusBarNotification, context: Context): Notif
         packageName.contains("dialer") ||
         packageName.contains("telecom") ||
         packageName.contains("phone") ||
+        packageName.contains("incallui") ||
         packageName == "com.mudita.dial"
             -> NotificationCategory.CALLS
 
@@ -238,8 +239,9 @@ fun getNotificationCount(sbn: StatusBarNotification): Int {
 fun NotificationIndicator(notifications: List<StatusBarNotification>, onClick: () -> Unit) {
     val context = LocalContext.current
     val missedCallsCount by NotificationListener.missedCallsCount.collectAsState()
+    val activeCall by NotificationListener.activeCall.collectAsState()
 
-    val groupedNotifications = remember(notifications, missedCallsCount) {
+    val groupedNotifications = remember(notifications, missedCallsCount, activeCall) {
         val result = mutableMapOf<NotificationCategory, Int>()
         
         notifications.forEach { sbn ->
@@ -256,8 +258,15 @@ fun NotificationIndicator(notifications: List<StatusBarNotification>, onClick: (
         // Count actual notifications that are not the missed call notifications we track via log
         val otherCallNotificationsCount = callNotifications.filter { it.notification.category != Notification.CATEGORY_MISSED_CALL }.sumOf { getNotificationCount(it) }
         
-        // Final call count = (other call notifications like Voicemail) + (actual missed calls from log)
-        val finalCallCount = otherCallNotificationsCount + missedCallsCount
+        // Check if we already have an ongoing call notification in the list
+        val hasOngoingCallNotification = callNotifications.any { (it.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0 }
+
+        // Final call count = (other call notifications like Voicemail) + (actual missed calls from log) + (1 if call is active and NOT already in notifications)
+        var finalCallCount = otherCallNotificationsCount + missedCallsCount
+        if (activeCall != null && !hasOngoingCallNotification) {
+            finalCallCount += 1
+        }
+
         if (finalCallCount > 0) {
             result[NotificationCategory.CALLS] = finalCallCount
         }
@@ -368,17 +377,17 @@ fun FavoriteAppItem(
             if (totalCount > 0) {
                 Box(
                     modifier = Modifier
-                        .padding(start = 8.dp)
-                        .border(BorderStroke(2.dp, Color.Black), shape = CircleShape)
+                        .padding(start = 12.dp)
+                        .border(BorderStroke(3.dp, Color.Black), shape = CircleShape)
                         .background(color = Color.White, shape = CircleShape)
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = if (totalCount > 99) "99+" else totalCount.toString(),
                         color = Color.Black,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.ExtraBold
                     )
                 }
             }
