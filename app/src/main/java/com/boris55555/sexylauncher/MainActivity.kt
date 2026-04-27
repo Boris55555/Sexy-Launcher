@@ -51,6 +51,7 @@ private const val KEY_FONT_SIZE_NOTIFICATIONS = "font_size_notifications"
 private const val KEY_HIDE_STATUS_BAR = "hide_status_bar"
 private const val KEY_USE_24H_FORMAT = "use_24h_format"
 private const val KEY_PREFERRED_APP_LIST = "preferred_app_list"
+private const val KEY_HIDDEN_FROM_TOP10 = "hidden_from_top10"
 private const val DEFAULT_FAVORITE_COUNT = 4
 private const val DEFAULT_BATTERY_THRESHOLD = 50
 private const val DEFAULT_FONT = "Sans Serif"
@@ -129,6 +130,9 @@ class FavoritesRepository(private val context: Context) {
 
     private val _preferredAppList = MutableStateFlow(prefs.getString(KEY_PREFERRED_APP_LIST, "All Apps") ?: "All Apps")
     val preferredAppList = _preferredAppList.asStateFlow()
+
+    private val _hiddenFromTop10 = MutableStateFlow(prefs.getStringSet(KEY_HIDDEN_FROM_TOP10, emptySet()) ?: emptySet())
+    val hiddenFromTop10 = _hiddenFromTop10.asStateFlow()
 
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
@@ -396,6 +400,17 @@ class FavoritesRepository(private val context: Context) {
 
     fun savePreferredAppList(list: String) {
         prefs.edit().putString(KEY_PREFERRED_APP_LIST, list).apply()
+    }
+
+    fun toggleHiddenFromTop10(packageName: String) {
+        val current = _hiddenFromTop10.value.toMutableSet()
+        if (current.contains(packageName)) {
+            current.remove(packageName)
+        } else {
+            current.add(packageName)
+        }
+        prefs.edit().putStringSet(KEY_HIDDEN_FROM_TOP10, current).apply()
+        _hiddenFromTop10.value = current
     }
 }
 

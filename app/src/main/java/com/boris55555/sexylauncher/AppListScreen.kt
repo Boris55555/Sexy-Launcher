@@ -85,6 +85,7 @@ fun AppListScreen(
     val showAppIcons by favoritesRepository.showAppIcons.collectAsState()
     val fontSizeAllApps by favoritesRepository.fontSizeAllApps.collectAsState()
     val preferredAppList by favoritesRepository.preferredAppList.collectAsState()
+    val hiddenFromTop10 by favoritesRepository.hiddenFromTop10.collectAsState()
     val usageMap by (usageRepository?.usageMap ?: MutableStateFlow<Map<String, Int>>(emptyMap())).collectAsState()
     val favorites by favoritesRepository.favorites.collectAsState()
 
@@ -175,7 +176,11 @@ fun AppListScreen(
                     uninstallLauncher.launch(intent)
                 }
             } else null,
-            showAppIcons = showAppIcons
+            showAppIcons = showAppIcons,
+            isHiddenFromTop10 = app.packageName in hiddenFromTop10,
+            onToggleHideFromTop10 = if (selectedTab == "Top 10" || app.packageName in hiddenFromTop10) {
+                { favoritesRepository.toggleHiddenFromTop10(app.packageName) }
+            } else null
         )
     }
 
@@ -277,7 +282,7 @@ fun AppListScreen(
                 userScrollEnabled = lockedLetter == null && !isPickerMode
             ) { page ->
                 val currentTabForPage = if (page == 0) "All Apps" else "Top 10"
-                val listItems = remember(apps, lockedLetter, usageMap, isPickerMode, currentTabForPage, favorites) {
+                val listItems = remember(apps, lockedLetter, usageMap, isPickerMode, currentTabForPage, favorites, hiddenFromTop10) {
                     val items = mutableListOf<Any>()
 
                     if (isPickerMode) {
@@ -291,7 +296,7 @@ fun AppListScreen(
 
                     if (currentTabForPage == "Top 10" && lockedLetter == null) {
                         val topApps = usageMap.entries
-                            .filter { it.key !in favorites }
+                            .filter { it.key !in favorites && it.key !in hiddenFromTop10 }
                             .sortedByDescending { it.value }
                             .take(10)
                             .mapNotNull { entry -> apps.find { it.packageName == entry.key } }

@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Tune
@@ -99,6 +100,16 @@ fun SettingsScreen(
     val use24hFormat by favoritesRepository.use24hFormat.collectAsState()
     val preferredAppList by favoritesRepository.preferredAppList.collectAsState()
 
+    var isDefaultLauncher by remember { mutableStateOf(false) }
+
+    // Check if we are the default launcher
+    fun checkDefaultLauncher() {
+        val intent = Intent(Intent.ACTION_MAIN)
+        intent.addCategory(Intent.CATEGORY_HOME)
+        val resolveInfo = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        isDefaultLauncher = resolveInfo?.activityInfo?.packageName == context.packageName
+    }
+
     var showHelpDialog by remember { mutableStateOf(false) }
 
     val favoriteCount by favoritesRepository.favoriteCount.collectAsState()
@@ -148,6 +159,7 @@ fun SettingsScreen(
     // This makes the permission status update if the user grants it and returns to the app
     LaunchedEffect(Unit) {
         while(true) {
+            checkDefaultLauncher()
             val isEnabled = isNotificationServiceEnabled(context)
             if (isEnabled != hasNotificationPermission) {
                 hasNotificationPermission = isEnabled
@@ -241,7 +253,7 @@ fun SettingsScreen(
                 contactsPermissionLauncher = contactsPermissionLauncher
             )
 
-            DefaultLauncherSection(context)
+            DefaultLauncherSection(context, isDefaultLauncher)
 
             AppSelectionSection(
                 alarmAppName = alarmAppName,
@@ -411,15 +423,19 @@ fun PermissionSection(
 }
 
 @Composable
-fun DefaultLauncherSection(context: Context) {
+fun DefaultLauncherSection(context: Context, isDefault: Boolean) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { context.startActivity(Intent(Settings.ACTION_HOME_SETTINGS)) }
             .padding(vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text("Set as default launcher", fontSize = 18.sp, color = Color.Black)
+        if (isDefault) {
+            Icon(Icons.Default.Check, contentDescription = "Default Launcher", tint = Color.Black)
+        }
     }
 
     HorizontalDivider(color = Color.Black)

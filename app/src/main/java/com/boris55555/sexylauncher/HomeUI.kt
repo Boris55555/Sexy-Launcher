@@ -38,6 +38,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -465,7 +467,9 @@ fun RenameAppDialog(
     onDismiss: () -> Unit,
     onRename: (String) -> Unit,
     onUninstall: (() -> Unit)? = null,
-    showAppIcons: Boolean
+    showAppIcons: Boolean,
+    isHiddenFromTop10: Boolean = false,
+    onToggleHideFromTop10: (() -> Unit)? = null
 ) {
     var newName by remember { mutableStateOf(appInfo.customName ?: appInfo.name) }
     val context = LocalContext.current
@@ -486,10 +490,13 @@ fun RenameAppDialog(
         title = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     if (appIcon != null) {
                         Image(
                             painter = rememberDrawablePainter(drawable = appIcon),
@@ -502,13 +509,24 @@ fun RenameAppDialog(
                         text = "Edit ${appInfo.name}",
                         color = Color.Black,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
-                if (onUninstall != null) {
-                    IconButton(onClick = onUninstall) {
-                        Icon(Icons.Default.Delete, contentDescription = "Uninstall", tint = Color.Black)
+                
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (onToggleHideFromTop10 != null) {
+                        IconButton(onClick = onToggleHideFromTop10) {
+                            Icon(
+                                imageVector = if (isHiddenFromTop10) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (isHiddenFromTop10) "Show in Top 10" else "Hide from Top 10",
+                                tint = Color.Black
+                            )
+                        }
+                    }
+                    if (onUninstall != null) {
+                        IconButton(onClick = onUninstall) {
+                            Icon(Icons.Default.Delete, contentDescription = "Uninstall", tint = Color.Black)
+                        }
                     }
                 }
             }
