@@ -380,15 +380,15 @@ fun FavoriteAppItem(
                 Box(
                     modifier = Modifier
                         .padding(start = 12.dp)
-                        .border(BorderStroke(3.dp, Color.Black), shape = CircleShape)
+                        .border(BorderStroke(2.dp, Color.Black), shape = CircleShape)
                         .background(color = Color.White, shape = CircleShape)
-                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                        .padding(horizontal = 6.dp, vertical = 1.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = if (totalCount > 99) "99+" else totalCount.toString(),
                         color = Color.Black,
-                        fontSize = 16.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
                 }
