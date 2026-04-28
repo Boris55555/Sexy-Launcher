@@ -15,7 +15,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.boris55555.sexylauncher"
-    compileSdk = 36
+    compileSdk = 35
 
     signingConfigs {
         create("release") {
@@ -31,9 +31,9 @@ android {
     defaultConfig {
         applicationId = "com.boris55555.sexylauncher"
         minSdk = 31
-        targetSdk = 36
-        versionCode = 71
-        versionName = "4.7"
+        targetSdk = 35
+        versionCode = 72
+        versionName = "4.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
