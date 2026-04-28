@@ -32,8 +32,8 @@ android {
         applicationId = "com.boris55555.sexylauncher"
         minSdk = 31
         targetSdk = 36
-        versionCode = 70
-        versionName = "4.6"
+        versionCode = 71
+        versionName = "4.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

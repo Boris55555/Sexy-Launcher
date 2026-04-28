@@ -27,7 +27,14 @@ Builds:
     gradle:
       - assembleRelease
 
+  - versionName: "4.7"
+    versionCode: 71
+    commit: v4.7
+    subdir: app
+    gradle:
+      - assembleRelease
+
 AutoUpdateMode: Version %v
 UpdateCheckMode: Tags
-CurrentVersion: "4.6"
-CurrentVersionCode: 70
+CurrentVersion: "4.7"
+CurrentVersionCode: 71

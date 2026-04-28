@@ -282,15 +282,24 @@ fun NotificationsScreen(
                                                 } catch (e2: Exception) {
                                                     val launchIntent = context.packageManager.getLaunchIntentForPackage(item.packageName)
                                                     launchIntent?.let {
-                                                        it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                        it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                                                         context.startActivity(it)
                                                     }
                                                 }
                                             }
                                         } else {
                                             try {
-                                                val intent = item.notification.fullScreenIntent ?: item.notification.contentIntent
-                                                intent?.send()
+                                                // Priorisoidaan contentIntent viesteissä, jotta oikea keskustelu aukeaa
+                                                val intent = item.notification.contentIntent ?: item.notification.fullScreenIntent
+                                                if (intent != null) {
+                                                    intent.send()
+                                                } else {
+                                                    val launchIntent = context.packageManager.getLaunchIntentForPackage(item.packageName)
+                                                    launchIntent?.let {
+                                                        it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                        context.startActivity(it)
+                                                    }
+                                                }
                                             } catch (e: Exception) {
                                                 val pm = context.packageManager
                                                 var launchIntent = pm.getLaunchIntentForPackage(item.packageName)
