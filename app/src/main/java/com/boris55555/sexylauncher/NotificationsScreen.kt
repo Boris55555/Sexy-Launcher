@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -46,6 +47,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.BluetoothConnected
 import com.boris55555.sexylauncher.reminders.RemindersRepository
 import androidx.compose.foundation.shape.RoundedCornerShape
 
@@ -60,12 +62,14 @@ data class MissedCallInfo(
 fun NotificationsScreen(
     remindersRepository: RemindersRepository,
     favoritesRepository: FavoritesRepository,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    bluetoothState: MainActivity.BluetoothState
 ) {
     val notifications by NotificationListener.notifications.collectAsState()
     val activeCallInfo by NotificationListener.activeCall.collectAsState()
     val context = LocalContext.current
     val fontSizeNotifications by favoritesRepository.fontSizeNotifications.collectAsState()
+    val notificationMaxCharacters by favoritesRepository.notificationMaxCharacters.collectAsState()
 
     val fontSizeAdjustment = when (fontSizeNotifications) {
         "Small" -> -2
@@ -164,6 +168,41 @@ fun NotificationsScreen(
                 modifier = Modifier.padding(16.dp),
                 color = Color.Black
             )
+
+            // BLUETOOTH STATUS
+            if (bluetoothState is MainActivity.BluetoothState.Connected) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .background(Color.White, RoundedCornerShape(8.dp))
+                        .border(BorderStroke(2.dp, Color.Black), RoundedCornerShape(8.dp))
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Filled.BluetoothConnected,
+                        contentDescription = "Bluetooth Connected",
+                        tint = Color.Black,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Connected Device",
+                            fontSize = (12 + fontSizeAdjustment).sp,
+                            fontWeight = FontWeight.Normal,
+                            color = Color.Black
+                        )
+                        Text(
+                            text = bluetoothState.deviceName,
+                            fontSize = (18 + fontSizeAdjustment).sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                    }
+                }
+            }
 
             // ACTIVE CALL
             if (activeCallInfo != null) {
@@ -283,7 +322,8 @@ fun NotificationsScreen(
                                         onDismiss() // Sulje ilmoitusnäkymä kun viesti avataan
                                     },
                                     onDismiss = { NotificationListener.instance?.dismissNotification(item.key) },
-                                    fontSizeAdjustment = fontSizeAdjustment
+                                    fontSizeAdjustment = fontSizeAdjustment,
+                                    maxCharacters = notificationMaxCharacters
                                 )
                             }
                             is MissedCallInfo -> {
@@ -344,7 +384,8 @@ fun NotificationItem(
     sbn: StatusBarNotification,
     onClick: () -> Unit,
     onDismiss: () -> Unit,
-    fontSizeAdjustment: Int = 0
+    fontSizeAdjustment: Int = 0,
+    maxCharacters: Int = 30
 ) {
     val context = LocalContext.current
     val packageManager = context.packageManager
@@ -416,11 +457,23 @@ fun NotificationItem(
                 Text(text = title, fontSize = (16 + fontSizeAdjustment).sp, color = Color.Black)
             }
             if (allMessages.isNotEmpty()) {
-                allMessages.forEach { msg ->
-                    Text(text = msg, fontSize = (14 + fontSizeAdjustment).sp, color = Color.Black, modifier = Modifier.padding(top = 2.dp))
+                Spacer(modifier = Modifier.height(4.dp))
+                allMessages.forEachIndexed { index, msg ->
+                    if (index > 0) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 6.dp),
+                            thickness = 1.dp,
+                            color = Color.Black
+                        )
+                    }
+                    val displayMsg = if (msg.length > maxCharacters) msg.take(maxCharacters) + "…" else msg
+                    Text(text = displayMsg, fontSize = (14 + fontSizeAdjustment).sp, color = Color.Black)
                 }
             } else if (!text.isNullOrBlank()) {
-                Text(text = text.toString(), fontSize = (14 + fontSizeAdjustment).sp, color = Color.Black)
+                Spacer(modifier = Modifier.height(4.dp))
+                val msg = text.toString()
+                val displayMsg = if (msg.length > maxCharacters) msg.take(maxCharacters) + "…" else msg
+                Text(text = displayMsg, fontSize = (14 + fontSizeAdjustment).sp, color = Color.Black)
             }
         }
         if (sbn.isClearable) {

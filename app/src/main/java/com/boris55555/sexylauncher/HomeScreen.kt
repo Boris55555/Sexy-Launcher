@@ -50,6 +50,9 @@ import androidx.compose.material.icons.filled.Battery2Bar
 import androidx.compose.material.icons.filled.Battery4Bar
 import androidx.compose.material.icons.filled.Battery6Bar
 import androidx.compose.material.icons.filled.BatteryFull
+import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.BluetoothConnected
+import androidx.compose.material.icons.filled.BluetoothDisabled
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
@@ -101,7 +104,8 @@ fun HomeScreen(
     onShowSettingsClicked: () -> Unit,
     onEditFavorite: (Int) -> Unit,
     currentPage: Int,
-    onCurrentPageChanged: (Int) -> Unit
+    onCurrentPageChanged: (Int) -> Unit,
+    bluetoothState: MainActivity.BluetoothState
 ) {
     MainHomeScreen(
         favoritesRepository,
@@ -114,7 +118,8 @@ fun HomeScreen(
         onShowSettingsClicked,
         onEditFavorite,
         currentPage,
-        onCurrentPageChanged
+        onCurrentPageChanged,
+        bluetoothState
     )
 }
 
@@ -131,7 +136,8 @@ fun MainHomeScreen(
     onShowSettingsClicked: () -> Unit,
     onEditFavorite: (Int) -> Unit,
     currentPage: Int,
-    onCurrentPageChanged: (Int) -> Unit
+    onCurrentPageChanged: (Int) -> Unit,
+    bluetoothState: MainActivity.BluetoothState
 ) {
     val context = LocalContext.current
     val packageManager = context.packageManager
@@ -150,6 +156,7 @@ fun MainHomeScreen(
     val catIconAction by favoritesRepository.catIconAction.collectAsState()
     val keepAllAppsButton by favoritesRepository.keepAllAppsButton.collectAsState()
     val showAppIcons by favoritesRepository.showAppIcons.collectAsState()
+    val showNotificationPreviews by favoritesRepository.showNotificationPreviews.collectAsState()
     val fontSizeHome by favoritesRepository.fontSizeHome.collectAsState()
     val use24hFormat by favoritesRepository.use24hFormat.collectAsState()
 
@@ -500,6 +507,7 @@ fun MainHomeScreen(
                 ) {
                     NotificationIndicator(
                         notifications = notifications,
+                        bluetoothState = bluetoothState,
                         onClick = {
                             NotificationListener.instance?.requestRefresh()
                             onShowNotificationsClicked()
@@ -581,6 +589,7 @@ fun MainHomeScreen(
                                 app = app, 
                                 notifications = notifications.filter { it.packageName == app.packageName }.sortedByDescending { it.postTime }, 
                                 showAppIcons = showAppIcons,
+                                showNotificationPreviews = showNotificationPreviews,
                                 onLongClick = { 
                                     if (!isHomeLocked) {
                                         onEditFavorite(i)

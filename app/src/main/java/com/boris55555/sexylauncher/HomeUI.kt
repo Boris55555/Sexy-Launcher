@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.AlternateEmail
 import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MusicNote
@@ -126,6 +127,7 @@ enum class NotificationCategory(val icon: ImageVector) {
     CALENDAR(Icons.Default.CalendarToday),
     REMINDERS(Icons.Default.Notifications),
     AUDIO(Icons.Default.MusicNote),
+    BLUETOOTH(Icons.Filled.BluetoothConnected),
     OTHER(Icons.Default.Android)
 }
 
@@ -238,20 +240,30 @@ fun getNotificationCount(sbn: StatusBarNotification): Int {
 }
 
 @Composable
-fun NotificationIndicator(notifications: List<StatusBarNotification>, onClick: () -> Unit) {
+fun NotificationIndicator(
+    notifications: List<StatusBarNotification>,
+    bluetoothState: MainActivity.BluetoothState = MainActivity.BluetoothState.Disabled,
+    onClick: () -> Unit
+) {
     val context = LocalContext.current
     val missedCallsCount by NotificationListener.missedCallsCount.collectAsState()
+    val unreadSmsCount by NotificationListener.unreadSmsCount.collectAsState()
     val activeCall by NotificationListener.activeCall.collectAsState()
 
-    val groupedNotifications = remember(notifications, missedCallsCount, activeCall) {
+    val groupedNotifications = remember(notifications, missedCallsCount, unreadSmsCount, activeCall, bluetoothState) {
         val result = mutableMapOf<NotificationCategory, Int>()
         
         notifications.forEach { sbn ->
             val category = getNotificationCategory(sbn, context)
-            if (category != NotificationCategory.CALLS) {
+            if (category != NotificationCategory.CALLS && category != NotificationCategory.MESSAGES) {
                 val count = getNotificationCount(sbn)
                 result[category] = (result[category] ?: 0) + count
             }
+        }
+
+        // Bluetooth connected state
+        if (bluetoothState is MainActivity.BluetoothState.Connected) {
+            result[NotificationCategory.BLUETOOTH] = 1
         }
 
         // Special handling for CALLS to sync with missedCallsCount and avoid double counting
@@ -273,6 +285,19 @@ fun NotificationIndicator(notifications: List<StatusBarNotification>, onClick: (
             result[NotificationCategory.CALLS] = finalCallCount
         }
 
+        // Special handling for MESSAGES to sync with unreadSmsCount
+        val messageNotifications = notifications.filter { getNotificationCategory(it, context) == NotificationCategory.MESSAGES }
+        
+        // Count actual notifications that are NOT from the default SMS app (to avoid double counting with unreadSmsCount)
+        // We assume the default SMS app is the one we track via unreadSmsCount
+        val smsAppPackages = listOf("com.mudita.messages", "com.android.messaging", "com.google.android.apps.messaging")
+        val otherMessageNotificationsCount = messageNotifications.filter { it.packageName !in smsAppPackages }.sumOf { getNotificationCount(it) }
+        
+        val finalMessageCount = otherMessageNotificationsCount + unreadSmsCount
+        if (finalMessageCount > 0) {
+            result[NotificationCategory.MESSAGES] = finalMessageCount
+        }
+
         result
     }
 
@@ -292,13 +317,15 @@ fun NotificationIndicator(notifications: List<StatusBarNotification>, onClick: (
                         contentDescription = entry.key.name,
                         tint = Color.Black
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = entry.value.toString(),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
+                    if (entry.key != NotificationCategory.BLUETOOTH) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = entry.value.toString(),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                    }
                 }
                 if (index < groupedNotifications.size - 1) {
                     Spacer(modifier = Modifier.width(16.dp))
@@ -314,6 +341,7 @@ fun FavoriteAppItem(
     app: AppInfo, 
     notifications: List<StatusBarNotification>, 
     showAppIcons: Boolean,
+    showNotificationPreviews: Boolean = true,
     onLongClick: () -> Unit, 
     onClick: () -> Unit,
     fontSizeAdjustment: Int = 0
@@ -321,6 +349,7 @@ fun FavoriteAppItem(
     val context = LocalContext.current
     val packageManager = context.packageManager
     val missedCallsCount by NotificationListener.missedCallsCount.collectAsState()
+    val unreadSmsCount by NotificationListener.unreadSmsCount.collectAsState()
 
     val appIcon: Drawable? = if (showAppIcons) {
         try {
@@ -336,12 +365,24 @@ fun FavoriteAppItem(
     val isPhoneApp = app.packageName == "com.mudita.dial" || 
                      app.packageName.contains("dialer") || 
                      app.packageName.contains("telecom")
+    
+    val isSmsApp = app.packageName == "com.mudita.messages" ||
+                   app.packageName == "com.android.messaging" ||
+                   app.packageName == "com.google.android.apps.messaging"
 
-    val totalCount = if (isPhoneApp) {
-        val otherCallNotificationsCount = notifications.filter { it.notification.category != Notification.CATEGORY_MISSED_CALL }.sumOf { getNotificationCount(it) }
-        otherCallNotificationsCount + missedCallsCount
-    } else {
-        notifications.sumOf { getNotificationCount(it) }
+    val totalCount = when {
+        isPhoneApp -> {
+            val otherCallNotificationsCount = notifications.filter { it.notification.category != Notification.CATEGORY_MISSED_CALL }.sumOf { getNotificationCount(it) }
+            otherCallNotificationsCount + missedCallsCount
+        }
+        isSmsApp -> {
+            // For SMS app, prioritize database count but also include its own notifications if they represent more info
+            // (though usually they are in sync)
+            unreadSmsCount
+        }
+        else -> {
+            notifications.sumOf { getNotificationCount(it) }
+        }
     }
     
     val activeCallInfo by MainActivity.activeCallInfo.collectAsState()
@@ -397,52 +438,54 @@ fun FavoriteAppItem(
         
         var previewText: String? = null
         
-        if (isPhoneApp && activeCallInfo != null) {
-            previewText = activeCallInfo
-        } else if (isPhoneApp && missedCallsCount > 0) {
-            // Priority: Show missed call info if it's the phone app and we have missed calls
-            try {
-                val cursor = context.contentResolver.query(
-                    CallLog.Calls.CONTENT_URI,
-                    arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME),
-                    "${CallLog.Calls.TYPE} = ${CallLog.Calls.MISSED_TYPE} AND (${CallLog.Calls.NEW} = 1 OR ${CallLog.Calls.IS_READ} = 0)",
-                    null,
-                    "${CallLog.Calls.DATE} DESC"
-                )
-                cursor?.use {
-                    if (it.moveToFirst()) {
-                        val nameIdx = it.getColumnIndex(CallLog.Calls.CACHED_NAME)
-                        val numIdx = it.getColumnIndex(CallLog.Calls.NUMBER)
-                        
-                        val name = if (nameIdx != -1) it.getString(nameIdx) else null
-                        val number = if (numIdx != -1) it.getString(numIdx) else null
-                        
-                        val displayInfo = if (!name.isNullOrBlank()) name else number
-                        if (!displayInfo.isNullOrBlank()) {
-                            previewText = "Missed: $displayInfo"
+        if (showNotificationPreviews) {
+            if (isPhoneApp && activeCallInfo != null) {
+                previewText = activeCallInfo
+            } else if (isPhoneApp && missedCallsCount > 0) {
+                // Priority: Show missed call info if it's the phone app and we have missed calls
+                try {
+                    val cursor = context.contentResolver.query(
+                        CallLog.Calls.CONTENT_URI,
+                        arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME),
+                        "${CallLog.Calls.TYPE} = ${CallLog.Calls.MISSED_TYPE} AND (${CallLog.Calls.NEW} = 1 OR ${CallLog.Calls.IS_READ} = 0)",
+                        null,
+                        "${CallLog.Calls.DATE} DESC"
+                    )
+                    cursor?.use {
+                        if (it.moveToFirst()) {
+                            val nameIdx = it.getColumnIndex(CallLog.Calls.CACHED_NAME)
+                            val numIdx = it.getColumnIndex(CallLog.Calls.NUMBER)
+                            
+                            val name = if (nameIdx != -1) it.getString(nameIdx) else null
+                            val number = if (numIdx != -1) it.getString(numIdx) else null
+                            
+                            val displayInfo = if (!name.isNullOrBlank()) name else number
+                            if (!displayInfo.isNullOrBlank()) {
+                                previewText = "Missed: $displayInfo"
+                            }
                         }
                     }
+                } catch (e: Exception) {
+                    // Fallback will be handled below
                 }
-            } catch (e: Exception) {
-                // Fallback will be handled below
-            }
-            if (previewText == null) {
-                previewText = "Missed call"
-            }
-        } 
-        
-        // If we still don't have a preview (or it's not a phone app/no missed calls), check notifications
-        if (previewText == null && notifications.isNotEmpty()) {
-            val firstNotification = notifications.first().notification
-            val extras = firstNotification.extras
-            val title = extras.getString("android.title") ?: extras.getString(Notification.EXTRA_TITLE)
-            val text = extras.getCharSequence("android.text") ?: extras.getCharSequence(Notification.EXTRA_TEXT)
+                if (previewText == null) {
+                    previewText = "Missed call"
+                }
+            } 
+            
+            // If we still don't have a preview (or it's not a phone app/no missed calls), check notifications
+            if (previewText == null && notifications.isNotEmpty()) {
+                val firstNotification = notifications.first().notification
+                val extras = firstNotification.extras
+                val title = extras.getString("android.title") ?: extras.getString(Notification.EXTRA_TITLE)
+                val text = extras.getCharSequence("android.text") ?: extras.getCharSequence(Notification.EXTRA_TEXT)
 
-            previewText = when {
-                !title.isNullOrBlank() && !text.isNullOrBlank() -> "$title: $text"
-                !text.isNullOrBlank() -> text.toString()
-                !title.isNullOrBlank() -> title
-                else -> null
+                previewText = when {
+                    !title.isNullOrBlank() && !text.isNullOrBlank() -> "$title: $text"
+                    !text.isNullOrBlank() -> text.toString()
+                    !title.isNullOrBlank() -> title
+                    else -> null
+                }
             }
         }
 

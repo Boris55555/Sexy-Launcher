@@ -1,13 +1,24 @@
 package com.boris55555.sexylauncher
 
 import android.Manifest
+import android.bluetooth.BluetoothA2dp
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothHeadset
+import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothProfile
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
+import android.util.Log
 import android.view.KeyEvent
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -23,7 +34,9 @@ import com.boris55555.sexylauncher.reminders.RemindersRepository
 import com.boris55555.sexylauncher.reminders.RemindersScreen
 import com.boris55555.sexylauncher.ui.theme.SexyLauncherTheme
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import android.telephony.TelephonyManager
 
 private const val PREFS_NAME = "SexyLauncherPrefs"
@@ -50,11 +63,18 @@ private const val KEY_FONT_SIZE_ALL_APPS = "font_size_all_apps"
 private const val KEY_FONT_SIZE_NOTIFICATIONS = "font_size_notifications"
 private const val KEY_HIDE_STATUS_BAR = "hide_status_bar"
 private const val KEY_USE_24H_FORMAT = "use_24h_format"
+private const val KEY_INITIAL_SETUP_COMPLETE = "initial_setup_complete"
+private const val KEY_ASKED_NOTIFICATION_ACCESS = "asked_notification_access"
+private const val KEY_ASKED_EXACT_ALARM = "asked_exact_alarm"
+private const val KEY_ASKED_RUNTIME_PERMISSIONS = "asked_runtime_permissions"
+private const val KEY_SHOW_NOTIFICATION_PREVIEWS = "show_notification_previews"
+private const val KEY_NOTIFICATION_MAX_CHARACTERS = "notification_max_characters"
 private const val KEY_PREFERRED_APP_LIST = "preferred_app_list"
 private const val KEY_HIDDEN_FROM_TOP10 = "hidden_from_top10"
 private const val DEFAULT_FAVORITE_COUNT = 4
 private const val DEFAULT_BATTERY_THRESHOLD = 50
 private const val DEFAULT_FONT = "Sans Serif"
+private const val DEFAULT_NOTIFICATION_MAX_CHARACTERS = 30
 
 class FavoritesRepository(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -112,6 +132,12 @@ class FavoritesRepository(private val context: Context) {
 
     private val _showAppIcons = MutableStateFlow(prefs.getBoolean(KEY_SHOW_APP_ICONS, false))
     val showAppIcons = _showAppIcons.asStateFlow()
+
+    private val _showNotificationPreviews = MutableStateFlow(prefs.getBoolean(KEY_SHOW_NOTIFICATION_PREVIEWS, true))
+    val showNotificationPreviews = _showNotificationPreviews.asStateFlow()
+
+    private val _notificationMaxCharacters = MutableStateFlow(prefs.getInt(KEY_NOTIFICATION_MAX_CHARACTERS, DEFAULT_NOTIFICATION_MAX_CHARACTERS))
+    val notificationMaxCharacters = _notificationMaxCharacters.asStateFlow()
 
     private val _selectedFont = MutableStateFlow(prefs.getString(KEY_SELECTED_FONT, DEFAULT_FONT) ?: DEFAULT_FONT)
     val selectedFont = _selectedFont.asStateFlow()
@@ -194,6 +220,12 @@ class FavoritesRepository(private val context: Context) {
             }
             KEY_SHOW_APP_ICONS -> {
                 _showAppIcons.value = prefs.getBoolean(KEY_SHOW_APP_ICONS, false)
+            }
+            KEY_SHOW_NOTIFICATION_PREVIEWS -> {
+                _showNotificationPreviews.value = prefs.getBoolean(KEY_SHOW_NOTIFICATION_PREVIEWS, true)
+            }
+            KEY_NOTIFICATION_MAX_CHARACTERS -> {
+                _notificationMaxCharacters.value = prefs.getInt(KEY_NOTIFICATION_MAX_CHARACTERS, DEFAULT_NOTIFICATION_MAX_CHARACTERS)
             }
             KEY_BATTERY_THRESHOLD -> {
                 _batteryThreshold.value = prefs.getInt(KEY_BATTERY_THRESHOLD, DEFAULT_BATTERY_THRESHOLD)
@@ -374,6 +406,14 @@ class FavoritesRepository(private val context: Context) {
         prefs.edit().putBoolean(KEY_SHOW_APP_ICONS, show).apply()
     }
 
+    fun saveShowNotificationPreviews(show: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_NOTIFICATION_PREVIEWS, show).apply()
+    }
+
+    fun saveNotificationMaxCharacters(max: Int) {
+        prefs.edit().putInt(KEY_NOTIFICATION_MAX_CHARACTERS, max).apply()
+    }
+
     fun saveBatteryThreshold(threshold: Int) {
         prefs.edit().putInt(KEY_BATTERY_THRESHOLD, threshold).apply()
     }
@@ -428,6 +468,62 @@ class MainActivity : ComponentActivity() {
     private lateinit var usageRepository: UsageRepository
     private lateinit var birthdaysRepository: BirthdaysRepository
     private lateinit var remindersRepository: RemindersRepository
+
+    private val _bluetoothState = MutableStateFlow<BluetoothState>(BluetoothState.Disabled)
+    val bluetoothState: StateFlow<BluetoothState> = _bluetoothState.asStateFlow()
+
+    sealed class BluetoothState {
+        object Disabled : BluetoothState()
+        object Enabled : BluetoothState()
+        data class Connected(val deviceName: String) : BluetoothState()
+    }
+
+    private val bluetoothReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val action = intent.action
+            val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+            }
+
+            Log.d("MainActivity", "Bluetooth Receiver: action=$action, device=${device?.name}")
+
+            when (action) {
+                BluetoothDevice.ACTION_ACL_CONNECTED -> {
+                    if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+                        val name = device?.name ?: "Connected Device"
+                        _bluetoothState.value = BluetoothState.Connected(name)
+                    } else {
+                        updateBluetoothStatus()
+                    }
+                }
+                BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
+                    updateBluetoothStatus()
+                }
+                BluetoothAdapter.ACTION_STATE_CHANGED -> {
+                    updateBluetoothStatus()
+                }
+                BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED,
+                BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED -> {
+                    val state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, BluetoothProfile.STATE_DISCONNECTED)
+                    if (state == BluetoothProfile.STATE_CONNECTED) {
+                        if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+                            val name = device?.name ?: "Connected Device"
+                            _bluetoothState.value = BluetoothState.Connected(name)
+                        } else {
+                            _bluetoothState.value = BluetoothState.Connected("Connected Device")
+                        }
+                    } else if (state == BluetoothProfile.STATE_DISCONNECTED) {
+                        updateBluetoothStatus()
+                    }
+                }
+                else -> updateBluetoothStatus()
+            }
+        }
+    }
+
     private val _currentScreen = MutableStateFlow(Screen.Home)
     private var lastBackPressTime = 0L
     private val _currentPage = MutableStateFlow(0)
@@ -439,6 +535,88 @@ class MainActivity : ComponentActivity() {
                 _currentScreen.value = Screen.Home
                 _currentPage.value = 0
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateBluetoothStatus()
+        runPermissionSequence()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(bluetoothReceiver)
+        unregisterReceiver(screenOffReceiver)
+        favoritesRepository.cleanup()
+        birthdaysRepository.cleanup()
+        remindersRepository.cleanup()
+    }
+
+    private fun hasBluetoothConnectPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+
+    private fun updateBluetoothStatus() {
+        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        val adapter = bluetoothManager.adapter
+        
+        if (adapter == null || !adapter.isEnabled) {
+            _bluetoothState.value = BluetoothState.Disabled
+            return
+        }
+
+        if (!hasBluetoothConnectPermission()) {
+            _bluetoothState.value = BluetoothState.Enabled
+            return
+        }
+
+        // 1. Check GATT (Low Energy devices like watches, sensors)
+        try {
+            val connectedGattDevices = bluetoothManager.getConnectedDevices(BluetoothProfile.GATT)
+            if (connectedGattDevices.isNotEmpty()) {
+                val device = connectedGattDevices.first()
+                _bluetoothState.value = BluetoothState.Connected(device.name ?: "Connected Device")
+                return
+            }
+        } catch (e: SecurityException) {
+            Log.e("MainActivity", "SecurityException checking GATT devices", e)
+        }
+
+        // 2. Check A2DP and Headset (Headphones, speakers)
+        val isA2dpConnected = adapter.getProfileConnectionState(BluetoothProfile.A2DP) == BluetoothAdapter.STATE_CONNECTED
+        val isHeadsetConnected = adapter.getProfileConnectionState(BluetoothProfile.HEADSET) == BluetoothAdapter.STATE_CONNECTED
+
+        if (isA2dpConnected || isHeadsetConnected) {
+            // We know something is connected, set a placeholder and try to get the real name
+            if (_bluetoothState.value !is BluetoothState.Connected) {
+                _bluetoothState.value = BluetoothState.Connected("Connected Device")
+            }
+
+            val profileToQuery = if (isA2dpConnected) BluetoothProfile.A2DP else BluetoothProfile.HEADSET
+            try {
+                adapter.getProfileProxy(this, object : BluetoothProfile.ServiceListener {
+                    override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
+                        if (hasBluetoothConnectPermission()) {
+                            val devices = proxy.connectedDevices
+                            if (devices.isNotEmpty()) {
+                                val name = devices.first().name ?: "Connected Device"
+                                _bluetoothState.value = BluetoothState.Connected(name)
+                            }
+                        }
+                        adapter.closeProfileProxy(profile, proxy)
+                    }
+                    override fun onServiceDisconnected(profile: Int) {}
+                }, profileToQuery)
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error getting profile proxy", e)
+            }
+        } else {
+            _bluetoothState.value = BluetoothState.Enabled
         }
     }
 
@@ -454,7 +632,9 @@ class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        // Handle permissions results
+        updateBluetoothStatus()
+        NotificationListener.instance?.requestRefresh()
+        runPermissionSequence()
     }
 
     private fun navigateTo(screen: Screen) {
@@ -469,10 +649,20 @@ class MainActivity : ComponentActivity() {
         birthdaysRepository = BirthdaysRepository(this)
         remindersRepository = RemindersRepository(this)
 
+        updateBluetoothStatus()
+        val bluetoothFilter = IntentFilter().apply {
+            addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
+            addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
+            addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
+            addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED)
+            addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED)
+        }
+        registerReceiver(bluetoothReceiver, bluetoothFilter)
+
         val filter = android.content.IntentFilter(android.content.Intent.ACTION_SCREEN_OFF)
         registerReceiver(screenOffReceiver, filter)
 
-        requestPermissions()
+        runPermissionSequence()
 
         setContent {
             val hideStatusBar by favoritesRepository.hideStatusBar.collectAsState()
@@ -499,6 +689,7 @@ class MainActivity : ComponentActivity() {
             var showSwipeLeftAppPicker by remember { mutableStateOf(false) }
             var showSwipeRightAppPicker by remember { mutableStateOf(false) }
             val currentPage by _currentPage.collectAsState()
+            val bluetoothState by _bluetoothState.collectAsState()
             var lockedLetter by remember { mutableStateOf<Char?>(null) }
 
             // Centralized Back Handler
@@ -622,7 +813,8 @@ class MainActivity : ComponentActivity() {
                             onShowSettingsClicked = { navigateTo(Screen.Settings) },
                             onEditFavorite = { index -> showPickerForIndex = index },
                             currentPage = currentPage,
-                            onCurrentPageChanged = { _currentPage.value = it }
+                            onCurrentPageChanged = { _currentPage.value = it },
+                            bluetoothState = bluetoothState
                         )
                         Screen.AppDrawer -> AppListScreen(
                             onDismiss = { _currentScreen.value = Screen.Home },
@@ -636,7 +828,8 @@ class MainActivity : ComponentActivity() {
                         Screen.Notifications -> NotificationsScreen(
                             remindersRepository = remindersRepository,
                             favoritesRepository = favoritesRepository,
-                            onDismiss = { _currentScreen.value = Screen.Home }
+                            onDismiss = { _currentScreen.value = Screen.Home },
+                            bluetoothState = bluetoothState
                         )
                         Screen.Settings -> SettingsScreen(
                             favoritesRepository = favoritesRepository,
@@ -655,36 +848,58 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun requestPermissions() {
-        val permissionsToRequest = mutableListOf<String>()
+    private fun runPermissionSequence() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_INITIAL_SETUP_COMPLETE, false)) return
 
+        val runtimePermissions = mutableListOf(
+            Manifest.permission.READ_PHONE_STATE,
+            Manifest.permission.READ_CALL_LOG,
+            Manifest.permission.READ_CONTACTS,
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.READ_SMS
+        )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+            runtimePermissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        val missingRuntime = runtimePermissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+
+        if (missingRuntime.isNotEmpty() && !prefs.getBoolean(KEY_ASKED_RUNTIME_PERMISSIONS, false)) {
+            prefs.edit().putBoolean(KEY_ASKED_RUNTIME_PERMISSIONS, true).apply()
+            requestPermissionLauncher.launch(missingRuntime.toTypedArray())
+            return
+        }
+
+        // Special: Notification Access
+        if (!isNotificationServiceEnabled(this) && !prefs.getBoolean(KEY_ASKED_NOTIFICATION_ACCESS, false)) {
+            prefs.edit().putBoolean(KEY_ASKED_NOTIFICATION_ACCESS, true).apply()
+            try {
+                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error opening notification listener settings", e)
             }
+            return
         }
 
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
-            permissionsToRequest.add(Manifest.permission.READ_PHONE_STATE)
-        }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
-            permissionsToRequest.add(Manifest.permission.READ_CALL_LOG)
-        }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
-            permissionsToRequest.add(Manifest.permission.READ_CONTACTS)
-        }
-
-        if (permissionsToRequest.isNotEmpty()) {
-            requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
-        }
-        
+        // Special: Exact Alarms
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-            if (!alarmManager.canScheduleExactAlarms()) {
-                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-                startActivity(intent)
+            if (!alarmManager.canScheduleExactAlarms() && !prefs.getBoolean(KEY_ASKED_EXACT_ALARM, false)) {
+                prefs.edit().putBoolean(KEY_ASKED_EXACT_ALARM, true).apply()
+                try {
+                    startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM))
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Error opening exact alarm settings", e)
+                }
+                return
             }
         }
+        
+        // All permissions asked (not necessarily granted, but asked aluksi)
+        prefs.edit().putBoolean(KEY_INITIAL_SETUP_COMPLETE, true).apply()
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
@@ -701,14 +916,6 @@ class MainActivity : ComponentActivity() {
             _currentScreen.value = Screen.Home
             _currentPage.value = 0
         }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        unregisterReceiver(screenOffReceiver)
-        favoritesRepository.cleanup()
-        birthdaysRepository.cleanup()
-        remindersRepository.cleanup()
     }
 }
 

@@ -30,6 +30,7 @@ import java.util.Locale
 class NotificationListener : NotificationListenerService() {
 
     private var callLogObserver: ContentObserver? = null
+    private var smsObserver: ContentObserver? = null
     private var telephonyManager: TelephonyManager? = null
     private var telephonyCallback: Any? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -44,6 +45,9 @@ class NotificationListener : NotificationListenerService() {
         private val _missedCallsCount = MutableStateFlow(0)
         val missedCallsCount = _missedCallsCount.asStateFlow()
 
+        private val _unreadSmsCount = MutableStateFlow(0)
+        val unreadSmsCount = _unreadSmsCount.asStateFlow()
+
         private val _activeCall = MutableStateFlow<String?>(null)
         val activeCall = _activeCall.asStateFlow()
 
@@ -57,6 +61,7 @@ class NotificationListener : NotificationListenerService() {
         instance = this
         
         updateMissedCallsCount()
+        updateUnreadSmsCount()
         tryRegisterObservers()
     }
 
@@ -84,6 +89,29 @@ class NotificationListener : NotificationListenerService() {
         } else {
             Log.w(TAG, "READ_CALL_LOG permission NOT granted")
         }
+
+        // Register observer for SMS changes if permission granted
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, "READ_SMS permission granted")
+            if (smsObserver == null) {
+                val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                    override fun onChange(selfChange: Boolean) {
+                        Log.d(TAG, "SMS database changed")
+                        updateUnreadSmsCount()
+                        updateNotifications()
+                    }
+                }
+                try {
+                    contentResolver.registerContentObserver(Uri.parse("content://sms"), true, observer)
+                    smsObserver = observer
+                    Log.d(TAG, "SMS observer registered")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error registering SMS observer", e)
+                }
+            }
+        } else {
+            Log.w(TAG, "READ_SMS permission NOT granted")
+        }
         
         if (telephonyCallback == null) {
             listenToCallState()
@@ -93,6 +121,9 @@ class NotificationListener : NotificationListenerService() {
     override fun onDestroy() {
         super.onDestroy()
         callLogObserver?.let {
+            contentResolver.unregisterContentObserver(it)
+        }
+        smsObserver?.let {
             contentResolver.unregisterContentObserver(it)
         }
         unregisterTelephonyListener()
@@ -443,6 +474,24 @@ class NotificationListener : NotificationListenerService() {
         }.sortedByDescending { it.postTime }
 
         updateMissedCallsCount()
+        updateUnreadSmsCount()
+    }
+
+    private fun updateUnreadSmsCount() {
+        try {
+            val contentResolver = applicationContext.contentResolver
+            val cursor = contentResolver.query(
+                Uri.parse("content://sms/inbox"),
+                null,
+                "read = 0",
+                null,
+                null
+            )
+            _unreadSmsCount.value = cursor?.count ?: 0
+            cursor?.close()
+        } catch (e: Exception) {
+            _unreadSmsCount.value = 0
+        }
     }
 
     private fun updateMissedCallsCount() {
@@ -620,6 +669,7 @@ class NotificationListener : NotificationListenerService() {
     }
 
     fun requestRefresh() {
+        tryRegisterObservers()
         updateNotifications()
     }
 }

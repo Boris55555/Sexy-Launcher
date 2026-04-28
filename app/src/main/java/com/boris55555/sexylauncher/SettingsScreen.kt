@@ -79,6 +79,21 @@ fun SettingsScreen(
             ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
         )
     }
+    var hasSmsPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    var hasBluetoothPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    var hasExactAlarmPermission by remember {
+        mutableStateOf(
+            (context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager).canScheduleExactAlarms()
+        )
+    }
     val alarmAppPackage by favoritesRepository.alarmAppPackage.collectAsState()
     val calendarAppPackage by favoritesRepository.calendarAppPackage.collectAsState()
     val isHomeLocked by favoritesRepository.isHomeLocked.collectAsState()
@@ -98,6 +113,8 @@ fun SettingsScreen(
     val fontSizeNotifications by favoritesRepository.fontSizeNotifications.collectAsState()
     val hideStatusBar by favoritesRepository.hideStatusBar.collectAsState()
     val use24hFormat by favoritesRepository.use24hFormat.collectAsState()
+    val showNotificationPreviews by favoritesRepository.showNotificationPreviews.collectAsState()
+    val notificationMaxCharacters by favoritesRepository.notificationMaxCharacters.collectAsState()
     val preferredAppList by favoritesRepository.preferredAppList.collectAsState()
 
     var isDefaultLauncher by remember { mutableStateOf(false) }
@@ -176,6 +193,22 @@ fun SettingsScreen(
                 hasContactsPermission = contactsEnabled
             }
 
+            val smsEnabled = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
+            if (smsEnabled != hasSmsPermission) {
+                hasSmsPermission = smsEnabled
+            }
+
+            val btEnabled = ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+            if (btEnabled != hasBluetoothPermission) {
+                hasBluetoothPermission = btEnabled
+            }
+            
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            val alarmEnabled = alarmManager.canScheduleExactAlarms()
+            if (alarmEnabled != hasExactAlarmPermission) {
+                hasExactAlarmPermission = alarmEnabled
+            }
+
             delay(1000)
         }
     }
@@ -202,6 +235,18 @@ fun SettingsScreen(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         hasContactsPermission = isGranted
+    }
+
+    val smsPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasSmsPermission = isGranted
+    }
+
+    val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasBluetoothPermission = isGranted
     }
 
     if (showHelpDialog) {
@@ -249,8 +294,13 @@ fun SettingsScreen(
                 hasNotificationPermission = hasNotificationPermission,
                 hasPhonePermission = hasPhonePermission,
                 hasContactsPermission = hasContactsPermission,
+                hasSmsPermission = hasSmsPermission,
+                hasBluetoothPermission = hasBluetoothPermission,
+                hasExactAlarmPermission = hasExactAlarmPermission,
                 phonePermissionLauncher = phonePermissionLauncher,
-                contactsPermissionLauncher = contactsPermissionLauncher
+                contactsPermissionLauncher = contactsPermissionLauncher,
+                smsPermissionLauncher = smsPermissionLauncher,
+                bluetoothPermissionLauncher = bluetoothPermissionLauncher
             )
 
             DefaultLauncherSection(context, isDefaultLauncher)
@@ -274,6 +324,13 @@ fun SettingsScreen(
                 showAppIcons = showAppIcons,
                 use24hFormat = use24hFormat,
                 hideStatusBar = hideStatusBar,
+                eInkSwitchColors = eInkSwitchColors
+            )
+
+            NotificationSection(
+                favoritesRepository = favoritesRepository,
+                showNotificationPreviews = showNotificationPreviews,
+                notificationMaxCharacters = notificationMaxCharacters,
                 eInkSwitchColors = eInkSwitchColors
             )
 
@@ -365,60 +422,80 @@ fun PermissionSection(
     hasNotificationPermission: Boolean,
     hasPhonePermission: Boolean,
     hasContactsPermission: Boolean,
+    hasSmsPermission: Boolean,
+    hasBluetoothPermission: Boolean,
+    hasExactAlarmPermission: Boolean,
     phonePermissionLauncher: ManagedActivityResultLauncher<Array<String>, Map<String, Boolean>>,
-    contactsPermissionLauncher: ManagedActivityResultLauncher<String, Boolean>
+    contactsPermissionLauncher: ManagedActivityResultLauncher<String, Boolean>,
+    smsPermissionLauncher: ManagedActivityResultLauncher<String, Boolean>,
+    bluetoothPermissionLauncher: ManagedActivityResultLauncher<String, Boolean>
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = !hasNotificationPermission) {
-                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-            }
-            .padding(vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text("Notification Access", fontSize = 18.sp, color = Color.Black)
-        Text(if (hasNotificationPermission) "Granted" else "Tap to grant", color = Color.Black)
-    }
-
+    Text("Permissions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.Black)
+    Spacer(modifier = Modifier.height(8.dp))
     HorizontalDivider(color = Color.Black)
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = !hasPhonePermission) {
-                phonePermissionLauncher.launch(
-                    arrayOf(
-                        Manifest.permission.READ_PHONE_STATE,
-                        Manifest.permission.READ_CALL_LOG
-                    )
-                )
+    PermissionRow(
+        title = "Notification Access",
+        isGranted = hasNotificationPermission,
+        onClick = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+    )
+
+    PermissionRow(
+        title = "Phone Call Access",
+        isGranted = hasPhonePermission,
+        onClick = {
+            phonePermissionLauncher.launch(
+                arrayOf(Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_CALL_LOG)
+            )
+        }
+    )
+
+    PermissionRow(
+        title = "Contact Access",
+        isGranted = hasContactsPermission,
+        onClick = { contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS) }
+    )
+
+    PermissionRow(
+        title = "SMS Access",
+        isGranted = hasSmsPermission,
+        onClick = { smsPermissionLauncher.launch(Manifest.permission.READ_SMS) }
+    )
+
+    PermissionRow(
+        title = "Bluetooth Access",
+        isGranted = hasBluetoothPermission,
+        onClick = { bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT) }
+    )
+
+    PermissionRow(
+        title = "Exact Alarm Access",
+        isGranted = hasExactAlarmPermission,
+        onClick = {
+            try {
+                context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM))
+            } catch (e: Exception) {
+                Log.e("SettingsScreen", "Error opening exact alarm settings", e)
             }
-            .padding(vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text("Phone Call Access", fontSize = 18.sp, color = Color.Black)
-        Text(if (hasPhonePermission) "Granted" else "Tap to grant", color = Color.Black)
-    }
+        }
+    )
 
     HorizontalDivider(color = Color.Black)
+}
 
+@Composable
+fun PermissionRow(title: String, isGranted: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = !hasContactsPermission) {
-                contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
-            }
+            .clickable(enabled = !isGranted) { onClick() }
             .padding(vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text("Contact Access", fontSize = 18.sp, color = Color.Black)
-        Text(if (hasContactsPermission) "Granted" else "Tap to grant", color = Color.Black)
+        Text(title, fontSize = 18.sp, color = Color.Black)
+        Text(if (isGranted) "Granted" else "Tap to grant", color = if (isGranted) Color.Black else Color.Gray)
     }
-
     HorizontalDivider(color = Color.Black)
 }
 
@@ -649,6 +726,72 @@ fun HomeScreenSection(
             onCheckedChange = { favoritesRepository.saveHideStatusBar(it) },
             colors = eInkSwitchColors
         )
+    }
+
+    HorizontalDivider(color = Color.Black)
+}
+
+@Composable
+fun NotificationSection(
+    favoritesRepository: FavoritesRepository,
+    showNotificationPreviews: Boolean,
+    notificationMaxCharacters: Int,
+    eInkSwitchColors: androidx.compose.material3.SwitchColors
+) {
+    Spacer(modifier = Modifier.height(32.dp))
+    Text("Notifications", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.Black)
+    Spacer(modifier = Modifier.height(8.dp))
+    HorizontalDivider(color = Color.Black)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Show notification previews", fontSize = 18.sp, color = Color.Black)
+            Text("Show notifications under favorite apps", fontSize = 14.sp, color = Color.Gray)
+        }
+        Switch(
+            checked = showNotificationPreviews,
+            onCheckedChange = { favoritesRepository.saveShowNotificationPreviews(it) },
+            colors = eInkSwitchColors
+        )
+    }
+
+    HorizontalDivider(color = Color.Black)
+    var showMaxCharsMenu by remember { mutableStateOf(false) }
+    val maxCharsOptions = listOf(10, 20, 30, 40, 50)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text("Max notification characters", fontSize = 18.sp, color = Color.Black)
+        Box {
+            EInkButton(onClick = { showMaxCharsMenu = true }) {
+                Text(notificationMaxCharacters.toString())
+            }
+            DropdownMenu(
+                expanded = showMaxCharsMenu,
+                onDismissRequest = { showMaxCharsMenu = false }
+            ) {
+                maxCharsOptions.forEach { count ->
+                    DropdownMenuItem(
+                        text = { Text(count.toString()) },
+                        onClick = {
+                            favoritesRepository.saveNotificationMaxCharacters(count)
+                            showMaxCharsMenu = false
+                        }
+                    )
+                }
+            }
+        }
     }
 
     HorizontalDivider(color = Color.Black)
