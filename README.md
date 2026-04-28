@@ -2,6 +2,12 @@
 
 A minimalist, e-ink friendly launcher designed specifically for the **Mudita Kompakt**.
 
+## Download & Install
+
+Sexy Launcher is currently available via:
+- **[GitHub Releases](https://github.com/Boris55555/Sexy-Launcher/releases)** (Get the latest APK)
+- **F-Droid** (Application submitted, status pending)
+
 ## New in Version 4.6
 - **UI Layout Fix**: Prevented favorite app names and notification badges from overlapping with the "All apps" button on the home screen.
 - **Improved Padding**: Added dynamic spacing for favorites list when the side button is enabled.
