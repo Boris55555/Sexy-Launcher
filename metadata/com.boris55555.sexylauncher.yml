@@ -4,37 +4,30 @@ Categories:
 License: GPL-3.0-only
 SourceCode: https://github.com/Boris55555/Sexy-Launcher
 IssueTracker: https://github.com/Boris55555/Sexy-Launcher/issues
-
-AutoName: Sexy Launcher
+Summary: Minimalist E-Ink friendly launcher for Mudita Kompakt
 Description: |
-  A minimalist, E-Ink friendly launcher focused on simplicity and style. 
+    A minimalist, E-Ink friendly launcher focused on simplicity and style.
+    Specifically designed for the Mudita Kompakt phone.
 
-  Features:
-  * Minimalist home screen with favorite apps
-  * E-Ink friendly black and white theme
-  * Notification previews and management
-  * App list with alphabet scroller
-  * Customizable settings
+    Features:
+    * Minimalist home screen with favorite apps
+    * E-Ink friendly black and white theme
+    * Notification previews and management
+    * App list with alphabet scroller
+    * Customizable settings
 
 RepoType: git
 Repo: https://github.com/Boris55555/Sexy-Launcher.git
 
 Builds:
-  - versionName: "4.6"
-    versionCode: 70
-    commit: v4.6
+  - versionName: '4.8'
+    versionCode: 72
+    commit: v4.8
     subdir: app
     gradle:
-      - assembleRelease
-
-  - versionName: "4.7"
-    versionCode: 71
-    commit: v4.7
-    subdir: app
-    gradle:
-      - assembleRelease
+      - yes
 
 AutoUpdateMode: Version %v
 UpdateCheckMode: Tags
-CurrentVersion: "4.7"
-CurrentVersionCode: 71
+CurrentVersion: '4.8'
+CurrentVersionCode: 72
