@@ -36,9 +36,9 @@ Sexy Launcher provides a clean, fast, and intentional user experience, replacing
 
 <table>
   <tr>
-    <td align="center"><img src="assets/Screenshot_20260424_173539.png" width="180"><br><sub>Home</sub></td>
-    <td align="center"><img src="assets/Screenshot_20260424_173617.png" width="180"><br><sub>Top 10</sub></td>
-    <td align="center"><img src="assets/Screenshot_20260424_173755.png" width="180"><br><sub>Notifications</sub></td>
-    <td align="center"><img src="assets/Screenshot_20260424_173938.png" width="180"><br><sub>Settings</sub></td>
+    <td align="center"><img src="assets/Screenshot_20260424_173539.png" width="180"><br><sub></sub></td>
+    <td align="center"><img src="assets/Screenshot_20260424_173617.png" width="180"><br><sub></sub></td>
+    <td align="center"><img src="assets/Screenshot_20260424_173755.png" width="180"><br><sub></sub></td>
+    <td align="center"><img src="assets/Screenshot_20260424_173938.png" width="180"><br><sub></sub></td>
   </tr>
 </table>
