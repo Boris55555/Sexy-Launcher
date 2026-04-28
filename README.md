@@ -1,7 +1,5 @@
 # Sexy Launcher 4.7
 
-**Huom: Tämä sovellus on suunniteltu ja tarkoitettu käytettäväksi pelkästään Mudita Kompakt E-Ink -puhelimessa.**
-
 A minimalist, e-ink friendly launcher designed specifically and exclusively for the **Mudita Kompakt**.
 
 ## Download & Install
