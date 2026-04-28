@@ -1,15 +1,14 @@
-# Sexy Launcher 4.3
+# Sexy Launcher 4.5
 
 A minimalist, e-ink friendly launcher designed specifically for the **Mudita Kompakt**.
 
-## New in Version 4.3
-- **Advanced Notification Management**: Dedicated notifications screen with a customizable character limit (10-50 chars) for privacy and clarity.
-- **Visual Message Separation**: Clear dividers between multiple messages from the same app (e.g., WhatsApp chats) for better readability.
-- **SMS & Call Tracking**: Real-time tracking of unread messages and missed calls directly on the home screen.
-- **Sequential Permission Setup**: A streamlined first-launch experience that guides you through necessary permissions.
-- **Top 10 Apps View**: A dedicated section for your most frequently used applications.
-- **Birthday Integration**: Seamlessly import and display birthday reminders from Birday app backups.
-- **E-Ink Optimized UI**: Redesigned badges and high-contrast elements for maximum visibility on electronic ink displays.
+## New in Version 4.5
+- **Notification Badges**: Favorite apps on the home screen now feature a black notification badge with a count (1-9 or "!" for more).
+- **Improved Home UI**: Optimized layout for favorite apps with automatic name shortening to ensure notification badges are always visible.
+- **Enhanced Privacy Previews**: Customizable notification character limits (20, 40, 60, 80, 100) with a new default of 60.
+- **Smart SMS & Call Counting**: Improved logic to sync unread counts directly from system databases for the default Phone and Messaging apps.
+- **Bug Fixes**: Resolved issues where system notifications (like "Connected via serial port") would incorrectly appear under favorite apps.
+- **Birthday Integration**: Support for importing birthdays from the **Birday** app (compatibility with Birday app backups).
 
 ## Privacy & Permissions
 Sexy Launcher is built with a "Privacy First" approach. **No personal data ever leaves your device.** All processing of notifications, messages, and contacts happens locally.

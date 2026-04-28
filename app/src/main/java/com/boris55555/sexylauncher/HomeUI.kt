@@ -369,20 +369,33 @@ fun FavoriteAppItem(
     
     val isSmsApp = app.packageName == "com.mudita.messages" ||
                    app.packageName == "com.android.messaging" ||
-                   app.packageName == "com.google.android.apps.messaging"
+                   app.packageName == "com.google.android.apps.messaging" ||
+                   app.packageName.contains("messaging") ||
+                   app.packageName.contains("sms")
 
     val totalCount = when {
         isPhoneApp -> {
-            val otherCallNotificationsCount = notifications.filter { it.notification.category != Notification.CATEGORY_MISSED_CALL }.sumOf { getNotificationCount(it) }
+            // Phone app: Missed calls from DB + any other non-missed-call notifications from dialer
+            val otherCallNotificationsCount = notifications.filter { 
+                it.packageName == app.packageName &&
+                getNotificationCategory(it, context) == NotificationCategory.CALLS && 
+                it.notification.category != Notification.CATEGORY_MISSED_CALL 
+            }.sumOf { getNotificationCount(it) }
             otherCallNotificationsCount + missedCallsCount
         }
         isSmsApp -> {
-            // For SMS app, prioritize database count but also include its own notifications if they represent more info
-            // (though usually they are in sync)
-            unreadSmsCount
+            // SMS app: Unread SMS from DB + its own notifications (if they add something new)
+            // Usually unreadSmsCount is enough, but we filter for safety
+            val knownSmsApps = listOf("com.mudita.messages", "com.android.messaging", "com.google.android.apps.messaging")
+            if (app.packageName in knownSmsApps) {
+                unreadSmsCount
+            } else {
+                notifications.filter { it.packageName == app.packageName }.sumOf { getNotificationCount(it) }
+            }
         }
         else -> {
-            notifications.sumOf { getNotificationCount(it) }
+            // Other apps: Only their own notifications
+            notifications.filter { it.packageName == app.packageName }.sumOf { getNotificationCount(it) }
         }
     }
     
@@ -437,15 +450,18 @@ fun FavoriteAppItem(
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = Color.Black
+                color = Color.Black,
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .padding(end = 0.dp) 
             )
-            if (totalCount > 0) {
+            if (totalCount > 0 && appIcon == null) {
                 Box(
                     modifier = Modifier
-                        .padding(start = 12.dp)
+                        .offset(x = (-20).dp) // Move badge even more to the left to overlap slightly
                         .border(BorderStroke(2.dp, Color.Black), shape = CircleShape)
                         .background(color = Color.White, shape = CircleShape)
-                        .padding(horizontal = 6.dp, vertical = 1.dp),
+                        .padding(horizontal = 4.dp, vertical = 1.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -495,18 +511,21 @@ fun FavoriteAppItem(
                 }
             } 
             
-            // If we still don't have a preview (or it's not a phone app/no missed calls), check notifications
-            if (previewText == null && notifications.isNotEmpty()) {
-                val firstNotification = notifications.first().notification
-                val extras = firstNotification.extras
-                val title = extras.getString("android.title") ?: extras.getString(Notification.EXTRA_TITLE)
-                val text = extras.getCharSequence("android.text") ?: extras.getCharSequence(Notification.EXTRA_TEXT)
+            // If we still don't have a preview (or it's not a phone app/no missed calls), check notifications for THIS app
+            if (previewText == null) {
+                val appNotifications = notifications.filter { it.packageName == app.packageName }
+                if (appNotifications.isNotEmpty()) {
+                    val firstNotification = appNotifications.first().notification
+                    val extras = firstNotification.extras
+                    val title = extras.getString("android.title") ?: extras.getString(Notification.EXTRA_TITLE)
+                    val text = extras.getCharSequence("android.text") ?: extras.getCharSequence(Notification.EXTRA_TEXT)
 
-                previewText = when {
-                    !title.isNullOrBlank() && !text.isNullOrBlank() -> "$title: $text"
-                    !text.isNullOrBlank() -> text.toString()
-                    !title.isNullOrBlank() -> title
-                    else -> null
+                    previewText = when {
+                        !title.isNullOrBlank() && !text.isNullOrBlank() -> "$title: $text"
+                        !text.isNullOrBlank() -> text.toString()
+                        !title.isNullOrBlank() -> title
+                        else -> null
+                    }
                 }
             }
         }

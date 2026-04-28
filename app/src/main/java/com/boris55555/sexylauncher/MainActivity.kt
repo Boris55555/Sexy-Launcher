@@ -74,7 +74,7 @@ private const val KEY_HIDDEN_FROM_TOP10 = "hidden_from_top10"
 private const val DEFAULT_FAVORITE_COUNT = 4
 private const val DEFAULT_BATTERY_THRESHOLD = 50
 private const val DEFAULT_FONT = "Sans Serif"
-private const val DEFAULT_NOTIFICATION_MAX_CHARACTERS = 30
+private const val DEFAULT_NOTIFICATION_MAX_CHARACTERS = 60
 
 class FavoritesRepository(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

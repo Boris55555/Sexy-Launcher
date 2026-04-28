@@ -587,7 +587,7 @@ fun MainHomeScreen(
                         if (app != null) {
                             FavoriteAppItem(
                                 app = app, 
-                                notifications = notifications.filter { it.packageName == app.packageName }.sortedByDescending { it.postTime }, 
+                                notifications = notifications,
                                 showAppIcons = showAppIcons,
                                 showNotificationPreviews = showNotificationPreviews,
                                 onLongClick = { 
