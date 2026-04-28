@@ -763,7 +763,7 @@ fun NotificationSection(
 
     HorizontalDivider(color = Color.Black)
     var showMaxCharsMenu by remember { mutableStateOf(false) }
-    val maxCharsOptions = listOf(10, 20, 30, 40, 50)
+    val maxCharsOptions = listOf(20, 40, 60, 80, 100)
 
     Row(
         modifier = Modifier
