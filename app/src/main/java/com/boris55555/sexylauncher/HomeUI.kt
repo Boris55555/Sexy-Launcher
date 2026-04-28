@@ -458,7 +458,7 @@ fun FavoriteAppItem(
             if (totalCount > 0 && appIcon == null) {
                 Box(
                     modifier = Modifier
-                        .offset(x = (-20).dp) // Move badge even more to the left to overlap slightly
+                        .padding(start = 8.dp) // Use small padding to stay close but not overlap
                         .border(BorderStroke(2.dp, Color.Black), shape = CircleShape)
                         .background(color = Color.White, shape = CircleShape)
                         .padding(horizontal = 4.dp, vertical = 1.dp),
