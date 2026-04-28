@@ -1,6 +1,10 @@
-# Sexy Launcher 4.5
+# Sexy Launcher 4.6
 
 A minimalist, e-ink friendly launcher designed specifically for the **Mudita Kompakt**.
+
+## New in Version 4.6
+- **UI Layout Fix**: Prevented favorite app names and notification badges from overlapping with the "All apps" button on the home screen.
+- **Improved Padding**: Added dynamic spacing for favorites list when the side button is enabled.
 
 ## New in Version 4.5
 - **Notification Badges**: Favorite apps on the home screen now feature a black notification badge with a count (1-9 or "!" for more).

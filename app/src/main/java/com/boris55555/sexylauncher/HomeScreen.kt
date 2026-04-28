@@ -574,7 +574,10 @@ fun MainHomeScreen(
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(start = 16.dp)
+                        .padding(
+                            start = 16.dp,
+                            end = if (!gesturesEnabled || keepAllAppsButton) 32.dp else 0.dp
+                        )
                         .onGloballyPositioned { favoritesArea = it.boundsInRoot() },
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.Start
