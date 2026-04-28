@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -402,11 +403,32 @@ fun FavoriteAppItem(
             horizontalArrangement = Arrangement.Start
         ) {
             if (appIcon != null) {
-                Image(
-                    painter = rememberDrawablePainter(drawable = appIcon),
-                    contentDescription = "${app.name} icon",
-                    modifier = Modifier.size(40.dp)
-                )
+                Box(
+                    contentAlignment = Alignment.TopEnd
+                ) {
+                    Image(
+                        painter = rememberDrawablePainter(drawable = appIcon),
+                        contentDescription = "${app.name} icon",
+                        modifier = Modifier.size(40.dp)
+                    )
+                    if (totalCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .offset(x = 4.dp, y = (-4).dp)
+                                .size(16.dp)
+                                .background(Color.Black, shape = CircleShape)
+                                .border(1.dp, Color.White, shape = CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (totalCount > 9) "!" else totalCount.toString(),
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.width(8.dp))
             }
             Text(
