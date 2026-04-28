@@ -1,12 +1,19 @@
-# Sexy Launcher 4.6
+# Sexy Launcher 4.7
 
-A minimalist, e-ink friendly launcher designed specifically for the **Mudita Kompakt**.
+**Huom: Tämä sovellus on suunniteltu ja tarkoitettu käytettäväksi pelkästään Mudita Kompakt E-Ink -puhelimessa.**
+
+A minimalist, e-ink friendly launcher designed specifically and exclusively for the **Mudita Kompakt**.
 
 ## Download & Install
 
 Sexy Launcher is currently available via:
 - **[GitHub Releases](https://github.com/Boris55555/Sexy-Launcher/releases)** (Get the latest APK)
 - **F-Droid** (Application submitted, status pending)
+
+## New in Version 4.7
+- **Fixed notification click behavior**: Clicking an SMS notification now correctly opens the messaging app.
+- **E-Ink Optimizations**: Refined padding and UI for the Mudita Kompakt screen.
+- **F-Droid Compliance**: Removed non-FOSS dependencies (Google Fonts).
 
 ## New in Version 4.6
 - **UI Layout Fix**: Prevented favorite app names and notification badges from overlapping with the "All apps" button on the home screen.
