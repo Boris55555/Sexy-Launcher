@@ -4,6 +4,8 @@ import android.app.Notification
 import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.CallLog
 import android.service.notification.StatusBarNotification
 import androidx.compose.foundation.BorderStroke
@@ -292,6 +294,7 @@ fun NotificationsScreen(
                                                 // Priorisoidaan contentIntent viesteissä, jotta oikea keskustelu aukeaa
                                                 val intent = item.notification.contentIntent ?: item.notification.fullScreenIntent
                                                 if (intent != null) {
+                                                    // Käytetään bundlea ja katsotaan auttaako se
                                                     intent.send(context, 0, null)
                                                 } else {
                                                     val launchIntent = context.packageManager.getLaunchIntentForPackage(item.packageName)
@@ -325,7 +328,12 @@ fun NotificationsScreen(
                                             }
                                         }
 
-                                        onDismiss() // Sulje ilmoitusnäkymä kun viesti avataan
+                                        // Viivästetään sulkemista hieman, jotta Intent ehtii lähteä kunnolla
+                                        context.getMainExecutor().execute {
+                                            Handler(Looper.getMainLooper()).postDelayed({
+                                                onDismiss()
+                                            }, 200)
+                                        }
                                     },
                                     onDismiss = { NotificationListener.instance?.dismissNotification(item.key) },
                                     fontSizeAdjustment = fontSizeAdjustment,
