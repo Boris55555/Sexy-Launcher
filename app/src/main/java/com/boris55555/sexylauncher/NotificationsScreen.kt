@@ -234,7 +234,7 @@ fun NotificationsScreen(
                             try {
                                 if (callNotif != null) {
                                     val intent = callNotif.notification.fullScreenIntent ?: callNotif.notification.contentIntent
-                                    intent?.send()
+                                    intent?.send(context, 0, null)
                                 } else {
                                     val intent = Intent(Intent.ACTION_DIAL)
                                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
@@ -278,7 +278,7 @@ fun NotificationsScreen(
                                             } catch (e: Exception) {
                                                 try {
                                                     val intent = item.notification.fullScreenIntent ?: item.notification.contentIntent
-                                                    intent?.send()
+                                                    intent?.send(context, 0, null)
                                                 } catch (e2: Exception) {
                                                     val launchIntent = context.packageManager.getLaunchIntentForPackage(item.packageName)
                                                     launchIntent?.let {
@@ -292,7 +292,7 @@ fun NotificationsScreen(
                                                 // Priorisoidaan contentIntent viesteissä, jotta oikea keskustelu aukeaa
                                                 val intent = item.notification.contentIntent ?: item.notification.fullScreenIntent
                                                 if (intent != null) {
-                                                    intent.send()
+                                                    intent.send(context, 0, null)
                                                 } else {
                                                     val launchIntent = context.packageManager.getLaunchIntentForPackage(item.packageName)
                                                     launchIntent?.let {

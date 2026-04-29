@@ -5,11 +5,13 @@ License: GPL-3.0-only
 SourceCode: https://github.com/Boris55555/Sexy-Launcher
 IssueTracker: https://github.com/Boris55555/Sexy-Launcher/issues
 
+AutoName: Sexy Launcher
+
 RepoType: git
 Repo: https://github.com/Boris55555/Sexy-Launcher.git
 
 Builds:
-  - versionName: '4.9.2'
+  - versionName: 4.9.2
     versionCode: 75
     commit: 6fff8d2992216db749911429a3be4732e4d4b427
     subdir: app
@@ -18,5 +20,5 @@ Builds:
 
 AutoUpdateMode: Version %v
 UpdateCheckMode: Tags
-CurrentVersion: '4.9.2'
+CurrentVersion: 4.9.2
 CurrentVersionCode: 75
