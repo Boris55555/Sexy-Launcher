@@ -294,8 +294,14 @@ fun NotificationsScreen(
                                                 // Priorisoidaan contentIntent viesteissä, jotta oikea keskustelu aukeaa
                                                 val intent = item.notification.contentIntent ?: item.notification.fullScreenIntent
                                                 if (intent != null) {
-                                                    // Käytetään bundlea ja katsotaan auttaako se
-                                                    intent.send(context, 0, null)
+                                                    // Luodaan ActivityOptions, joka simuloi ilmoituksen klikkausta järjestelmätasolla
+                                                    val options = android.app.ActivityOptions.makeBasic()
+                                                    if (android.os.Build.VERSION.SDK_INT >= 34) {
+                                                        options.setPendingIntentBackgroundActivityStartMode(android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
+                                                    }
+                                                    
+                                                    // Käytetään null-kontekstia, jotta käytetään PendingIntentin alkuperäistä kontekstia
+                                                    intent.send(null, 0, null, null, null, null, options.toBundle())
                                                 } else {
                                                     val launchIntent = context.packageManager.getLaunchIntentForPackage(item.packageName)
                                                     launchIntent?.let {
@@ -332,7 +338,7 @@ fun NotificationsScreen(
                                         context.getMainExecutor().execute {
                                             Handler(Looper.getMainLooper()).postDelayed({
                                                 onDismiss()
-                                            }, 200)
+                                            }, 500)
                                         }
                                     },
                                     onDismiss = { NotificationListener.instance?.dismissNotification(item.key) },
