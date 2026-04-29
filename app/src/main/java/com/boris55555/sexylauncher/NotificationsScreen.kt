@@ -299,24 +299,55 @@ fun NotificationsScreen(
                                                 var messageIntentStarted = false
                                                 if (isMessagingApp) {
                                                     val extras = item.notification.extras
-                                                    // Yritetään etsiä puhelinnumero ilmoituksen tiedoista
-                                                    val number = extras.getString("android.phone.number") 
-                                                        ?: extras.getCharSequence("android.title")?.toString()?.filter { it.isDigit() || it == '+' }
                                                     
-                                                    if (!number.isNullOrBlank() && number.length >= 3) {
+                                                    // 1. Kokeillaan Shortcutia (Android 11+)
+                                                    val shortcutId = item.notification.shortcutId
+                                                    if (!shortcutId.isNullOrBlank()) {
                                                         try {
-                                                            val smsIntent = Intent(Intent.ACTION_VIEW, Uri.parse("smsto:$number"))
-                                                            smsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                            // Yritetään asettaa paketti, jotta aukeaa samassa sovelluksessa
-                                                            smsIntent.`package` = item.packageName
-                                                            context.startActivity(smsIntent)
+                                                            val launcherApps = context.getSystemService(android.content.pm.LauncherApps::class.java)
+                                                            launcherApps.startShortcut(item.packageName, shortcutId, null, null, android.os.Process.myUserHandle())
                                                             messageIntentStarted = true
                                                         } catch (e: Exception) {
-                                                            // Jos paketin asettaminen epäonnistui, kokeillaan ilman sitä
-                                                            val smsIntent = Intent(Intent.ACTION_VIEW, Uri.parse("smsto:$number"))
-                                                            smsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                            context.startActivity(smsIntent)
-                                                            messageIntentStarted = true
+                                                            e.printStackTrace()
+                                                        }
+                                                    }
+
+                                                    // 2. Kokeillaan hakea numero Person-olioista
+                                                    if (!messageIntentStarted) {
+                                                        val people = if (android.os.Build.VERSION.SDK_INT >= 28) {
+                                                            extras.getParcelableArrayList<android.app.Person>("android.people.list")
+                                                        } else null
+                                                        
+                                                        val personUri = people?.firstOrNull()?.uri ?: extras.getString("android.people")
+                                                        if (!personUri.isNullOrBlank() && personUri.startsWith("tel:")) {
+                                                            val number = personUri.substring(4)
+                                                            try {
+                                                                val smsIntent = Intent(Intent.ACTION_VIEW, Uri.parse("smsto:$number"))
+                                                                smsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                                smsIntent.`package` = item.packageName
+                                                                context.startActivity(smsIntent)
+                                                                messageIntentStarted = true
+                                                            } catch (e: Exception) {
+                                                                e.printStackTrace()
+                                                            }
+                                                        }
+                                                    }
+
+                                                    // 3. Vanha tapa: poimitaan numero tekstistä
+                                                    if (!messageIntentStarted) {
+                                                        val number = extras.getString("android.phone.number") 
+                                                            ?: extras.getCharSequence("android.title")?.toString()?.filter { it.isDigit() || it == '+' }
+                                                        
+                                                        if (!number.isNullOrBlank() && number.length >= 3) {
+                                                            try {
+                                                                val smsIntent = Intent(Intent.ACTION_VIEW, Uri.parse("smsto:$number"))
+                                                                smsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                                smsIntent.`package` = item.packageName
+                                                                context.startActivity(smsIntent)
+                                                                messageIntentStarted = true
+                                                            } catch (e: Exception) {
+                                                                e.printStackTrace()
+                                                            }
                                                         }
                                                     }
                                                 }
