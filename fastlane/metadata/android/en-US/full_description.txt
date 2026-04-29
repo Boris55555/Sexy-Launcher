@@ -1,0 +1,9 @@
+A minimalist, E-Ink friendly launcher focused on simplicity and style.
+Specifically designed for the Mudita Kompakt phone.
+
+Features:
+* Minimalist home screen with favorite apps
+* E-Ink friendly black and white theme
+* Notification previews and management
+* App list with alphabet scroller
+* Customizable settings
