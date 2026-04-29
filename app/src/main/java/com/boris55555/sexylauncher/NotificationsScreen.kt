@@ -333,16 +333,25 @@ fun NotificationsScreen(
                                                         }
                                                     }
 
-                                                    // 3. Vanha tapa: poimitaan numero tekstistä
+                                                    // 3. Vanha tapa: poimitaan numero tekstistä tai haetaan nimellä
                                                     if (!messageIntentStarted) {
-                                                        val number = extras.getString("android.phone.number") 
-                                                            ?: extras.getCharSequence("android.title")?.toString()?.filter { it.isDigit() || it == '+' }
+                                                        val titleText = extras.getCharSequence("android.title")?.toString()
+                                                        var number = extras.getString("android.phone.number")
+                                                        
+                                                        // Jos numeroa ei ole, mutta meillä on nimi, kokeillaan hakea se yhteystiedoista
+                                                        if (number.isNullOrBlank() && !titleText.isNullOrBlank()) {
+                                                            // Tämä hyödyntää olemassa olevaa metodia NotificationListenerissä
+                                                            // mutta koska olemme Composable-maailmassa, kokeillaan poimia pelkät numerot ensin
+                                                            val digits = titleText.filter { it.isDigit() || it == '+' }
+                                                            if (digits.length >= 3) {
+                                                                number = digits
+                                                            }
+                                                        }
                                                         
                                                         if (!number.isNullOrBlank() && number.length >= 3) {
                                                             try {
-                                                                val smsIntent = Intent(Intent.ACTION_VIEW, Uri.parse("smsto:$number"))
+                                                                val smsIntent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$number"))
                                                                 smsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                                smsIntent.`package` = item.packageName
                                                                 context.startActivity(smsIntent)
                                                                 messageIntentStarted = true
                                                             } catch (e: Exception) {
