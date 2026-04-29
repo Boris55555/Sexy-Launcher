@@ -294,14 +294,22 @@ fun NotificationsScreen(
                                                 // Priorisoidaan contentIntent viesteissä, jotta oikea keskustelu aukeaa
                                                 val intent = item.notification.contentIntent ?: item.notification.fullScreenIntent
                                                 if (intent != null) {
-                                                    // Luodaan ActivityOptions, joka simuloi ilmoituksen klikkausta järjestelmätasolla
+                                                    // Luodaan ActivityOptions, joka sallii tausta-aktiviteetin käynnistyksen
                                                     val options = android.app.ActivityOptions.makeBasic()
                                                     if (android.os.Build.VERSION.SDK_INT >= 34) {
                                                         options.setPendingIntentBackgroundActivityStartMode(android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
                                                     }
+
+                                                    // Fill-in intent, joka pakottaa uuden tehtävän (varmistaa syvälinkin toimivuuden)
+                                                    val fillInIntent = Intent()
+                                                    fillInIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                                     
-                                                    // Käytetään null-kontekstia, jotta käytetään PendingIntentin alkuperäistä kontekstia
-                                                    intent.send(null, 0, null, null, null, null, options.toBundle())
+                                                    try {
+                                                        intent.send(context, 0, fillInIntent, null, null, null, options.toBundle())
+                                                    } catch (e: Exception) {
+                                                        // Jos fill-in epäonnistuu, kokeillaan suoraan
+                                                        intent.send(null, 0, null, null, null, null, options.toBundle())
+                                                    }
                                                 } else {
                                                     val launchIntent = context.packageManager.getLaunchIntentForPackage(item.packageName)
                                                     launchIntent?.let {
