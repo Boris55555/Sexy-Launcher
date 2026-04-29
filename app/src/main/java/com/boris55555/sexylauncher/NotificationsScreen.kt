@@ -338,21 +338,33 @@ fun NotificationsScreen(
                                                         val titleText = extras.getCharSequence("android.title")?.toString()
                                                         var number = extras.getString("android.phone.number")
                                                         
-                                                        // Jos numeroa ei ole, mutta meillä on nimi, kokeillaan hakea se yhteystiedoista
                                                         if (number.isNullOrBlank() && !titleText.isNullOrBlank()) {
-                                                            // Tämä hyödyntää olemassa olevaa metodia NotificationListenerissä
-                                                            // mutta koska olemme Composable-maailmassa, kokeillaan poimia pelkät numerot ensin
                                                             val digits = titleText.filter { it.isDigit() || it == '+' }
                                                             if (digits.length >= 3) {
                                                                 number = digits
                                                             }
                                                         }
                                                         
+                                                        android.util.Log.d("SexyLauncher", "Attempting SMS link for number: $number")
+                                                        
                                                         if (!number.isNullOrBlank() && number.length >= 3) {
                                                             try {
                                                                 val smsIntent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$number"))
-                                                                smsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                                smsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                                                                 context.startActivity(smsIntent)
+                                                                messageIntentStarted = true
+                                                            } catch (e: Exception) {
+                                                                android.util.Log.e("SexyLauncher", "SMS link failed", e)
+                                                            }
+                                                        }
+                                                    }
+                                                    
+                                                    // Fallback: Jos mikään ei toiminut, kokeillaan alkuperäistä intentiä ilman kikkailuja
+                                                    if (!messageIntentStarted) {
+                                                        val intent = item.notification.contentIntent ?: item.notification.fullScreenIntent
+                                                        if (intent != null) {
+                                                            try {
+                                                                intent.send()
                                                                 messageIntentStarted = true
                                                             } catch (e: Exception) {
                                                                 e.printStackTrace()
