@@ -268,168 +268,65 @@ fun NotificationsScreen(
                                     sbn = item,
                                     onClick = {
                                         val pkg = item.packageName.lowercase()
-                                        val isPhoneApp = pkg.contains("dialer") || pkg.contains("telecom") || 
-                                                         pkg.contains("phone") || pkg.contains("mudita.dial")
+                                        android.util.Log.d("SexyLauncher", "NOTIFICATION CLICKED: $pkg")
                                         
-                                        val telephonyManager = context.getSystemService(android.telephony.TelephonyManager::class.java)
-                                        val isCallActive = telephonyManager?.callState != android.telephony.TelephonyManager.CALL_STATE_IDLE
+                                        try {
+                                            val isMessagingApp = pkg.contains("messaging") || pkg.contains("sms") || 
+                                                                pkg.contains("messages") || pkg.contains("mms") ||
+                                                                pkg.contains("com.android.mms") || pkg.contains("com.google.android.apps.messaging")
 
-                                        if (isPhoneApp && isCallActive) {
-                                            val telecomManager = context.getSystemService(android.telecom.TelecomManager::class.java)
-                                            try {
-                                                telecomManager?.showInCallScreen(false)
-                                            } catch (e: Exception) {
-                                                try {
-                                                    val intent = item.notification.fullScreenIntent ?: item.notification.contentIntent
-                                                    intent?.send(context, 0, null)
-                                                } catch (e2: Exception) {
+                                            var handled = false
+                                            if (isMessagingApp) {
+                                                // 1. Android 11+ Shortcut on varmin tapa
+                                                val shortcutId = item.notification.shortcutId
+                                                if (!shortcutId.isNullOrBlank()) {
+                                                    try {
+                                                        val launcherApps = context.getSystemService(android.content.pm.LauncherApps::class.java)
+                                                        launcherApps.startShortcut(item.packageName, shortcutId, null, null, android.os.Process.myUserHandle())
+                                                        handled = true
+                                                        android.util.Log.d("SexyLauncher", "Started via shortcut: $shortcutId")
+                                                    } catch (e: Exception) {
+                                                        android.util.Log.e("SexyLauncher", "Shortcut failed", e)
+                                                    }
+                                                }
+                                                
+                                                // 2. Jos ei shortcutia, kokeillaan smsto-linkkiä
+                                                if (!handled) {
+                                                    val extras = item.notification.extras
+                                                    val number = extras.getString("android.phone.number") 
+                                                        ?: extras.getCharSequence("android.title")?.toString()?.filter { it.isDigit() || it == '+' }
+                                                    
+                                                    if (!number.isNullOrBlank() && number.length >= 3) {
+                                                        val smsIntent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$number"))
+                                                        smsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                        context.startActivity(smsIntent)
+                                                        handled = true
+                                                        android.util.Log.d("SexyLauncher", "Started via smsto: $number")
+                                                    }
+                                                }
+                                            }
+
+                                            // 3. Fallback kaikille ilmoituksille
+                                            if (!handled) {
+                                                val intent = item.notification.contentIntent ?: item.notification.fullScreenIntent
+                                                if (intent != null) {
+                                                    intent.send()
+                                                    android.util.Log.d("SexyLauncher", "Started via contentIntent")
+                                                } else {
                                                     val launchIntent = context.packageManager.getLaunchIntentForPackage(item.packageName)
                                                     launchIntent?.let {
-                                                        it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                                                        it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                                         context.startActivity(it)
+                                                        android.util.Log.d("SexyLauncher", "Started via launchIntent")
                                                     }
                                                 }
                                             }
-                                        } else {
-                                            try {
-                                                val pkg = item.packageName.lowercase()
-                                                android.util.Log.d("SexyLauncher", "Clicked notification package: $pkg")
-                                                
-                                                val isMessagingApp = pkg.contains("messaging") || pkg.contains("sms") || 
-                                                                    pkg.contains("messages") || pkg.contains("mms") ||
-                                                                    pkg.contains("com.android.mms") || pkg.contains("com.google.android.apps.messaging")
-
-                                                var messageIntentStarted = false
-                                                if (isMessagingApp) {
-                                                    val extras = item.notification.extras
-                                                    
-                                                    // 1. Kokeillaan Shortcutia (Android 11+)
-                                                    val shortcutId = item.notification.shortcutId
-                                                    if (!shortcutId.isNullOrBlank()) {
-                                                        try {
-                                                            val launcherApps = context.getSystemService(android.content.pm.LauncherApps::class.java)
-                                                            launcherApps.startShortcut(item.packageName, shortcutId, null, null, android.os.Process.myUserHandle())
-                                                            messageIntentStarted = true
-                                                        } catch (e: Exception) {
-                                                            e.printStackTrace()
-                                                        }
-                                                    }
-
-                                                    // 2. Kokeillaan hakea numero Person-olioista
-                                                    if (!messageIntentStarted) {
-                                                        val people = if (android.os.Build.VERSION.SDK_INT >= 28) {
-                                                            extras.getParcelableArrayList<android.app.Person>("android.people.list")
-                                                        } else null
-                                                        
-                                                        val personUri = people?.firstOrNull()?.uri ?: extras.getString("android.people")
-                                                        if (!personUri.isNullOrBlank() && personUri.startsWith("tel:")) {
-                                                            val number = personUri.substring(4)
-                                                            try {
-                                                                val smsIntent = Intent(Intent.ACTION_VIEW, Uri.parse("smsto:$number"))
-                                                                smsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                                smsIntent.`package` = item.packageName
-                                                                context.startActivity(smsIntent)
-                                                                messageIntentStarted = true
-                                                            } catch (e: Exception) {
-                                                                e.printStackTrace()
-                                                            }
-                                                        }
-                                                    }
-
-                                                    // 3. Vanha tapa: poimitaan numero tekstistä tai haetaan nimellä
-                                                    if (!messageIntentStarted) {
-                                                        val titleText = extras.getCharSequence("android.title")?.toString()
-                                                        var number = extras.getString("android.phone.number")
-                                                        
-                                                        if (number.isNullOrBlank() && !titleText.isNullOrBlank()) {
-                                                            val digits = titleText.filter { it.isDigit() || it == '+' }
-                                                            if (digits.length >= 3) {
-                                                                number = digits
-                                                            }
-                                                        }
-                                                        
-                                                        android.util.Log.d("SexyLauncher", "Attempting SMS link for number: $number")
-                                                        
-                                                        if (!number.isNullOrBlank() && number.length >= 3) {
-                                                            try {
-                                                                val smsIntent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$number"))
-                                                                smsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                                                                context.startActivity(smsIntent)
-                                                                messageIntentStarted = true
-                                                            } catch (e: Exception) {
-                                                                android.util.Log.e("SexyLauncher", "SMS link failed", e)
-                                                            }
-                                                        }
-                                                    }
-                                                    
-                                                    // Fallback: Jos mikään ei toiminut, kokeillaan alkuperäistä intentiä ilman kikkailuja
-                                                    if (!messageIntentStarted) {
-                                                        val intent = item.notification.contentIntent ?: item.notification.fullScreenIntent
-                                                        if (intent != null) {
-                                                            try {
-                                                                intent.send()
-                                                                messageIntentStarted = true
-                                                            } catch (e: Exception) {
-                                                                e.printStackTrace()
-                                                            }
-                                                        }
-                                                    }
-                                                }
-
-                                                if (!messageIntentStarted) {
-                                                    // Alkuperäinen tapa jos numeroa ei löytynyt tai ei ole viestisovellus
-                                                    val intent = item.notification.contentIntent ?: item.notification.fullScreenIntent
-                                                    if (intent != null) {
-                                                        val options = android.app.ActivityOptions.makeBasic()
-                                                        if (android.os.Build.VERSION.SDK_INT >= 34) {
-                                                            options.setPendingIntentBackgroundActivityStartMode(android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
-                                                        }
-                                                        val fillInIntent = Intent()
-                                                        fillInIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                        try {
-                                                            intent.send(context, 0, fillInIntent, null, null, null, options.toBundle())
-                                                        } catch (e: Exception) {
-                                                            intent.send(null, 0, null, null, null, null, options.toBundle())
-                                                        }
-                                                    } else {
-                                                        val launchIntent = context.packageManager.getLaunchIntentForPackage(item.packageName)
-                                                        launchIntent?.let {
-                                                            it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                            context.startActivity(it)
-                                                        }
-                                                    }
-                                                }
-                                            } catch (e: Exception) {
-                                                val pm = context.packageManager
-                                                var launchIntent = pm.getLaunchIntentForPackage(item.packageName)
-                                                if (launchIntent == null) {
-                                                    val intent = Intent(Intent.ACTION_MAIN, null).apply {
-                                                        addCategory(Intent.CATEGORY_LAUNCHER)
-                                                        `package` = item.packageName
-                                                    }
-                                                    val resolveInfo = pm.queryIntentActivities(intent, 0)
-                                                    if (resolveInfo.isNotEmpty()) {
-                                                        val activityInfo = resolveInfo[0].activityInfo
-                                                        launchIntent = Intent(Intent.ACTION_MAIN).apply {
-                                                            addCategory(Intent.CATEGORY_LAUNCHER)
-                                                            component = ComponentName(activityInfo.packageName, activityInfo.name)
-                                                        }
-                                                    }
-                                                }
-
-                                                launchIntent?.let {
-                                                    it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                    context.startActivity(it)
-                                                }
-                                            }
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("SexyLauncher", "Click handling failed", e)
                                         }
 
-                                        // Viivästetään sulkemista hieman, jotta Intent ehtii lähteä kunnolla
-                                        context.getMainExecutor().execute {
-                                            Handler(Looper.getMainLooper()).postDelayed({
-                                                onDismiss()
-                                            }, 500)
-                                        }
+                                        // Suljetaan ilmoitusnäkymä
+                                        onDismiss()
                                     },
                                     onDismiss = { NotificationListener.instance?.dismissNotification(item.key) },
                                     fontSizeAdjustment = fontSizeAdjustment,
