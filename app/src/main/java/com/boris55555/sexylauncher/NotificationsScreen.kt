@@ -3,6 +3,7 @@ package com.boris55555.sexylauncher
 import android.app.Notification
 import android.content.ComponentName
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -291,30 +292,56 @@ fun NotificationsScreen(
                                             }
                                         } else {
                                             try {
-                                                // Priorisoidaan contentIntent viesteissä, jotta oikea keskustelu aukeaa
-                                                val intent = item.notification.contentIntent ?: item.notification.fullScreenIntent
-                                                if (intent != null) {
-                                                    // Luodaan ActivityOptions, joka sallii tausta-aktiviteetin käynnistyksen
-                                                    val options = android.app.ActivityOptions.makeBasic()
-                                                    if (android.os.Build.VERSION.SDK_INT >= 34) {
-                                                        options.setPendingIntentBackgroundActivityStartMode(android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
-                                                    }
+                                                val pkg = item.packageName.lowercase()
+                                                val isMessagingApp = pkg.contains("messaging") || pkg.contains("sms") || 
+                                                                    pkg.contains("messages") || pkg.contains("mms")
 
-                                                    // Fill-in intent, joka pakottaa uuden tehtävän (varmistaa syvälinkin toimivuuden)
-                                                    val fillInIntent = Intent()
-                                                    fillInIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                var messageIntentStarted = false
+                                                if (isMessagingApp) {
+                                                    val extras = item.notification.extras
+                                                    // Yritetään etsiä puhelinnumero ilmoituksen tiedoista
+                                                    val number = extras.getString("android.phone.number") 
+                                                        ?: extras.getCharSequence("android.title")?.toString()?.filter { it.isDigit() || it == '+' }
                                                     
-                                                    try {
-                                                        intent.send(context, 0, fillInIntent, null, null, null, options.toBundle())
-                                                    } catch (e: Exception) {
-                                                        // Jos fill-in epäonnistuu, kokeillaan suoraan
-                                                        intent.send(null, 0, null, null, null, null, options.toBundle())
+                                                    if (!number.isNullOrBlank() && number.length >= 3) {
+                                                        try {
+                                                            val smsIntent = Intent(Intent.ACTION_VIEW, Uri.parse("smsto:$number"))
+                                                            smsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                            // Yritetään asettaa paketti, jotta aukeaa samassa sovelluksessa
+                                                            smsIntent.`package` = item.packageName
+                                                            context.startActivity(smsIntent)
+                                                            messageIntentStarted = true
+                                                        } catch (e: Exception) {
+                                                            // Jos paketin asettaminen epäonnistui, kokeillaan ilman sitä
+                                                            val smsIntent = Intent(Intent.ACTION_VIEW, Uri.parse("smsto:$number"))
+                                                            smsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                            context.startActivity(smsIntent)
+                                                            messageIntentStarted = true
+                                                        }
                                                     }
-                                                } else {
-                                                    val launchIntent = context.packageManager.getLaunchIntentForPackage(item.packageName)
-                                                    launchIntent?.let {
-                                                        it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                        context.startActivity(it)
+                                                }
+
+                                                if (!messageIntentStarted) {
+                                                    // Alkuperäinen tapa jos numeroa ei löytynyt tai ei ole viestisovellus
+                                                    val intent = item.notification.contentIntent ?: item.notification.fullScreenIntent
+                                                    if (intent != null) {
+                                                        val options = android.app.ActivityOptions.makeBasic()
+                                                        if (android.os.Build.VERSION.SDK_INT >= 34) {
+                                                            options.setPendingIntentBackgroundActivityStartMode(android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
+                                                        }
+                                                        val fillInIntent = Intent()
+                                                        fillInIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                        try {
+                                                            intent.send(context, 0, fillInIntent, null, null, null, options.toBundle())
+                                                        } catch (e: Exception) {
+                                                            intent.send(null, 0, null, null, null, null, options.toBundle())
+                                                        }
+                                                    } else {
+                                                        val launchIntent = context.packageManager.getLaunchIntentForPackage(item.packageName)
+                                                        launchIntent?.let {
+                                                            it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                            context.startActivity(it)
+                                                        }
                                                     }
                                                 }
                                             } catch (e: Exception) {
