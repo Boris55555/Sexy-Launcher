@@ -293,8 +293,11 @@ fun NotificationsScreen(
                                         } else {
                                             try {
                                                 val pkg = item.packageName.lowercase()
+                                                android.util.Log.d("SexyLauncher", "Clicked notification package: $pkg")
+                                                
                                                 val isMessagingApp = pkg.contains("messaging") || pkg.contains("sms") || 
-                                                                    pkg.contains("messages") || pkg.contains("mms")
+                                                                    pkg.contains("messages") || pkg.contains("mms") ||
+                                                                    pkg.contains("com.android.mms") || pkg.contains("com.google.android.apps.messaging")
 
                                                 var messageIntentStarted = false
                                                 if (isMessagingApp) {
