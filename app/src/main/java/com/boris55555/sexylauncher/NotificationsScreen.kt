@@ -325,9 +325,6 @@ fun NotificationsScreen(
                                             }
                                         }
 
-                                        if (item.notification.category in setOf(Notification.CATEGORY_MESSAGE, Notification.CATEGORY_CALL, Notification.CATEGORY_SOCIAL)) {
-                                            NotificationListener.instance?.dismissNotification(item.key)
-                                        }
                                         onDismiss() // Sulje ilmoitusnäkymä kun viesti avataan
                                     },
                                     onDismiss = { NotificationListener.instance?.dismissNotification(item.key) },
