@@ -648,12 +648,6 @@ fun MainHomeScreen(
                                             }
                                         }
                                     }
-
-                                    notifications.filter { it.packageName == app.packageName }.forEach { sbn ->
-                                        if (sbn.notification.category != android.app.Notification.CATEGORY_CALL) {
-                                            NotificationListener.instance?.dismissNotification(sbn.key)
-                                        }
-                                    }
                                 },
                                 fontSizeAdjustment = fontSizeAdjustment
                             )
