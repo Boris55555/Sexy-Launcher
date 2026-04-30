@@ -512,7 +512,7 @@ fun FavoriteAppItem(
             } 
             
             // If we still don't have a preview (or it's not a phone app/no missed calls), check notifications for THIS app
-            if (previewText == null) {
+            if (previewText == null && totalCount > 0) {
                 val appNotifications = notifications.filter { it.packageName == app.packageName }
                 if (appNotifications.isNotEmpty()) {
                     val firstNotification = appNotifications.first().notification
