@@ -1,6 +1,7 @@
 Categories:
   - System
   - Theming
+
 License: GPL-3.0-only
 SourceCode: https://github.com/Boris55555/Sexy-Launcher
 IssueTracker: https://github.com/Boris55555/Sexy-Launcher/issues
@@ -13,7 +14,7 @@ Repo: https://github.com/Boris55555/Sexy-Launcher.git
 Builds:
   - versionName: 4.9.2
     versionCode: 75
-    commit: a6a60af5bfc71c9dd43188c0098e30e4ef48ed7c
+    commit: e272de917fe2630e8f22b37e3d91d3766a82fe0f
     subdir: app
     gradle:
       - yes
