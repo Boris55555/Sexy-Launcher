@@ -272,7 +272,10 @@ fun NotificationsScreen(
                                         try {
                                             val isMessagingApp = pkg.contains("messaging") || pkg.contains("sms") || 
                                                                 pkg.contains("messages") || pkg.contains("mms") ||
-                                                                pkg.contains("com.android.mms") || pkg.contains("com.google.android.apps.messaging")
+                                                                pkg.contains("com.android.mms") || pkg.contains("com.google.android.apps.messaging") ||
+                                                                pkg.contains("chat") || pkg.contains("messenger") || pkg.contains("whatsapp") || 
+                                                                pkg.contains("signal") || pkg.contains("telegram") || pkg.contains("discord") ||
+                                                                item.notification.category == Notification.CATEGORY_MESSAGE
 
                                             val extras = item.notification.extras
                                             var handled = false
@@ -379,8 +382,7 @@ fun NotificationsScreen(
                                             android.util.Log.e("SexyLauncher", "Click handling failed", e)
                                         }
 
-                                        // Poistetaan ilmoitus järjestelmästä ja suljetaan näkymä
-                                        NotificationListener.instance?.dismissNotification(item.key)
+                                        // Suljetaan näkymä, mutta EI poisteta ilmoitusta automaattisesti
                                         onDismiss()
                                     },
                                     onDismiss = { NotificationListener.instance?.dismissNotification(item.key) },
