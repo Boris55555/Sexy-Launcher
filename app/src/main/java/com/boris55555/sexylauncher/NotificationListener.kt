@@ -42,6 +42,9 @@ class NotificationListener : NotificationListenerService() {
         private val _notifications = MutableStateFlow<List<StatusBarNotification>>(emptyList())
         val notifications = _notifications.asStateFlow()
 
+        // Track keys that we are currently dismissing to avoid flicker
+        private val dismissedKeys = mutableSetOf<String>()
+
         private val _missedCallsCount = MutableStateFlow(0)
         val missedCallsCount = _missedCallsCount.asStateFlow()
 
@@ -383,9 +386,8 @@ class NotificationListener : NotificationListenerService() {
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
+        sbn?.key?.let { dismissedKeys.remove(it) }
         updateNotifications()
-        // If a call notification is removed, we might want to clear the active call info
-        // but TelephonyManager usually handles the idle state better.
     }
 
     private fun updateCallStatus(sbn: StatusBarNotification?) {
@@ -470,7 +472,7 @@ class NotificationListener : NotificationListenerService() {
         }
 
         _notifications.value = activeNotifs.filter {
-            isNotificationRelevant(it, disableDuraSpeed)
+            !dismissedKeys.contains(it.key) && isNotificationRelevant(it, disableDuraSpeed)
         }.sortedByDescending { it.postTime }
 
         updateMissedCallsCount()
@@ -517,6 +519,23 @@ class NotificationListener : NotificationListenerService() {
                 _unreadSmsCount.value = fallbackCount
             } else {
                 _unreadSmsCount.value = count
+            }
+
+            // If count is now 0, but we still have SMS notifications, clear them
+            if (_unreadSmsCount.value == 0) {
+                val activeNotifs = activeNotifications
+                if (activeNotifs != null) {
+                    for (sbn in activeNotifs) {
+                        val pkg = sbn.packageName.lowercase(Locale.getDefault())
+                        if (pkg.contains("messaging") || pkg.contains("sms") || 
+                            pkg.contains("mudita.messages") || pkg == "com.google.android.apps.messaging") {
+                            // Only dismiss if it's not ongoing (like a permanent notification)
+                            if ((sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) == 0) {
+                                cancelNotification(sbn.key)
+                            }
+                        }
+                    }
+                }
             }
 
         } catch (e: Exception) {
@@ -695,8 +714,19 @@ class NotificationListener : NotificationListenerService() {
     }
 
     fun dismissNotification(key: String) {
+        dismissedKeys.add(key)
         cancelNotification(key)
         updateNotifications()
+        
+        // Give the SMS app some time to update the database, then refresh count
+        serviceScope.launch {
+            delay(1000)
+            updateUnreadSmsCount()
+            delay(2000)
+            updateUnreadSmsCount()
+            delay(4000)
+            updateUnreadSmsCount()
+        }
     }
 
     fun requestRefresh() {

@@ -299,19 +299,32 @@ fun NotificationsScreen(
                                             var handled = false
                                             
                                             if (isSmsApp || isOtherChatApp) {
-                                                // 1. Try Android 11+ Shortcut (Best for modern apps like WhatsApp/Signal)
-                                                val shortcutId = item.notification.shortcutId
-                                                if (!shortcutId.isNullOrBlank()) {
+                                                // 1. Primary: Use the notification's own intent (Most reliable for unknown numbers)
+                                                val contentIntent = item.notification.contentIntent ?: item.notification.fullScreenIntent
+                                                if (contentIntent != null) {
                                                     try {
-                                                        val launcherApps = context.getSystemService(android.content.pm.LauncherApps::class.java)
-                                                        launcherApps.startShortcut(item.packageName, shortcutId, null, null, android.os.Process.myUserHandle())
+                                                        contentIntent.send(context, 0, null)
                                                         handled = true
                                                     } catch (e: Exception) {
-                                                        android.util.Log.e("SexyLauncher", "Shortcut failed", e)
+                                                        android.util.Log.e("SexyLauncher", "contentIntent.send() failed", e)
+                                                    }
+                                                }
+
+                                                // 2. Fallback: Try Android 11+ Shortcut
+                                                if (!handled) {
+                                                    val shortcutId = item.notification.shortcutId
+                                                    if (!shortcutId.isNullOrBlank()) {
+                                                        try {
+                                                            val launcherApps = context.getSystemService(android.content.pm.LauncherApps::class.java)
+                                                            launcherApps.startShortcut(item.packageName, shortcutId, null, null, android.os.Process.myUserHandle())
+                                                            handled = true
+                                                        } catch (e: Exception) {
+                                                            android.util.Log.e("SexyLauncher", "Shortcut failed", e)
+                                                        }
                                                     }
                                                 }
                                                 
-                                                // 2. Try to find a phone number and use smsto: (ONLY for SMS apps)
+                                                // 3. Last resort for SMS: Try to find a phone number and use smsto:
                                                 if (!handled && isSmsApp) {
                                                     var foundNumber: String? = extras.getString("android.phone.number")
                                                     
@@ -479,7 +492,12 @@ fun NotificationsScreen(
                                             android.util.Log.e("SexyLauncher", "Click handling failed", e)
                                         }
 
-                                        // Suljetaan näkymä, mutta EI poisteta ilmoitusta automaattisesti
+                                        // Poistetaan ilmoitus listalta, jos se on poistettavissa
+                                        if (item.isClearable) {
+                                            NotificationListener.instance?.dismissNotification(item.key)
+                                        }
+
+                                        // Suljetaan näkymä
                                         onDismiss()
                                     },
                                     onDismiss = { NotificationListener.instance?.dismissNotification(item.key) },
