@@ -13,7 +13,7 @@ Repo: https://github.com/Boris55555/Sexy-Launcher.git
 Builds:
   - versionName: 4.9.2
     versionCode: 75
-    commit: f32f09021f8913119fbceb960acc82a6e1494338
+    commit: aa3f1971bc0ab5e322e8135ff0dd6fd194337c2c
     subdir: app
     gradle:
       - yes
