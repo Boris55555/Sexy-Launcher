@@ -290,11 +290,11 @@ fun NotificationIndicator(
         val messageNotifications = notifications.filter { getNotificationCategory(it, context) == NotificationCategory.MESSAGES }
         
         // Count actual notifications that are NOT from the default SMS app (to avoid double counting with unreadSmsCount)
-        // We assume the default SMS app is the one we track via unreadSmsCount
         val smsAppPackages = listOf("com.mudita.messages", "com.android.messaging", "com.google.android.apps.messaging")
+        val smsAppNotificationsCount = messageNotifications.filter { it.packageName in smsAppPackages }.sumOf { getNotificationCount(it) }
         val otherMessageNotificationsCount = messageNotifications.filter { it.packageName !in smsAppPackages }.sumOf { getNotificationCount(it) }
         
-        val finalMessageCount = otherMessageNotificationsCount + unreadSmsCount
+        val finalMessageCount = otherMessageNotificationsCount + maxOf(unreadSmsCount, smsAppNotificationsCount)
         if (finalMessageCount > 0) {
             result[NotificationCategory.MESSAGES] = finalMessageCount
         }
@@ -384,13 +384,13 @@ fun FavoriteAppItem(
             otherCallNotificationsCount + missedCallsCount
         }
         isSmsApp -> {
-            // SMS app: Unread SMS from DB + its own notifications (if they add something new)
-            // Usually unreadSmsCount is enough, but we filter for safety
+            // SMS app: Max of (Unread SMS from DB) and (Active notifications)
             val knownSmsApps = listOf("com.mudita.messages", "com.android.messaging", "com.google.android.apps.messaging")
+            val notificationCount = notifications.filter { it.packageName == app.packageName }.sumOf { getNotificationCount(it) }
             if (app.packageName in knownSmsApps) {
-                unreadSmsCount
+                maxOf(unreadSmsCount, notificationCount)
             } else {
-                notifications.filter { it.packageName == app.packageName }.sumOf { getNotificationCount(it) }
+                notificationCount
             }
         }
         else -> {
@@ -512,8 +512,8 @@ fun FavoriteAppItem(
             } 
             
             // If we still don't have a preview (or it's not a phone app/no missed calls), check notifications for THIS app
-            if (previewText == null && totalCount > 0) {
-                val appNotifications = notifications.filter { it.packageName == app.packageName }
+            val appNotifications = notifications.filter { it.packageName == app.packageName }
+            if (previewText == null && (totalCount > 0 || appNotifications.isNotEmpty())) {
                 if (appNotifications.isNotEmpty()) {
                     val firstNotification = appNotifications.first().notification
                     val extras = firstNotification.extras
