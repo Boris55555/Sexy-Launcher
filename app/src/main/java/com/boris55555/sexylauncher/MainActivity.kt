@@ -542,6 +542,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         updateBluetoothStatus()
         runPermissionSequence()
+        NotificationListener.instance?.requestRefresh()
     }
 
     override fun onDestroy() {

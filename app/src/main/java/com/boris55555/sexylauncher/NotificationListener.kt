@@ -478,18 +478,49 @@ class NotificationListener : NotificationListenerService() {
     }
 
     private fun updateUnreadSmsCount() {
+        Log.d(TAG, "updateUnreadSmsCount called")
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "updateUnreadSmsCount: Permission READ_SMS not granted")
+            _unreadSmsCount.value = 0
+            return
+        }
+
         try {
             val contentResolver = applicationContext.contentResolver
+            
+            // Try the most compatible way to count unread messages
             val cursor = contentResolver.query(
                 Uri.parse("content://sms/inbox"),
-                null,
+                arrayOf("_id"), // Only request ID to be safe
                 "read = 0",
                 null,
                 null
             )
-            _unreadSmsCount.value = cursor?.count ?: 0
+            
+            val count = cursor?.count ?: 0
             cursor?.close()
+
+            Log.d(TAG, "updateUnreadSmsCount: Found $count unread messages in inbox")
+            
+            // If inbox is 0, check the general SMS table as fallback
+            if (count == 0) {
+                val fallbackCursor = contentResolver.query(
+                    Uri.parse("content://sms"),
+                    arrayOf("_id"),
+                    "read = 0 AND (type = 1)", // type 1 is inbox
+                    null,
+                    null
+                )
+                val fallbackCount = fallbackCursor?.count ?: 0
+                fallbackCursor?.close()
+                Log.d(TAG, "updateUnreadSmsCount: Fallback found $fallbackCount")
+                _unreadSmsCount.value = fallbackCount
+            } else {
+                _unreadSmsCount.value = count
+            }
+
         } catch (e: Exception) {
+            Log.e(TAG, "Error updating unread SMS count", e)
             _unreadSmsCount.value = 0
         }
     }
