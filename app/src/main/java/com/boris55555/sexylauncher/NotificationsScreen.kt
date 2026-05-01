@@ -1,9 +1,11 @@
 package com.boris55555.sexylauncher
 
 import android.app.Notification
+import android.app.Person
 import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -143,7 +145,20 @@ fun NotificationsScreen(
             
             !(isOngoing && isCall)
         }
-        list.addAll(filteredNotifications)
+
+        // Filter out summary notifications if there are individual notifications for the same app
+        val finalFiltered = mutableListOf<StatusBarNotification>()
+        val groupedByPkg = filteredNotifications.groupBy { it.packageName }
+        groupedByPkg.forEach { (_, pkgNotifs) ->
+            val individuals = pkgNotifs.filter { !isLikelySummary(it) }
+            if (individuals.isNotEmpty()) {
+                finalFiltered.addAll(individuals)
+            } else {
+                finalFiltered.addAll(pkgNotifs)
+            }
+        }
+
+        list.addAll(finalFiltered)
         list.addAll(missedCallsFromLog)
         list.sortWith { a, b ->
             val timeA = if (a is StatusBarNotification) a.postTime else (a as MissedCallInfo).date
@@ -270,18 +285,21 @@ fun NotificationsScreen(
                                         val pkg = item.packageName.lowercase()
                                         
                                         try {
-                                            val isMessagingApp = pkg.contains("messaging") || pkg.contains("sms") || 
-                                                                pkg.contains("messages") || pkg.contains("mms") ||
-                                                                pkg.contains("com.android.mms") || pkg.contains("com.google.android.apps.messaging") ||
-                                                                pkg.contains("chat") || pkg.contains("messenger") || pkg.contains("whatsapp") || 
-                                                                pkg.contains("signal") || pkg.contains("telegram") || pkg.contains("discord") ||
-                                                                item.notification.category == Notification.CATEGORY_MESSAGE
+                                            val isSmsApp = pkg.contains("messaging") || pkg.contains("sms") || 
+                                                           pkg.contains("mms") || pkg.contains("com.android.mms") || 
+                                                           pkg.contains("com.google.android.apps.messaging") ||
+                                                           pkg == "com.mudita.messages"
+
+                                            val isOtherChatApp = pkg.contains("chat") || pkg.contains("messenger") || pkg.contains("whatsapp") || 
+                                                                 pkg.contains("signal") || pkg.contains("telegram") || pkg.contains("discord") ||
+                                                                 pkg.contains("threema") || pkg.contains("element") || pkg.contains("fluffychat") ||
+                                                                 item.notification.category == Notification.CATEGORY_MESSAGE
 
                                             val extras = item.notification.extras
                                             var handled = false
                                             
-                                            if (isMessagingApp) {
-                                                // 1. Android 11+ Shortcut
+                                            if (isSmsApp || isOtherChatApp) {
+                                                // 1. Try Android 11+ Shortcut (Best for modern apps like WhatsApp/Signal)
                                                 val shortcutId = item.notification.shortcutId
                                                 if (!shortcutId.isNullOrBlank()) {
                                                     try {
@@ -293,58 +311,87 @@ fun NotificationsScreen(
                                                     }
                                                 }
                                                 
-                                                // 2. Jos ei shortcutia, yritetään selvittää numero ja käyttää smsto-linkkiä
-                                                if (!handled) {
-                                                    var foundNumber = extras.getString("android.phone.number")
+                                                // 2. Try to find a phone number and use smsto: (ONLY for SMS apps)
+                                                if (!handled && isSmsApp) {
+                                                    var foundNumber: String? = extras.getString("android.phone.number")
                                                     
-                                                    // Yritetään hakea numero Person-olioista (Android 9+)
+                                                    // Helper function to resolve contact URI to number
+                                                    fun resolveContactUri(uri: String?): String? {
+                                                        if (uri == null) return null
+                                                        if (uri.startsWith("tel:")) return uri.substring(4)
+                                                        if (uri.startsWith("content://com.android.contacts/")) {
+                                                            try {
+                                                                val contactUri = Uri.parse(uri)
+                                                                val id = if (uri.contains("/lookup/")) {
+                                                                    val lookupUri = android.provider.ContactsContract.Contacts.lookupContact(context.contentResolver, contactUri)
+                                                                    lookupUri?.lastPathSegment
+                                                                } else {
+                                                                    contactUri.lastPathSegment
+                                                                }
+                                                                
+                                                                if (id != null) {
+                                                                    context.contentResolver.query(
+                                                                        android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                                                                        arrayOf(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER),
+                                                                        android.provider.ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
+                                                                        arrayOf(id),
+                                                                        null
+                                                                    )?.use { cursor ->
+                                                                        if (cursor.moveToFirst()) return cursor.getString(0)
+                                                                    }
+                                                                }
+                                                            } catch (e: Exception) {}
+                                                        }
+                                                        return null
+                                                    }
+
+                                                    // Try to get number from MessagingStyle person (Android 9+)
+                                                    if (foundNumber.isNullOrBlank()) {
+                                                        try {
+                                                            val person = if (Build.VERSION.SDK_INT >= 33) {
+                                                                extras.getParcelable("android.messagingUser", android.app.Person::class.java)
+                                                            } else {
+                                                                @Suppress("DEPRECATION")
+                                                                extras.getParcelable("android.messagingUser")
+                                                            }
+                                                            foundNumber = resolveContactUri(person?.uri)
+                                                        } catch (e: Exception) {}
+                                                    }
+
+                                                    // Try to get number from Person objects in the people list
                                                     if (foundNumber.isNullOrBlank()) {
                                                         try {
                                                             val people = extras.getParcelableArrayList<android.app.Person>("android.people.list")
                                                             if (people != null) {
                                                                 for (person in people) {
-                                                                    val uri = person.uri
-                                                                    if (uri != null) {
-                                                                        if (uri.startsWith("tel:")) {
-                                                                            foundNumber = uri.substring(4)
-                                                                            break
-                                                                        } else if (uri.startsWith("content://com.android.contacts/")) {
-                                                                            // Haetaan numero yhteystietokannasta URIn perusteella
-                                                                            try {
-                                                                                val contactUri = Uri.parse(uri)
-                                                                                val id = if (uri.contains("/lookup/")) {
-                                                                                    val lookupUri = android.provider.ContactsContract.Contacts.lookupContact(context.contentResolver, contactUri)
-                                                                                    lookupUri?.lastPathSegment
-                                                                                } else {
-                                                                                    contactUri.lastPathSegment
-                                                                                }
-                                                                                
-                                                                                if (id != null) {
-                                                                                    context.contentResolver.query(
-                                                                                        android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                                                                                        arrayOf(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER),
-                                                                                        android.provider.ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
-                                                                                        arrayOf(id),
-                                                                                        null
-                                                                                    )?.use { cursor ->
-                                                                                        if (cursor.moveToFirst()) {
-                                                                                            foundNumber = cursor.getString(0)
-                                                                                        }
-                                                                                    }
-                                                                                }
-                                                                            } catch (e: Exception) {
-                                                                                android.util.Log.e("SexyLauncher", "Contact resolution failed", e)
-                                                                            }
-                                                                            if (!foundNumber.isNullOrBlank()) break
+                                                                    foundNumber = resolveContactUri(person.uri)
+                                                                    if (!foundNumber.isNullOrBlank()) break
+                                                                }
+                                                            }
+                                                        } catch (e: Exception) {}
+                                                    }
+                                                    
+                                                    // Try to find number in EXTRA_MESSAGES
+                                                    if (foundNumber.isNullOrBlank()) {
+                                                        try {
+                                                            val messages = extras.getParcelableArray("android.messages")
+                                                            if (messages != null) {
+                                                                for (m in messages) {
+                                                                    if (m is Bundle) {
+                                                                        val p = if (Build.VERSION.SDK_INT >= 33) {
+                                                                            m.getParcelable("sender_person", android.app.Person::class.java)
+                                                                        } else {
+                                                                            @Suppress("DEPRECATION")
+                                                                            m.getParcelable("sender_person")
                                                                         }
+                                                                        foundNumber = resolveContactUri(p?.uri)
+                                                                        if (!foundNumber.isNullOrBlank()) break
                                                                     }
                                                                 }
                                                             }
-                                                        } catch (e: Exception) {
-                                                            android.util.Log.e("SexyLauncher", "Error parsing people list", e)
-                                                        }
+                                                        } catch (e: Exception) {}
                                                     }
-                                                    
+
                                                     if (foundNumber.isNullOrBlank()) {
                                                         val peopleStrings = extras.getStringArray("android.people")
                                                         peopleStrings?.forEach { p ->
@@ -352,30 +399,80 @@ fun NotificationsScreen(
                                                         }
                                                     }
 
+                                                    // Try title/conversationTitle and lookup from contacts by name
                                                     if (foundNumber.isNullOrBlank()) {
-                                                        foundNumber = extras.getCharSequence("android.title")?.toString()?.filter { it.isDigit() || it == '+' }
+                                                        val rawTitle = extras.getCharSequence("android.title")?.toString() ?: 
+                                                                     extras.getCharSequence("android.conversationTitle")?.toString()
+                                                        val titleStr = rawTitle?.trim()
+                                                        
+                                                        if (!titleStr.isNullOrBlank()) {
+                                                            val digits = titleStr.filter { it.isDigit() || it == '+' }
+                                                            if (digits.length >= 7) {
+                                                                foundNumber = digits
+                                                            } else {
+                                                                // Look up by name
+                                                                try {
+                                                                    context.contentResolver.query(
+                                                                        android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                                                                        arrayOf(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER),
+                                                                        android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " = ?",
+                                                                        arrayOf(titleStr),
+                                                                        null
+                                                                    )?.use { cursor ->
+                                                                        if (cursor.moveToFirst()) {
+                                                                            foundNumber = cursor.getString(0)
+                                                                        }
+                                                                    }
+                                                                } catch (e: Exception) {}
+                                                            }
+                                                        }
                                                     }
                                                     
-                                                    if (!foundNumber.isNullOrBlank() && foundNumber!!.length >= 3) {
-                                                        val smsIntent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$foundNumber"))
-                                                        smsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                        context.startActivity(smsIntent)
-                                                        handled = true
+                                                    if (!foundNumber.isNullOrBlank()) {
+                                                        try {
+                                                            // Standard way for many apps to open a specific thread
+                                                            val uri = Uri.parse("smsto:$foundNumber")
+                                                            val smsIntent = Intent(Intent.ACTION_SENDTO, uri)
+                                                            smsIntent.putExtra("address", foundNumber)
+                                                            smsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                            context.startActivity(smsIntent)
+                                                            handled = true
+                                                        } catch (e: Exception) {
+                                                            try {
+                                                                // Alternative for older apps or different implementations
+                                                                val uri = Uri.parse("sms:$foundNumber")
+                                                                val smsIntent = Intent(Intent.ACTION_VIEW, uri)
+                                                                smsIntent.putExtra("address", foundNumber)
+                                                                smsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                                context.startActivity(smsIntent)
+                                                                handled = true
+                                                            } catch (e2: Exception) {
+                                                                android.util.Log.e("SexyLauncher", "SMS deep link failed", e2)
+                                                            }
+                                                        }
                                                     }
                                                 }
                                             }
 
-                                            // 3. Fallback kaikille ilmoituksille
+                                            // 3. Fallback to the notification's own intent (The standard way)
                                             if (!handled) {
-                                                val intent = item.notification.contentIntent ?: item.notification.fullScreenIntent
-                                                if (intent != null) {
-                                                    intent.send()
-                                                } else {
-                                                    val launchIntent = context.packageManager.getLaunchIntentForPackage(item.packageName)
-                                                    launchIntent?.let {
-                                                        it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                        context.startActivity(it)
+                                                val contentIntent = item.notification.contentIntent ?: item.notification.fullScreenIntent
+                                                if (contentIntent != null) {
+                                                    try {
+                                                        contentIntent.send(context, 0, null)
+                                                        handled = true
+                                                    } catch (e: Exception) {
+                                                        android.util.Log.e("SexyLauncher", "contentIntent.send() failed", e)
                                                     }
+                                                }
+                                            }
+
+                                            // 3. Final fallback: launch the app itself
+                                            if (!handled) {
+                                                val launchIntent = context.packageManager.getLaunchIntentForPackage(item.packageName)
+                                                launchIntent?.let {
+                                                    it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    context.startActivity(it)
                                                 }
                                             }
                                         } catch (e: Exception) {

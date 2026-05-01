@@ -240,6 +240,79 @@ fun getNotificationCount(sbn: StatusBarNotification): Int {
     return 1
 }
 
+/**
+ * Checks if a notification is likely a summary (e.g., "2 new messages") rather than an individual message.
+ */
+fun isLikelySummary(sbn: StatusBarNotification): Boolean {
+    val n = sbn.notification
+    val extras = n.extras
+
+    // FLAG_GROUP_SUMMARY is the official Android way to mark summaries
+    if ((n.flags and Notification.FLAG_GROUP_SUMMARY) != 0) return true
+
+    // MessagingStyle (standard for modern chat apps) is almost never a summary
+    if (extras.containsKey(Notification.EXTRA_MESSAGES)) return false
+    
+    val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.lowercase() ?: ""
+    val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.lowercase() ?: ""
+    val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.lowercase() ?: ""
+    val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.lowercase() ?: ""
+    
+    val combined = "$title $text $subText $bigText"
+
+    // Keywords that strongly suggest a summary/count notification
+    val summaryKeywords = listOf(
+        "new message", "messages", "unread", "conversation", "notifications",
+        "uutta viestiä", "viestiä", "lukematonta", "keskustelua", "ilmoitusta", "viestit"
+    )
+    
+    // InboxStyle (multiple lines) usually indicates a summary unless it's a specific conversation
+    if (extras.containsKey(Notification.EXTRA_TEXT_LINES)) {
+        if (!extras.containsKey(Notification.EXTRA_CONVERSATION_TITLE)) return true
+    }
+
+    // If there's a number and summary keywords, it's likely a summary (e.g., "2 messages")
+    val hasDigit = combined.any { it.isDigit() }
+    if (hasDigit && summaryKeywords.any { combined.contains(it) }) return true
+    
+    // Specific check for SMS apps where title is just the app name
+    if (sbn.packageName.contains("messaging") || sbn.packageName.contains("sms") || sbn.packageName.contains("messages")) {
+        if (title == "messages" || title == "viestit" || title == "sms") {
+            // If it's just the app name and we have other notifications, this is a summary
+            return true
+        }
+    }
+
+    return false
+}
+
+/**
+ * Counts notifications while trying to avoid double-counting summaries and individual items.
+ */
+fun getSmartNotificationCount(notifications: List<StatusBarNotification>): Int {
+    if (notifications.isEmpty()) return 0
+    
+    // Group by package first to handle app-wide behavior
+    val packageGroups = notifications.groupBy { it.packageName }
+    
+    return packageGroups.values.sumOf { pkgNotifs ->
+        val individuals = pkgNotifs.filter { !isLikelySummary(it) }
+        val summaries = pkgNotifs.filter { isLikelySummary(it) }
+        
+        when {
+            individuals.isNotEmpty() -> {
+                // If we have actual messages, ignore any "summary" notifications for this app
+                individuals.sumOf { getNotificationCount(it) }
+            }
+            summaries.isNotEmpty() -> {
+                // If only summaries exist, use the count from the largest summary
+                summaries.maxOf { getNotificationCount(it) }
+            }
+            else -> 0
+        }
+    }
+}
+
 @Composable
 fun NotificationIndicator(
     notifications: List<StatusBarNotification>,
@@ -289,10 +362,22 @@ fun NotificationIndicator(
         // Special handling for MESSAGES to sync with unreadSmsCount
         val messageNotifications = notifications.filter { getNotificationCategory(it, context) == NotificationCategory.MESSAGES }
         
-        // Count actual notifications that are NOT from the default SMS app (to avoid double counting with unreadSmsCount)
+        // Group notifications by package to handle SMS apps separately
+        val messageNotificationsByApp = messageNotifications.groupBy { it.packageName }
+        
         val smsAppPackages = listOf("com.mudita.messages", "com.android.messaging", "com.google.android.apps.messaging")
-        val smsAppNotificationsCount = messageNotifications.filter { it.packageName in smsAppPackages }.sumOf { getNotificationCount(it) }
-        val otherMessageNotificationsCount = messageNotifications.filter { it.packageName !in smsAppPackages }.sumOf { getNotificationCount(it) }
+        
+        var smsAppNotificationsCount = 0
+        var otherMessageNotificationsCount = 0
+        
+        messageNotificationsByApp.forEach { (pkg, notifs) ->
+            val count = getSmartNotificationCount(notifs)
+            if (pkg in smsAppPackages) {
+                smsAppNotificationsCount += count
+            } else {
+                otherMessageNotificationsCount += count
+            }
+        }
         
         val finalMessageCount = otherMessageNotificationsCount + maxOf(unreadSmsCount, smsAppNotificationsCount)
         if (finalMessageCount > 0) {
@@ -386,7 +471,8 @@ fun FavoriteAppItem(
         isSmsApp -> {
             // SMS app: Max of (Unread SMS from DB) and (Active notifications)
             val knownSmsApps = listOf("com.mudita.messages", "com.android.messaging", "com.google.android.apps.messaging")
-            val notificationCount = notifications.filter { it.packageName == app.packageName }.sumOf { getNotificationCount(it) }
+            val appNotifications = notifications.filter { it.packageName == app.packageName }
+            val notificationCount = getSmartNotificationCount(appNotifications)
             if (app.packageName in knownSmsApps) {
                 maxOf(unreadSmsCount, notificationCount)
             } else {
