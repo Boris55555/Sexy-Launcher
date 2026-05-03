@@ -403,7 +403,10 @@ class NotificationListener : NotificationListenerService() {
                 packageName.contains("phone") ||
                 packageName.contains("incallui") ||
                 packageName.contains("mudita.dial") ||
-                packageName == "com.mudita.dial"
+                packageName == "com.mudita.dial" ||
+                packageName.contains("threema") ||
+                packageName.contains("whatsapp") ||
+                packageName.contains("signal")
 
         if (!isCallRelated) return
 
@@ -457,17 +460,26 @@ class NotificationListener : NotificationListenerService() {
 
         val activeNotifs = activeNotifications ?: emptyArray()
         
-        // Ensure active call info is set if there's an active call notification
-        // but we haven't detected it via telephony state yet
-        if (_activeCall.value == null) {
+        // Re-evaluate active call status from notifications if telephony is idle
+        val isTelephonyIdle = telephonyManager?.callState == TelephonyManager.CALL_STATE_IDLE
+        if (isTelephonyIdle) {
+            var foundCallNotif = false
             activeNotifs.forEach { sbn ->
                 val pkg = sbn.packageName.lowercase(Locale.getDefault())
                 val category = sbn.notification.category
+                val isOngoing = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
+                
                 if (category == Notification.CATEGORY_CALL || 
-                    pkg.contains("dialer") || pkg.contains("telecom") || 
-                    pkg.contains("phone") || pkg.contains("mudita.dial")) {
+                    (isOngoing && (pkg.contains("dialer") || pkg.contains("telecom") || 
+                     pkg.contains("phone") || pkg.contains("mudita.dial") ||
+                     pkg.contains("threema") || pkg.contains("whatsapp") || pkg.contains("signal")))) {
                     updateCallStatus(sbn)
+                    foundCallNotif = true
                 }
+            }
+            // If no call notification found and telephony is idle, clear active call info
+            if (!foundCallNotif) {
+                safeUpdateCallInfo(null)
             }
         }
 
@@ -589,7 +601,10 @@ class NotificationListener : NotificationListenerService() {
                 packageName.contains("phone") ||
                 packageName.contains("incallui") ||
                 packageName.contains("mudita.dial") ||
-                packageName == "com.mudita.dial"
+                packageName == "com.mudita.dial" ||
+                packageName.contains("threema") ||
+                packageName.contains("whatsapp") ||
+                packageName.contains("signal")
 
         if (isCallRelated) {
             return true
