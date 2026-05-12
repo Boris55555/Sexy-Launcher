@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -37,6 +36,7 @@ import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Phone
@@ -129,6 +129,7 @@ enum class NotificationCategory(val icon: ImageVector) {
     REMINDERS(Icons.Default.Notifications),
     AUDIO(Icons.Default.MusicNote),
     BLUETOOTH(Icons.Filled.BluetoothConnected),
+    SECURITY(Icons.Default.Key),
     OTHER(Icons.Default.Android)
 }
 
@@ -143,7 +144,9 @@ fun getNotificationCategory(sbn: StatusBarNotification, context: Context): Notif
 
     return when {
         sbn.packageName == context.packageName -> NotificationCategory.REMINDERS
-        
+
+        packageName.contains("keepass") -> NotificationCategory.SECURITY
+
         // 1. Calls (Priority check)
         sbn.notification.category == Notification.CATEGORY_CALL || 
         sbn.notification.category == Notification.CATEGORY_MISSED_CALL ||
@@ -156,7 +159,15 @@ fun getNotificationCategory(sbn: StatusBarNotification, context: Context): Notif
         packageName.contains("phone") ||
         packageName.contains("incallui") ||
         packageName == "com.mudita.dial"
-            -> NotificationCategory.CALLS
+            -> {
+                // Threema Libre push service often uses CATEGORY_CALL to stay alive, 
+                // but it's not a real call unless it contains call-related words.
+                if (packageName.contains("threema") && !fullContent.contains("soittaa") && !fullContent.contains("calling")) {
+                    NotificationCategory.MESSAGES
+                } else {
+                    NotificationCategory.CALLS
+                }
+            }
 
         // 2. Emails
         sbn.notification.category == Notification.CATEGORY_EMAIL ||
@@ -180,6 +191,7 @@ fun getNotificationCategory(sbn: StatusBarNotification, context: Context): Notif
         packageName.contains("slack") ||
         packageName.contains("matrix") ||
         packageName.contains("element") ||
+        packageName.contains("vector") ||
         packageName.contains("fluffychat") ||
         packageName.contains("sunup") ||
         packageName == "org.mlm.mages" ||
