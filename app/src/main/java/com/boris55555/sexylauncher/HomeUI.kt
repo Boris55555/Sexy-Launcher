@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Phone
@@ -130,6 +131,7 @@ enum class NotificationCategory(val icon: ImageVector) {
     AUDIO(Icons.Default.MusicNote),
     BLUETOOTH(Icons.Filled.BluetoothConnected),
     SECURITY(Icons.Default.Key),
+    NAVIGATION(Icons.Default.Map),
     OTHER(Icons.Default.Android)
 }
 
@@ -146,6 +148,12 @@ fun getNotificationCategory(sbn: StatusBarNotification, context: Context): Notif
         sbn.packageName == context.packageName -> NotificationCategory.REMINDERS
 
         packageName.contains("keepass") -> NotificationCategory.SECURITY
+
+        packageName.contains("maps") || 
+        packageName.contains("navigation") || 
+        packageName.contains("waze") || 
+        sbn.notification.category == Notification.CATEGORY_NAVIGATION
+            -> NotificationCategory.NAVIGATION
 
         // 1. Calls (Priority check)
         sbn.notification.category == Notification.CATEGORY_CALL || 

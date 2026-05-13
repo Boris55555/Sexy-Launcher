@@ -698,7 +698,8 @@ class NotificationListener : NotificationListenerService() {
         if (isDownloadRelated) {
             if (isOngoing) {
                 // Skip idle/finished maps downloader
-                if (fullContent.contains("maps downloader") && !hasActiveProgress) return false
+                if (fullContent.contains("maps") && fullContent.contains("downloader") && !hasActiveProgress) return false
+                if (fullContent.contains("maps") && fullContent.contains("in progress") && !hasActiveProgress) return false
                 
                 // If finished (100%), hide
                 if (hasProgressKey && !isIndeterminate && progressMax > 0 && progressCurrent >= progressMax) return false
