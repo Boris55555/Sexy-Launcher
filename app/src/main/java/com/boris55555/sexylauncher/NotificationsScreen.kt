@@ -655,10 +655,11 @@ fun NotificationItem(
                 Text(text = displayMsg, fontSize = (14 + fontSizeAdjustment).sp, color = Color.Black)
             }
         }
-        if (sbn.isClearable) {
-            IconButton(onClick = onDismiss) {
-                Icon(Icons.Default.Close, contentDescription = "Dismiss Notification", tint = Color.Black)
-            }
+        // Always show the dismiss button for all notifications in this launcher, 
+        // even if they are marked as non-clearable (ongoing) by the system.
+        // This allows users to hide stuck notifications like Mudita Maps downloader.
+        IconButton(onClick = onDismiss) {
+            Icon(Icons.Default.Close, contentDescription = "Dismiss Notification", tint = Color.Black)
         }
     }
 }
