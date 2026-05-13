@@ -674,10 +674,12 @@ class NotificationListener : NotificationListenerService() {
             if (isGroupSummary) return false
             
             // Special handling for Mudita Maps to hide the idle "in progress" notification
-            if (isOngoing && !hasActiveProgress) {
-                // If it's the downloader service but not currently downloading, hide it
+            if (isOngoing) {
+                // Mudita Maps downloader often gets stuck in an indeterminate "in progress" state
+                // We hide it if it's indeterminate OR if it has no active numeric progress
                 if (fullContent.contains("downloader") || fullContent.contains("in progress")) {
-                    return false
+                    val hasNumericProgress = !isIndeterminate && progressMax > 0 && progressCurrent < progressMax
+                    if (!hasNumericProgress) return false
                 }
             }
             return true
@@ -698,8 +700,10 @@ class NotificationListener : NotificationListenerService() {
         if (isDownloadRelated) {
             if (isOngoing) {
                 // Skip idle/finished maps downloader
-                if (fullContent.contains("maps") && fullContent.contains("downloader") && !hasActiveProgress) return false
-                if (fullContent.contains("maps") && fullContent.contains("in progress") && !hasActiveProgress) return false
+                if (fullContent.contains("maps") && (fullContent.contains("downloader") || fullContent.contains("in progress"))) {
+                    val hasNumericProgress = !isIndeterminate && progressMax > 0 && progressCurrent < progressMax
+                    if (!hasNumericProgress) return false
+                }
                 
                 // If finished (100%), hide
                 if (hasProgressKey && !isIndeterminate && progressMax > 0 && progressCurrent >= progressMax) return false
