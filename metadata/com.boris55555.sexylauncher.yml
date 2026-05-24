@@ -6,6 +6,16 @@ SourceCode: https://github.com/Boris55555/Sexy-Launcher
 IssueTracker: https://github.com/Boris55555/Sexy-Launcher/issues
 
 AutoName: Sexy Launcher
+Summary: A minimalist launcher for E-ink and Mudita devices
+Description: |-
+    A minimalist, e-ink friendly launcher designed specifically for the Mudita Kompakt and other e-ink devices.
+
+    Key features:
+    * Mudita Integration: Full support for system apps from Mudita Kompakt.
+    * E-Ink Optimized: High-contrast, text-first design with hollow-dot status icons.
+    * Focus-Oriented Navigation: Minimalist app drawer with alphabetical scroller and customizable favorite apps.
+    * Privacy First: No personal data ever leaves your device. All processing of notifications, messages, and contacts happens locally.
+
 
 RepoType: git
 Repo: https://github.com/Boris55555/Sexy-Launcher.git
