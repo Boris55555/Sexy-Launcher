@@ -129,7 +129,9 @@ fun AppListScreen(
             "com.android.stk",
             "com.android.quicksearchbox",
             "com.android.settings",
-            "org.chromium.webview_shell"
+            "org.chromium.webview_shell",
+            "com.google.android.webview",
+            "com.android.webview"
         )
 
         resolveInfoList.mapNotNull { resolveInfo ->
