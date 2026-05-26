@@ -8,9 +8,9 @@ A minimalist, e-ink friendly launcher designed specifically for the Mudita Kompa
     *   **Left Alignment**
     *   **Bottom Alignment**
 *   **Minimalist Text Mode**: For those who prefer absolute simplicity, a clean text-only interface.
-*   **Integrated Home Note**: Create and edit quick reminders or lists directly on your home screen using the quill icon (+).
+*   **Integrated Home Note**: Create and edit quick reminders or lists directly on your home screen using the quill icon.
 *   **E-Ink Optimized**: High-contrast pure black and white design with specialized hollow-dot status icons for battery and signal.
-*   **Mudita Integration**: Seamless support for Mudita system apps (Phone, Messages, Alarm, etc.).
+*   **Mudita Integration**: Support for Mudita system apps (Phone, Messages, Alarm, etc.).
 *   **Privacy First**: No data ever leaves your device. All processing of notifications and personal information is done locally.
 
 ## Screenshots
@@ -30,14 +30,14 @@ A minimalist, e-ink friendly launcher designed specifically for the Mudita Kompa
 ## Installation
 
 1.  Download the latest `app-release.apk` from the [Releases](https://github.com/Boris55555/Sexy-Launcher/releases) section.
-2.  Install it on your Mudita Kompakt or other e-ink device.
+2.  Install it on your Mudita Kompakt.
 3.  Set Sexy Launcher as your default home application in the device settings.
 
 ## Usage
 
-*   **Settings (Control Panel)**: Long press an empty space on the home screen or double-tap the cat icon if the screen is locked.
+*   **Settings (Control Panel)**: Long press an empty space on the home screen or access via Control Panel from apps section.
 *   **All Apps**: Press the dedicated button on the right edge of the home screen.
-*   **Add/Edit Note**: Press the quill icon (+) on the right side in Sexy Mode.
+*   **Add/Edit Note**: Press the quill icon on the right side in Sexy Mode.
 *   **App Actions**: Long press any app in the app list to rename or uninstall.
 
 ## License
