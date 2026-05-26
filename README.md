@@ -1,58 +1,45 @@
-# Sexy Launcher 4.7
+# Sexy Launcher
 
-A minimalist, e-ink friendly launcher designed specifically and exclusively for the **Mudita Kompakt**.
+A minimalist, e-ink friendly launcher designed specifically for the Mudita Kompakt and other Android-based e-ink devices. Focus on your essentials with a high-contrast, distraction-free interface.
 
-## Download & Install
+## Key Features in Version 5.0
 
-Sexy Launcher is currently available via:
-- **[GitHub Releases](https://github.com/Boris55555/Sexy-Launcher/releases)** (Get the latest APK)
-- **F-Droid** (Application submitted, status pending)
-
-## New in Version 4.7
-- **Fixed notification click behavior**: Clicking an SMS notification now correctly opens the messaging app.
-- **E-Ink Optimizations**: Refined padding and UI for the Mudita Kompakt screen.
-- **F-Droid Compliance**: Removed non-FOSS dependencies (Google Fonts).
-
-## New in Version 4.6
-- **UI Layout Fix**: Prevented favorite app names and notification badges from overlapping with the "All apps" button on the home screen.
-- **Improved Padding**: Added dynamic spacing for favorites list when the side button is enabled.
-
-## New in Version 4.5
-- **Notification Badges**: Favorite apps on the home screen now feature a black notification badge with a count (1-9 or "!" for more).
-- **Improved Home UI**: Optimized layout for favorite apps with automatic name shortening to ensure notification badges are always visible.
-- **Enhanced Privacy Previews**: Customizable notification character limits (20, 40, 60, 80, 100) with a new default of 60.
-- **Smart SMS & Call Counting**: Improved logic to sync unread counts directly from system databases for the default Phone and Messaging apps.
-- **Bug Fixes**: Resolved issues where system notifications (like "Connected via serial port") would incorrectly appear under favorite apps.
-- **Birthday Integration**: Support for importing birthdays from the **Birday** app (compatibility with Birday app backups).
-
-## Privacy & Permissions
-Sexy Launcher is built with a "Privacy First" approach. **No personal data ever leaves your device.** All processing of notifications, messages, and contacts happens locally.
-
-To provide its core features, the app requires the following permissions:
-- **Notification Access**: Needed to display your alerts and messages in the dedicated "Notifications" screen. This is the only way for the launcher to show you what's happening in other apps.
-- **Read SMS**: Used solely to count and display the number of unread text messages on the home screen. The app does not "read" your messages for any other purpose.
-- **Read Call Log**: Required to show missed calls and to identify callers in the notification view so you know who tried to reach you.
-- **Read Phone State**: Allows the launcher to detect active calls and show a "Call in progress" indicator, making it easy to return to your call.
-- **Read Contacts**: Used to resolve phone numbers into contact names (e.g., showing "Mom" instead of a number) locally on your device.
-- **Exact Alarm**: Necessary for the Reminders and Birthdays features to trigger notifications precisely at the scheduled time.
-- **Bluetooth**: Used to show the name of your connected headset or device in the status header.
-
-## Key Features
-- **Mudita Integration**: Full support for system apps from Mudita Kompakt.
-- **E-Ink Optimized**: High-contrast, text-first design with hollow-dot status icons.
-- **Interactive Header**: Fast access to clock, battery status (with charging indicator), and system info.
-- **Focus-Oriented Navigation**: Minimalist app drawer with alphabetical scroller and customizable favorite apps.
-
-## Designed for Focus
-Sexy Launcher provides a clean, fast, and intentional user experience, replacing clutter with essential information. It transforms your Mudita Kompakt into an even more powerful tool for digital well-being.
+*   **New Sexy Mode (Default)**: A modern grid-based layout with square icons.
+    *   **Left Alignment**: Vertical strip of favorites on the left, leaving space for notes and shortcuts.
+    *   **Bottom Alignment**: Horizontal row of favorites at the bottom for easy thumb access.
+*   **Minimalist Text Mode**: For those who prefer absolute simplicity, a clean text-only interface.
+*   **Integrated Home Note**: Create and edit quick reminders or lists directly on your home screen using the quill icon (+).
+*   **E-Ink Optimized**: High-contrast pure black and white design with specialized hollow-dot status icons for battery and signal.
+*   **Mudita Integration**: Seamless support for Mudita system apps (Phone, Messages, Alarm, etc.).
+*   **Privacy First**: No data ever leaves your device. All processing of notifications and personal information is done locally.
 
 ## Screenshots
 
-<table>
-  <tr>
-    <td align="center"><img src="assets/Screenshot_20260424_173539.png" width="180"><br><sub></sub></td>
-    <td align="center"><img src="assets/Screenshot_20260424_173617.png" width="180"><br><sub></sub></td>
-    <td align="center"><img src="assets/Screenshot_20260424_173755.png" width="180"><br><sub></sub></td>
-    <td align="center"><img src="assets/Screenshot_20260424_173938.png" width="180"><br><sub></sub></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="assets/Screenshot_20260526_191506.png" width="30%" />
+  <img src="assets/Screenshot_20260526_191533.png" width="30%" />
+  <img src="assets/Screenshot_20260526_191627.png" width="30%" />
+</p>
+
+<p align="center">
+  <img src="assets/Screenshot_20260526_191738.png" width="30%" />
+  <img src="assets/Screenshot_20260526_191757.png" width="30%" />
+  <img src="assets/Screenshot_20260526_191821.png" width="30%" />
+</p>
+
+## Installation
+
+1.  Download the latest `app-release.apk` from the [Releases](https://github.com/Boris55555/Sexy-Launcher/releases) section.
+2.  Install it on your Mudita Kompakt or other e-ink device.
+3.  Set Sexy Launcher as your default home application in the device settings.
+
+## Usage
+
+*   **Settings (Control Panel)**: Long press an empty space on the home screen or double-tap the cat icon if the screen is locked.
+*   **All Apps**: Press the dedicated button on the right edge of the home screen.
+*   **Add/Edit Note**: Press the quill icon (+) on the right side in Sexy Mode.
+*   **App Actions**: Long press any app in the app list to rename or uninstall.
+
+## License
+
+This project is licensed under the GPL-3.0 License.
