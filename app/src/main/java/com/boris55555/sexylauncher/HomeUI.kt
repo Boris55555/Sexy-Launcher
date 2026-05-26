@@ -784,23 +784,50 @@ fun RenameAppDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (showAppIcons) {
-                    val icon = try {
-                        context.packageManager.getApplicationIcon(appInfo.packageName)
-                    } catch (e: Exception) {
-                        null
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    if (showAppIcons) {
+                        val icon = try {
+                            context.packageManager.getApplicationIcon(appInfo.packageName)
+                        } catch (e: Exception) {
+                            null
+                        }
+                        if (icon != null) {
+                            Image(
+                                painter = rememberDrawablePainter(drawable = icon),
+                                contentDescription = null,
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                        }
                     }
-                    if (icon != null) {
-                        Image(
-                            painter = rememberDrawablePainter(drawable = icon),
-                            contentDescription = null,
-                            modifier = Modifier.size(32.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
+                    Text("Rename App", color = Color.Black)
+                }
+                
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (onToggleHideFromTop10 != null) {
+                        IconButton(onClick = onToggleHideFromTop10) {
+                            Icon(
+                                imageVector = if (isHiddenFromTop10) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = null,
+                                tint = Color.Black
+                            )
+                        }
+                    }
+                    if (onUninstall != null) {
+                        IconButton(onClick = onUninstall) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Uninstall",
+                                tint = Color.Black
+                            )
+                        }
                     }
                 }
-                Text("Rename App", color = Color.Black)
             }
         },
         text = {
@@ -821,28 +848,6 @@ fun RenameAppDialog(
                     keyboardActions = KeyboardActions(onDone = { onRename(newName) }),
                     modifier = Modifier.fillMaxWidth()
                 )
-                
-                if (onToggleHideFromTop10 != null) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onToggleHideFromTop10() }
-                            .padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = if (isHiddenFromTop10) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = null,
-                            tint = Color.Black
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = if (isHiddenFromTop10) "Show in Top 10" else "Hide from Top 10",
-                            color = Color.Black
-                        )
-                    }
-                }
             }
         },
         confirmButton = {
@@ -851,22 +856,8 @@ fun RenameAppDialog(
             }
         },
         dismissButton = {
-            Row {
-                if (onUninstall != null) {
-                    EInkButton(
-                        onClick = onUninstall
-                    ) {
-                        Icon(Icons.Default.Delete, contentDescription = "Uninstall", tint = Color.Black)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Uninstall")
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
-                EInkButton(
-                    onClick = onDismiss
-                ) {
-                    Text("Cancel")
-                }
+            EInkButton(onClick = onDismiss) {
+                Text("Cancel")
             }
         },
         containerColor = Color.White

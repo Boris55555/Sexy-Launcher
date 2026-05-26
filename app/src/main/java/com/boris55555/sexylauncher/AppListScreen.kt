@@ -209,9 +209,7 @@ fun AppListScreen(
             } else null,
             showAppIcons = showAppIcons,
             isHiddenFromTop10 = app.packageName in hiddenFromTop10,
-            onToggleHideFromTop10 = if (selectedTab == "Top 10" || app.packageName in hiddenFromTop10) {
-                { favoritesRepository.toggleHiddenFromTop10(app.packageName) }
-            } else null
+            onToggleHideFromTop10 = { favoritesRepository.toggleHiddenFromTop10(app.packageName) }
         )
     }
 
