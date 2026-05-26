@@ -5,8 +5,8 @@ A minimalist, e-ink friendly launcher designed specifically for the Mudita Kompa
 ## Key Features in Version 5.0
 
 *   **New Sexy Mode (Default)**: A modern grid-based layout with square icons.
-    *   **Left Alignment**: Vertical strip of favorites on the left, leaving space for notes and shortcuts.
-    *   **Bottom Alignment**: Horizontal row of favorites at the bottom for easy thumb access.
+    *   **Left Alignment**
+    *   **Bottom Alignment**
 *   **Minimalist Text Mode**: For those who prefer absolute simplicity, a clean text-only interface.
 *   **Integrated Home Note**: Create and edit quick reminders or lists directly on your home screen using the quill icon (+).
 *   **E-Ink Optimized**: High-contrast pure black and white design with specialized hollow-dot status icons for battery and signal.
