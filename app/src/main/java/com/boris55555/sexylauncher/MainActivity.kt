@@ -47,21 +47,17 @@ private const val KEY_CALENDAR_APP = "calendar_app_package"
 private const val KEY_HOME_LOCKED = "home_locked"
 private const val KEY_CUSTOM_NAMES = "custom_app_names_set"
 private const val KEY_WEEK_STARTS_ON_SUNDAY = "week_starts_on_sunday"
-private const val KEY_HIDE_LAUNCHER_FROM_APP_VIEW = "hide_launcher_from_app_view"
 private const val KEY_GESTURES_ENABLED = "gestures_enabled"
 private const val KEY_KEEP_ALL_APPS_BUTTON = "keep_all_apps_button"
 private const val KEY_SWIPE_LEFT_ACTION = "swipe_left_action"
 private const val KEY_SWIPE_RIGHT_ACTION = "swipe_right_action"
-private const val KEY_CAT_ICON_ACTION = "cat_icon_action"
 private const val KEY_DISABLE_DURASPEED_NOTIFICATIONS = "disable_duraspeed_notifications"
-private const val KEY_DATE_THEME_LIGHT = "date_theme_light"
 private const val KEY_SHOW_APP_ICONS = "show_app_icons"
 private const val KEY_BATTERY_THRESHOLD = "battery_threshold"
 private const val KEY_SELECTED_FONT = "selected_font"
 private const val KEY_FONT_SIZE_HOME = "font_size_home"
 private const val KEY_FONT_SIZE_ALL_APPS = "font_size_all_apps"
 private const val KEY_FONT_SIZE_NOTIFICATIONS = "font_size_notifications"
-private const val KEY_HIDE_STATUS_BAR = "hide_status_bar"
 private const val KEY_USE_24H_FORMAT = "use_24h_format"
 private const val KEY_INITIAL_SETUP_COMPLETE = "initial_setup_complete"
 private const val KEY_ASKED_NOTIFICATION_ACCESS = "asked_notification_access"
@@ -71,6 +67,12 @@ private const val KEY_SHOW_NOTIFICATION_PREVIEWS = "show_notification_previews"
 private const val KEY_NOTIFICATION_MAX_CHARACTERS = "notification_max_characters"
 private const val KEY_PREFERRED_APP_LIST = "preferred_app_list"
 private const val KEY_HIDDEN_FROM_TOP10 = "hidden_from_top10"
+private const val KEY_SHOW_TOP10_STARS = "show_top10_stars"
+private const val KEY_SEXY_MODE = "sexy_mode"
+private const val KEY_SEXY_ALIGNMENT = "sexy_alignment"
+private const val KEY_SHOW_NOTES_BUTTON = "show_notes_button"
+private const val KEY_HOME_NOTE = "home_note"
+private const val KEY_HOME_NOTE_TITLE = "home_note_title"
 private const val DEFAULT_FAVORITE_COUNT = 4
 private const val DEFAULT_BATTERY_THRESHOLD = 50
 private const val DEFAULT_FONT = "Sans Serif"
@@ -97,9 +99,6 @@ class FavoritesRepository(private val context: Context) {
     private val _isHomeLocked = MutableStateFlow(prefs.getBoolean(KEY_HOME_LOCKED, false))
     val isHomeLocked = _isHomeLocked.asStateFlow()
 
-    private val _hideLauncherFromAppView = MutableStateFlow(prefs.getBoolean(KEY_HIDE_LAUNCHER_FROM_APP_VIEW, true))
-    val hideLauncherFromAppView = _hideLauncherFromAppView.asStateFlow()
-
     private val _customNames = MutableStateFlow(getCustomNamesMap())
     val customNames = _customNames.asStateFlow()
 
@@ -118,14 +117,8 @@ class FavoritesRepository(private val context: Context) {
     private val _swipeRightAction = MutableStateFlow(prefs.getString(KEY_SWIPE_RIGHT_ACTION, "none") ?: "none")
     val swipeRightAction = _swipeRightAction.asStateFlow()
 
-    private val _catIconAction = MutableStateFlow(prefs.getString(KEY_CAT_ICON_ACTION, "double_touch") ?: "double_touch")
-    val catIconAction = _catIconAction.asStateFlow()
-
     private val _disableDuraSpeedNotifications = MutableStateFlow(prefs.getBoolean(KEY_DISABLE_DURASPEED_NOTIFICATIONS, false))
     val disableDuraSpeedNotifications = _disableDuraSpeedNotifications.asStateFlow()
-
-    private val _dateThemeLight = MutableStateFlow(prefs.getBoolean(KEY_DATE_THEME_LIGHT, false))
-    val dateThemeLight = _dateThemeLight.asStateFlow()
 
     private val _use24hFormat = MutableStateFlow(prefs.getBoolean(KEY_USE_24H_FORMAT, true))
     val use24hFormat = _use24hFormat.asStateFlow()
@@ -151,14 +144,29 @@ class FavoritesRepository(private val context: Context) {
     private val _fontSizeNotifications = MutableStateFlow(prefs.getString(KEY_FONT_SIZE_NOTIFICATIONS, "Normal") ?: "Normal")
     val fontSizeNotifications = _fontSizeNotifications.asStateFlow()
 
-    private val _hideStatusBar = MutableStateFlow(prefs.getBoolean(KEY_HIDE_STATUS_BAR, true))
-    val hideStatusBar = _hideStatusBar.asStateFlow()
-
     private val _preferredAppList = MutableStateFlow(prefs.getString(KEY_PREFERRED_APP_LIST, "All Apps") ?: "All Apps")
     val preferredAppList = _preferredAppList.asStateFlow()
 
     private val _hiddenFromTop10 = MutableStateFlow(prefs.getStringSet(KEY_HIDDEN_FROM_TOP10, emptySet()) ?: emptySet())
     val hiddenFromTop10 = _hiddenFromTop10.asStateFlow()
+
+    private val _showTop10Stars = MutableStateFlow(prefs.getBoolean(KEY_SHOW_TOP10_STARS, false))
+    val showTop10Stars = _showTop10Stars.asStateFlow()
+
+    private val _sexyMode = MutableStateFlow(prefs.getBoolean(KEY_SEXY_MODE, true))
+    val sexyMode = _sexyMode.asStateFlow()
+
+    private val _sexyAlignment = MutableStateFlow(prefs.getString(KEY_SEXY_ALIGNMENT, "left") ?: "left")
+    val sexyAlignment = _sexyAlignment.asStateFlow()
+
+    private val _showNotesButton = MutableStateFlow(prefs.getBoolean(KEY_SHOW_NOTES_BUTTON, true))
+    val showNotesButton = _showNotesButton.asStateFlow()
+
+    private val _homeNote = MutableStateFlow(prefs.getString(KEY_HOME_NOTE, "") ?: "")
+    val homeNote = _homeNote.asStateFlow()
+
+    private val _homeNoteTitle = MutableStateFlow(prefs.getString(KEY_HOME_NOTE_TITLE, "") ?: "")
+    val homeNoteTitle = _homeNoteTitle.asStateFlow()
 
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
@@ -174,9 +182,6 @@ class FavoritesRepository(private val context: Context) {
             }
             KEY_HOME_LOCKED -> {
                 _isHomeLocked.value = prefs.getBoolean(KEY_HOME_LOCKED, false)
-            }
-            KEY_HIDE_LAUNCHER_FROM_APP_VIEW -> {
-                _hideLauncherFromAppView.value = prefs.getBoolean(KEY_HIDE_LAUNCHER_FROM_APP_VIEW, true)
             }
             KEY_CUSTOM_NAMES -> {
                 _customNames.value = getCustomNamesMap()
@@ -206,14 +211,8 @@ class FavoritesRepository(private val context: Context) {
                     _swipeRightAction.value = action
                 }
             }
-            KEY_CAT_ICON_ACTION -> {
-                _catIconAction.value = prefs.getString(KEY_CAT_ICON_ACTION, "double_touch") ?: "double_touch"
-            }
             KEY_DISABLE_DURASPEED_NOTIFICATIONS -> {
                 _disableDuraSpeedNotifications.value = prefs.getBoolean(KEY_DISABLE_DURASPEED_NOTIFICATIONS, false)
-            }
-            KEY_DATE_THEME_LIGHT -> {
-                _dateThemeLight.value = prefs.getBoolean(KEY_DATE_THEME_LIGHT, false)
             }
             KEY_USE_24H_FORMAT -> {
                 _use24hFormat.value = prefs.getBoolean(KEY_USE_24H_FORMAT, true)
@@ -242,11 +241,26 @@ class FavoritesRepository(private val context: Context) {
             KEY_FONT_SIZE_NOTIFICATIONS -> {
                 _fontSizeNotifications.value = prefs.getString(KEY_FONT_SIZE_NOTIFICATIONS, "Normal") ?: "Normal"
             }
-            KEY_HIDE_STATUS_BAR -> {
-                _hideStatusBar.value = prefs.getBoolean(KEY_HIDE_STATUS_BAR, false)
-            }
             KEY_PREFERRED_APP_LIST -> {
                 _preferredAppList.value = prefs.getString(KEY_PREFERRED_APP_LIST, "All Apps") ?: "All Apps"
+            }
+            KEY_SHOW_TOP10_STARS -> {
+                _showTop10Stars.value = prefs.getBoolean(KEY_SHOW_TOP10_STARS, false)
+            }
+            KEY_SEXY_MODE -> {
+                _sexyMode.value = prefs.getBoolean(KEY_SEXY_MODE, true)
+            }
+            KEY_SEXY_ALIGNMENT -> {
+                _sexyAlignment.value = prefs.getString(KEY_SEXY_ALIGNMENT, "left") ?: "left"
+            }
+            KEY_SHOW_NOTES_BUTTON -> {
+                _showNotesButton.value = prefs.getBoolean(KEY_SHOW_NOTES_BUTTON, true)
+            }
+            KEY_HOME_NOTE -> {
+                _homeNote.value = prefs.getString(KEY_HOME_NOTE, "") ?: ""
+            }
+            KEY_HOME_NOTE_TITLE -> {
+                _homeNoteTitle.value = prefs.getString(KEY_HOME_NOTE_TITLE, "") ?: ""
             }
         }
     }
@@ -322,20 +336,21 @@ class FavoritesRepository(private val context: Context) {
     }
 
     fun saveFavoriteCount(count: Int) {
+        val cappedCount = count.coerceIn(1, 4)
         val currentFavorites = _favorites.value.toMutableList()
         val currentSize = currentFavorites.size
-        if (count < currentSize) {
-            while (currentFavorites.size > count) {
+        if (cappedCount < currentSize) {
+            while (currentFavorites.size > cappedCount) {
                 currentFavorites.removeAt(currentFavorites.size - 1)
             }
-        } else if (count > currentSize) {
-            repeat(count - currentSize) {
+        } else if (cappedCount > currentSize) {
+            repeat(cappedCount - currentSize) {
                 currentFavorites.add(null)
             }
         }
         val toStore = currentFavorites.joinToString(separator = ",") { it ?: "null" }
         prefs.edit()
-            .putInt(KEY_FAVORITE_COUNT, count)
+            .putInt(KEY_FAVORITE_COUNT, cappedCount)
             .putString(KEY_FAVORITES, toStore)
             .apply()
     }
@@ -362,10 +377,6 @@ class FavoritesRepository(private val context: Context) {
         prefs.edit().putBoolean(KEY_HOME_LOCKED, isLocked).apply()
     }
 
-    fun saveHideLauncherFromAppView(hide: Boolean) {
-        prefs.edit().putBoolean(KEY_HIDE_LAUNCHER_FROM_APP_VIEW, hide).apply()
-    }
-
     fun saveWeekStartsOnSunday(isSunday: Boolean) {
         prefs.edit().putBoolean(KEY_WEEK_STARTS_ON_SUNDAY, isSunday).apply()
     }
@@ -386,16 +397,8 @@ class FavoritesRepository(private val context: Context) {
         prefs.edit().putString(KEY_SWIPE_RIGHT_ACTION, action).apply()
     }
 
-    fun saveCatIconAction(action: String) {
-        prefs.edit().putString(KEY_CAT_ICON_ACTION, action).apply()
-    }
-
     fun saveDisableDuraSpeedNotifications(disabled: Boolean) {
         prefs.edit().putBoolean(KEY_DISABLE_DURASPEED_NOTIFICATIONS, disabled).apply()
-    }
-
-    fun saveDateThemeLight(isLight: Boolean) {
-        prefs.edit().putBoolean(KEY_DATE_THEME_LIGHT, isLight).apply()
     }
 
     fun saveUse24hFormat(use24h: Boolean) {
@@ -434,12 +437,32 @@ class FavoritesRepository(private val context: Context) {
         prefs.edit().putString(KEY_FONT_SIZE_NOTIFICATIONS, size).apply()
     }
 
-    fun saveHideStatusBar(hide: Boolean) {
-        prefs.edit().putBoolean(KEY_HIDE_STATUS_BAR, hide).apply()
-    }
-
     fun savePreferredAppList(list: String) {
         prefs.edit().putString(KEY_PREFERRED_APP_LIST, list).apply()
+    }
+
+    fun saveShowTop10Stars(show: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_TOP10_STARS, show).apply()
+    }
+
+    fun saveSexyMode(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SEXY_MODE, enabled).apply()
+    }
+
+    fun saveSexyAlignment(alignment: String) {
+        prefs.edit().putString(KEY_SEXY_ALIGNMENT, alignment).apply()
+    }
+
+    fun saveShowNotesButton(show: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_NOTES_BUTTON, show).apply()
+    }
+
+    fun saveHomeNote(note: String) {
+        prefs.edit().putString(KEY_HOME_NOTE, note).apply()
+    }
+
+    fun saveHomeNoteTitle(title: String) {
+        prefs.edit().putString(KEY_HOME_NOTE_TITLE, title).apply()
     }
 
     fun toggleHiddenFromTop10(packageName: String) {
@@ -666,19 +689,13 @@ class MainActivity : ComponentActivity() {
         runPermissionSequence()
 
         setContent {
-            val hideStatusBar by favoritesRepository.hideStatusBar.collectAsState()
-
-            LaunchedEffect(hideStatusBar) {
+            LaunchedEffect(Unit) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     val controller = window.insetsController
                     if (controller != null) {
-                        if (hideStatusBar) {
-                            controller.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
-                            controller.systemBarsBehavior =
-                                WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                        } else {
-                            controller.show(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
-                        }
+                        controller.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+                        controller.systemBarsBehavior =
+                            WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                     }
                 }
             }

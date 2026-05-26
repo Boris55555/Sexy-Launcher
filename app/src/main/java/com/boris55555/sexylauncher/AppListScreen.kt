@@ -11,6 +11,7 @@ import android.app.Notification
 import android.service.notification.StatusBarNotification
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -30,16 +31,28 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDropUp
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -81,8 +94,9 @@ fun AppListScreen(
     val packageManager = context.packageManager
     val notifications by NotificationListener.notifications.collectAsState()
     val customNames by favoritesRepository.customNames.collectAsState()
-    val hideLauncherFromAppView by favoritesRepository.hideLauncherFromAppView.collectAsState()
     val showAppIcons by favoritesRepository.showAppIcons.collectAsState()
+    val showTop10Stars by favoritesRepository.showTop10Stars.collectAsState()
+    val sexyMode by favoritesRepository.sexyMode.collectAsState()
     val fontSizeAllApps by favoritesRepository.fontSizeAllApps.collectAsState()
     val preferredAppList by favoritesRepository.preferredAppList.collectAsState()
     val hiddenFromTop10 by favoritesRepository.hiddenFromTop10.collectAsState()
@@ -113,11 +127,19 @@ fun AppListScreen(
         }
     }
 
-    val apps = remember(isPickerMode, customNames, refreshKey, hideLauncherFromAppView) {
+    val apps = remember(isPickerMode, customNames, refreshKey) {
         val intent = Intent(Intent.ACTION_MAIN, null).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
         }
         val resolveInfoList: List<ResolveInfo> = packageManager.queryIntentActivities(intent, 0)
+        
+        // Custom App Info for Sexy Launcher's own Control Panel
+        val controlPanelApp = AppInfo(
+            name = "Control Panel",
+            packageName = context.packageName,
+            isSystemApp = true
+        )
+
         val hiddenPackages = setOf(
             "com.android.calendar",
             "com.android.deskclock",
@@ -134,29 +156,36 @@ fun AppListScreen(
             "com.android.webview"
         )
 
-        resolveInfoList.mapNotNull { resolveInfo ->
+        val appList = resolveInfoList.mapNotNull { resolveInfo ->
             try {
-                val appInfo = packageManager.getApplicationInfo(resolveInfo.activityInfo.packageName, 0)
+                val pkgName = resolveInfo.activityInfo.packageName
+                // Hide the launcher itself from the list since we add it manually with a different name
+                if (pkgName == context.packageName) return@mapNotNull null
+
+                val appInfo = packageManager.getApplicationInfo(pkgName, 0)
                 val isSystemApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0 ||
-                        resolveInfo.activityInfo.packageName.startsWith("com.mudita")
+                        pkgName.startsWith("com.mudita")
 
                 val originalName = resolveInfo.loadLabel(packageManager).toString()
-                val customName = customNames[resolveInfo.activityInfo.packageName]
+                val customName = customNames[pkgName]
                 AppInfo(
                     name = customName ?: originalName,
-                    packageName = resolveInfo.activityInfo.packageName,
+                    packageName = pkgName,
                     customName = customName,
                     isSystemApp = isSystemApp
                 )
             } catch (e: Exception) {
                 null
             }
-        }.filter {
-            val isLauncher = it.packageName == context.packageName
-            val shouldHideLauncher = hideLauncherFromAppView && isLauncher
-            it.packageName !in hiddenPackages && !shouldHideLauncher &&
+        }.toMutableList()
+
+        // Add Sexy Launcher Control Panel to the list
+        appList.add(controlPanelApp)
+
+        appList.filter {
+            it.packageName !in hiddenPackages && 
             // Don't show the launcher itself in picker mode
-            (!isPickerMode || !isLauncher)
+            (!isPickerMode || it.packageName != context.packageName)
         }.sortedBy { it.name }
     }
 
@@ -192,6 +221,8 @@ fun AppListScreen(
 
     val allAppsListState = rememberLazyListState()
     val top10ListState = rememberLazyListState()
+    val allAppsGridState = rememberLazyGridState()
+    val top10GridState = rememberLazyGridState()
 
     LaunchedEffect(lockedLetter) {
         allAppsListState.scrollToItem(0)
@@ -237,7 +268,7 @@ fun AppListScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(top = 8.dp, start = 16.dp, end = 16.dp, bottom = 4.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -284,7 +315,7 @@ fun AppListScreen(
                 userScrollEnabled = lockedLetter == null && !isPickerMode
             ) { page ->
                 val currentTabForPage = if (page == 0) "All Apps" else "Top 10"
-                val listItems = remember(apps, lockedLetter, usageMap, isPickerMode, currentTabForPage, favorites, hiddenFromTop10) {
+                val listItems = remember(apps, lockedLetter, usageMap, isPickerMode, currentTabForPage, favorites, hiddenFromTop10, sexyMode) {
                     val items = mutableListOf<Any>()
 
                     if (isPickerMode) {
@@ -311,6 +342,9 @@ fun AppListScreen(
                                 items.add(lockedLetter!!)
                                 items.addAll(filteredApps)
                             }
+                        } else if (sexyMode) {
+                            // Sexy Mode: Simple alphabetical list without letters
+                            items.addAll(apps)
                         } else {
                             val grouped = apps.groupBy { it.name.first().uppercaseChar() }
                             grouped.toSortedMap().forEach { (letter, appsInGroup) ->
@@ -322,58 +356,132 @@ fun AppListScreen(
                     items
                 }
 
-                LazyColumn(
-                    state = if (page == 0) allAppsListState else top10ListState,
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    items(listItems) { item ->
-                        when (item) {
-                            is Char -> {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
-                                ) {
+                if (sexyMode) {
+                    val gridState = if (page == 0) allAppsGridState else top10GridState
+                    val columns = if (page == 0) 4 else 2
+                    
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(columns),
+                        state = gridState,
+                        modifier = Modifier.fillMaxSize().padding(start = 8.dp, end = 24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(if (page == 1) 2.dp else 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(if (page == 1) 2.dp else 8.dp)
+                    ) {
+                        items(listItems, span = { item ->
+                            if (item is Char) GridItemSpan(columns) else GridItemSpan(1)
+                        }) { item ->
+                            when (item) {
+                                is Char -> {
                                     Text(
                                         text = item.toString(),
                                         modifier = Modifier
-                                            .clickable { onLockedLetterChanged(item) },
+                                            .fillMaxWidth()
+                                            .padding(8.dp),
                                         fontSize = (20 + fontSizeAdjustment).sp,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Black
+                                    )
+                                }
+                                is AppInfo -> {
+                                    val rank = if (currentTabForPage == "Top 10" && lockedLetter == null && showTop10Stars) {
+                                        listItems.filterIsInstance<AppInfo>().indexOf(item) + 1
+                                    } else 0
+                                    
+                                    AppGridItem(
+                                        app = item,
+                                        showAppIcons = true, // In sexy mode grid we always show icons
+                                        notifications = notifications,
+                                        isTop10Item = currentTabForPage == "Top 10" && lockedLetter == null,
+                                        rank = rank,
+                                        onLongClick = { appToEdit = item },
+                                        onClick = {
+                                            if (isPickerMode) {
+                                                onAppSelected?.invoke(item)
+                                            } else {
+                                                if (item.packageName == context.packageName) {
+                                                    onShowSettingsClicked?.invoke()
+                                                } else {
+                                                    onAppLaunched?.invoke(item.packageName)
+                                                    notifications
+                                                        .filter { it.packageName == item.packageName }
+                                                        .forEach { sbn ->
+                                                            NotificationListener.instance?.dismissNotification(sbn.key)
+                                                        }
+                                                    val launchIntent =
+                                                        packageManager.getLaunchIntentForPackage(item.packageName)
+                                                    if (launchIntent != null) {
+                                                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                        context.startActivity(launchIntent)
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        fontSizeAdjustment = fontSizeAdjustment
                                     )
                                 }
                             }
-                            is AppInfo -> {
-                                AppListItem(
-                                    app = item,
-                                    showAppIcons = showAppIcons,
-                                    notifications = notifications,
-                                    onLongClick = { appToEdit = item },
-                                    onClick = {
-                                        if (isPickerMode) {
-                                            onAppSelected?.invoke(item)
-                                        } else {
-                                            if (item.packageName == context.packageName) {
-                                                onShowSettingsClicked?.invoke()
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        state = if (page == 0) allAppsListState else top10ListState,
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        items(listItems) { item ->
+                            when (item) {
+                                is Char -> {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
+                                    ) {
+                                        Text(
+                                            text = item.toString(),
+                                            modifier = Modifier
+                                                .clickable { onLockedLetterChanged(item) },
+                                            fontSize = (20 + fontSizeAdjustment).sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                                is AppInfo -> {
+                                    val rank = if (currentTabForPage == "Top 10" && lockedLetter == null && showTop10Stars) {
+                                        listItems.filterIsInstance<AppInfo>().indexOf(item) + 1
+                                    } else 0
+                                    
+                                    AppListItem(
+                                        app = item,
+                                        showAppIcons = showAppIcons,
+                                        notifications = notifications,
+                                        isTop10Item = currentTabForPage == "Top 10" && lockedLetter == null,
+                                        rank = rank,
+                                        onLongClick = { appToEdit = item },
+                                        onClick = {
+                                            if (isPickerMode) {
+                                                onAppSelected?.invoke(item)
                                             } else {
-                                                onAppLaunched?.invoke(item.packageName)
-                                                notifications
-                                                    .filter { it.packageName == item.packageName }
-                                                    .forEach { sbn ->
-                                                        NotificationListener.instance?.dismissNotification(sbn.key)
+                                                if (item.packageName == context.packageName) {
+                                                    onShowSettingsClicked?.invoke()
+                                                } else {
+                                                    onAppLaunched?.invoke(item.packageName)
+                                                    notifications
+                                                        .filter { it.packageName == item.packageName }
+                                                        .forEach { sbn ->
+                                                            NotificationListener.instance?.dismissNotification(sbn.key)
+                                                        }
+                                                    val launchIntent =
+                                                        packageManager.getLaunchIntentForPackage(item.packageName)
+                                                    if (launchIntent != null) {
+                                                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                        context.startActivity(launchIntent)
                                                     }
-                                                val launchIntent =
-                                                    packageManager.getLaunchIntentForPackage(item.packageName)
-                                                if (launchIntent != null) {
-                                                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                    context.startActivity(launchIntent)
                                                 }
                                             }
-                                        }
-                                    },
-                                    fontSizeAdjustment = fontSizeAdjustment
-                                )
+                                        },
+                                        fontSizeAdjustment = fontSizeAdjustment
+                                    )
+                                }
                             }
                         }
                     }
@@ -383,7 +491,7 @@ fun AppListScreen(
 
         AlphabetScroller(
             modifier = Modifier.align(Alignment.CenterEnd),
-            alphabet = if (selectedTab == "All Apps" || lockedLetter != null) alphabet else emptyList(),
+            alphabet = if ((selectedTab == "All Apps" && !sexyMode) || lockedLetter != null) alphabet else emptyList(),
             onLetterSelected = { letter ->
                 if (lockedLetter == null) {
                     val index = indexMap[letter]
@@ -395,6 +503,31 @@ fun AppListScreen(
                 }
             }
         )
+
+        if (sexyMode && selectedTab == "All Apps") {
+            if (allAppsGridState.canScrollBackward) {
+                Icon(
+                    imageVector = Icons.Default.ArrowDropUp,
+                    contentDescription = "Scroll up",
+                    tint = Color.Black,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 16.dp, end = 8.dp)
+                        .size(32.dp)
+                )
+            }
+            if (allAppsGridState.canScrollForward) {
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = "Scroll down",
+                    tint = Color.Black,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = 16.dp, end = 8.dp)
+                        .size(32.dp)
+                )
+            }
+        }
     }
 }
 
@@ -462,13 +595,169 @@ fun AlphabetScroller(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
+fun AppGridItem(
+    app: AppInfo,
+    showAppIcons: Boolean,
+    notifications: List<StatusBarNotification>,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    fontSizeAdjustment: Int = 0,
+    isTop10Item: Boolean = false,
+    rank: Int = 0
+) {
+    val context = LocalContext.current
+    val packageManager = context.packageManager
+    val missedCallsCount by NotificationListener.missedCallsCount.collectAsState()
+
+    val appIcon: Drawable? = try {
+        packageManager.getApplicationIcon(app.packageName)
+    } catch (e: PackageManager.NameNotFoundException) {
+        null
+    }
+
+    val isPhoneApp = app.packageName == "com.mudita.dial" || 
+                     app.packageName.contains("dialer") || 
+                     app.packageName.contains("telecom")
+
+    val appNotifications = notifications.filter { 
+        it.packageName.equals(app.packageName, ignoreCase = true) 
+    }
+    val totalCount = if (isPhoneApp) {
+        val otherCallNotificationsCount = appNotifications.filter { it.notification.category != Notification.CATEGORY_MISSED_CALL }.sumOf { getNotificationCount(it) }
+        otherCallNotificationsCount + missedCallsCount
+    } else {
+        appNotifications.sumOf { getNotificationCount(it) }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(2.dp)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            if (rank in 1..10) {
+                Column(
+                    modifier = Modifier
+                        .padding(end = 6.dp)
+                        .width(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.StarOutline,
+                        contentDescription = null,
+                        tint = Color.Black,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = rank.toString(),
+                        color = Color.Black,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Box(contentAlignment = Alignment.TopEnd) {
+                val iconSize = if (isTop10Item) 96.dp else 56.dp
+                Box(
+                    modifier = Modifier
+                        .size(iconSize),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (appIcon != null) {
+                            Image(
+                                painter = rememberDrawablePainter(drawable = appIcon),
+                                contentDescription = "${app.name} icon",
+                                modifier = Modifier.size(if (isTop10Item) 72.dp else 48.dp)
+                            )
+                        } else {
+                            Text(
+                                text = app.name.take(1).uppercase(),
+                                fontSize = (if (isTop10Item) 40 else 24).sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        
+                        if (isTop10Item) {
+                            Spacer(modifier = Modifier.height(2.dp))
+                            val displayName = if (app.name.length > 12) {
+                                app.name.take(9) + "..."
+                            } else {
+                                app.name
+                            }
+                            Text(
+                                text = displayName,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold, // Made bold to be more visible without box
+                                color = Color.Black,
+                                maxLines = 1,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+
+                if (totalCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .offset(x = 4.dp, y = (-4).dp)
+                            .size(24.dp) // Slightly larger badge
+                            .background(Color.Black, shape = CircleShape)
+                            .border(1.dp, Color.White, shape = CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (totalCount > 9) "!" else totalCount.toString(),
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        if (!isTop10Item) {
+            Spacer(modifier = Modifier.height(4.dp))
+
+            val displayName = if (app.name.length > 12) {
+                app.name.take(9) + "..."
+            } else {
+                app.name
+            }
+
+            Text(
+                text = displayName,
+                fontSize = (12 + fontSizeAdjustment).sp,
+                fontWeight = FontWeight.Normal,
+                color = Color.Black,
+                maxLines = 1,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
 fun AppListItem(
     app: AppInfo,
     showAppIcons: Boolean,
     notifications: List<StatusBarNotification>,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    fontSizeAdjustment: Int = 0
+    fontSizeAdjustment: Int = 0,
+    isTop10Item: Boolean = false,
+    rank: Int = 0
 ) {
     val context = LocalContext.current
     val packageManager = context.packageManager
@@ -499,19 +788,53 @@ fun AppListItem(
         appNotifications.sumOf { getNotificationCount(it) }
     }
 
+    val fontSize = if (isTop10Item) 30 else 24
+    val rowHeight = if (isTop10Item) (52 + fontSizeAdjustment * 2).dp else 60.dp
+
     Row(
         modifier = Modifier
-            .padding(start = 64.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+            .fillMaxWidth()
+            .height(rowHeight)
+            .padding(start = 16.dp, end = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Start
     ) {
+        if (rank in 1..10) {
+            Column(
+                modifier = Modifier.width(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.StarOutline,
+                    contentDescription = null,
+                    tint = Color.Black,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = rank.toString(),
+                    color = Color.Black,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+        } else if (isTop10Item) {
+            // Keep the same space even when stars are hidden to keep alignment
+            Spacer(modifier = Modifier.width(48.dp))
+        } else {
+            // Default space for alphabetical list
+            Spacer(modifier = Modifier.width(32.dp))
+        }
+
         Row(
             modifier = Modifier
                 .combinedClickable(onClick = onClick, onLongClick = onLongClick),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (showAppIcons) {
-                Box(modifier = Modifier.size(40.dp)) {
+                val iconSize = if (isTop10Item) 48.dp else 40.dp
+                Box(modifier = Modifier.size(iconSize)) {
                     if (appIcon != null) {
                         Image(
                             painter = rememberDrawablePainter(drawable = appIcon),
@@ -524,7 +847,7 @@ fun AppListItem(
             }
             Text(
                 text = app.name,
-                fontSize = (24 + fontSizeAdjustment).sp,
+                fontSize = (fontSize + fontSizeAdjustment).sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

@@ -22,10 +22,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -38,6 +40,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
@@ -49,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -98,24 +103,22 @@ fun SettingsScreen(
     val calendarAppPackage by favoritesRepository.calendarAppPackage.collectAsState()
     val isHomeLocked by favoritesRepository.isHomeLocked.collectAsState()
     val weekStartsOnSunday by favoritesRepository.weekStartsOnSunday.collectAsState()
-    val hideLauncherFromAppView by favoritesRepository.hideLauncherFromAppView.collectAsState()
     val gesturesEnabled by favoritesRepository.gesturesEnabled.collectAsState()
-    val keepAllAppsButton by favoritesRepository.keepAllAppsButton.collectAsState()
     val swipeLeftAction by favoritesRepository.swipeLeftAction.collectAsState()
     val swipeRightAction by favoritesRepository.swipeRightAction.collectAsState()
-    val catIconAction by favoritesRepository.catIconAction.collectAsState()
     val disableDuraSpeedNotifications by favoritesRepository.disableDuraSpeedNotifications.collectAsState()
-    val dateThemeLight by favoritesRepository.dateThemeLight.collectAsState()
-    val showAppIcons by favoritesRepository.showAppIcons.collectAsState()
     val selectedFont by favoritesRepository.selectedFont.collectAsState()
     val fontSizeHome by favoritesRepository.fontSizeHome.collectAsState()
     val fontSizeAllApps by favoritesRepository.fontSizeAllApps.collectAsState()
     val fontSizeNotifications by favoritesRepository.fontSizeNotifications.collectAsState()
-    val hideStatusBar by favoritesRepository.hideStatusBar.collectAsState()
     val use24hFormat by favoritesRepository.use24hFormat.collectAsState()
     val showNotificationPreviews by favoritesRepository.showNotificationPreviews.collectAsState()
     val notificationMaxCharacters by favoritesRepository.notificationMaxCharacters.collectAsState()
     val preferredAppList by favoritesRepository.preferredAppList.collectAsState()
+    val showTop10Stars by favoritesRepository.showTop10Stars.collectAsState()
+    val sexyMode by favoritesRepository.sexyMode.collectAsState()
+    val sexyAlignment by favoritesRepository.sexyAlignment.collectAsState()
+    val showNotesButton by favoritesRepository.showNotesButton.collectAsState()
 
     var isDefaultLauncher by remember { mutableStateOf(false) }
 
@@ -126,8 +129,6 @@ fun SettingsScreen(
         val resolveInfo = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
         isDefaultLauncher = resolveInfo?.activityInfo?.packageName == context.packageName
     }
-
-    var showHelpDialog by remember { mutableStateOf(false) }
 
     val favoriteCount by favoritesRepository.favoriteCount.collectAsState()
     var sliderPosition by remember(favoriteCount) { mutableFloatStateOf(favoriteCount.toFloat()) }
@@ -249,37 +250,6 @@ fun SettingsScreen(
         hasBluetoothPermission = isGranted
     }
 
-    if (showHelpDialog) {
-        val helpText = """
-            Welcome to Sexy Launcher!
-
-            • Home Screen: Long press an empty space for settings. Double tap to refresh. Long press a favorite to change it. If the homescreen is locked, double-tap the cat icon in the bottom right to open settings.
-
-            • All Apps: Press the button on the right edge to open. Long press an app to rename or uninstall.
-
-            • Settings: Customize your launcher, set it as default, lock the layout, and more.
-            """.trimIndent()
-
-        AlertDialog(
-            onDismissRequest = { showHelpDialog = false },
-            title = { Text("Quick Guide", color = Color.Black) },
-            text = { Text(helpText, color = Color.Black) },
-            confirmButton = {
-                Button(
-                    onClick = { showHelpDialog = false },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        contentColor = Color.Black
-                    ),
-                    border = BorderStroke(1.dp, Color.Black)
-                ) {
-                    Text("Close")
-                }
-            },
-            containerColor = Color.White
-        )
-    }
-
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -303,27 +273,29 @@ fun SettingsScreen(
                 bluetoothPermissionLauncher = bluetoothPermissionLauncher
             )
 
-            DefaultLauncherSection(context, isDefaultLauncher)
+            AddQuickActionsSection(
+                onBirthdaysClicked = onBirthdaysClicked,
+                onRemindersClicked = onRemindersClicked
+            )
 
             AppSelectionSection(
                 alarmAppName = alarmAppName,
                 calendarAppName = calendarAppName,
                 onChooseAlarmAppClicked = onChooseAlarmAppClicked,
-                onChooseCalendarAppClicked = onChooseCalendarAppClicked,
-                onBirthdaysClicked = onBirthdaysClicked,
-                onRemindersClicked = onRemindersClicked
+                onChooseCalendarAppClicked = onChooseCalendarAppClicked
             )
+
+            DefaultLauncherSection(context, isDefaultLauncher)
 
             HomeScreenSection(
                 favoritesRepository = favoritesRepository,
                 isHomeLocked = isHomeLocked,
+                sexyMode = sexyMode,
+                sexyAlignment = sexyAlignment,
+                showNotesButton = showNotesButton,
                 sliderPosition = sliderPosition,
                 onSliderChange = { sliderPosition = it },
-                catIconAction = catIconAction,
-                dateThemeLight = dateThemeLight,
-                showAppIcons = showAppIcons,
                 use24hFormat = use24hFormat,
-                hideStatusBar = hideStatusBar,
                 eInkSwitchColors = eInkSwitchColors
             )
 
@@ -331,13 +303,14 @@ fun SettingsScreen(
                 favoritesRepository = favoritesRepository,
                 showNotificationPreviews = showNotificationPreviews,
                 notificationMaxCharacters = notificationMaxCharacters,
+                sexyMode = sexyMode,
+                sexyAlignment = sexyAlignment,
                 eInkSwitchColors = eInkSwitchColors
             )
 
             GestureSection(
                 favoritesRepository = favoritesRepository,
                 gesturesEnabled = gesturesEnabled,
-                keepAllAppsButton = keepAllAppsButton,
                 swipeLeftAction = swipeLeftAction,
                 swipeRightAction = swipeRightAction,
                 onChooseSwipeLeftAppClicked = onChooseSwipeLeftAppClicked,
@@ -359,7 +332,7 @@ fun SettingsScreen(
             AppDrawerSection(
                 favoritesRepository = favoritesRepository,
                 preferredAppList = preferredAppList,
-                hideLauncherFromAppView = hideLauncherFromAppView,
+                showTop10Stars = showTop10Stars,
                 eInkSwitchColors = eInkSwitchColors
             )
 
@@ -369,8 +342,6 @@ fun SettingsScreen(
                 disableDuraSpeedNotifications = disableDuraSpeedNotifications,
                 eInkSwitchColors = eInkSwitchColors
             )
-
-            HelpSection { showHelpDialog = true }
         }
 
         if (scrollState.canScrollBackward) {
@@ -430,55 +401,95 @@ fun PermissionSection(
     smsPermissionLauncher: ManagedActivityResultLauncher<String, Boolean>,
     bluetoothPermissionLauncher: ManagedActivityResultLauncher<String, Boolean>
 ) {
-    Text("Permissions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.Black)
-    Spacer(modifier = Modifier.height(8.dp))
-    HorizontalDivider(color = Color.Black)
+    var isExpanded by remember { mutableStateOf(false) }
+    val allGranted = hasNotificationPermission && hasPhonePermission && 
+                     hasContactsPermission && hasSmsPermission && 
+                     hasBluetoothPermission && hasExactAlarmPermission
 
-    PermissionRow(
-        title = "Notification Access",
-        isGranted = hasNotificationPermission,
-        onClick = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
-    )
-
-    PermissionRow(
-        title = "Phone Call Access",
-        isGranted = hasPhonePermission,
-        onClick = {
-            phonePermissionLauncher.launch(
-                arrayOf(Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_CALL_LOG)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { isExpanded = !isExpanded }
+            .padding(vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Permissions", 
+                    style = MaterialTheme.typography.titleMedium, 
+                    fontWeight = FontWeight.Bold, 
+                    color = Color.Black
+                )
+                if (allGranted) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(
+                        imageVector = Icons.Default.Check, 
+                        contentDescription = "All Permissions Granted",
+                        tint = Color.Black,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+            Icon(
+                imageVector = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = if (isExpanded) "Collapse" else "Expand",
+                tint = Color.Black
             )
         }
-    )
+        
+        if (isExpanded) {
+            Spacer(modifier = Modifier.height(16.dp))
+            PermissionRow(
+                title = "Notification Access",
+                isGranted = hasNotificationPermission,
+                onClick = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+            )
 
-    PermissionRow(
-        title = "Contact Access",
-        isGranted = hasContactsPermission,
-        onClick = { contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS) }
-    )
+            PermissionRow(
+                title = "Phone Call Access",
+                isGranted = hasPhonePermission,
+                onClick = {
+                    phonePermissionLauncher.launch(
+                        arrayOf(Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_CALL_LOG)
+                    )
+                }
+            )
 
-    PermissionRow(
-        title = "SMS Access",
-        isGranted = hasSmsPermission,
-        onClick = { smsPermissionLauncher.launch(Manifest.permission.READ_SMS) }
-    )
+            PermissionRow(
+                title = "Contact Access",
+                isGranted = hasContactsPermission,
+                onClick = { contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS) }
+            )
 
-    PermissionRow(
-        title = "Bluetooth Access",
-        isGranted = hasBluetoothPermission,
-        onClick = { bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT) }
-    )
+            PermissionRow(
+                title = "SMS Access",
+                isGranted = hasSmsPermission,
+                onClick = { smsPermissionLauncher.launch(Manifest.permission.READ_SMS) }
+            )
 
-    PermissionRow(
-        title = "Exact Alarm Access",
-        isGranted = hasExactAlarmPermission,
-        onClick = {
-            try {
-                context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM))
-            } catch (e: Exception) {
-                Log.e("SettingsScreen", "Error opening exact alarm settings", e)
-            }
+            PermissionRow(
+                title = "Bluetooth Access",
+                isGranted = hasBluetoothPermission,
+                onClick = { bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT) }
+            )
+
+            PermissionRow(
+                title = "Exact Alarm Access",
+                isGranted = hasExactAlarmPermission,
+                onClick = {
+                    try {
+                        context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM))
+                    } catch (e: Exception) {
+                        Log.e("SettingsScreen", "Error opening exact alarm settings", e)
+                    }
+                }
+            )
         }
-    )
+    }
 
     HorizontalDivider(color = Color.Black)
 }
@@ -519,13 +530,38 @@ fun DefaultLauncherSection(context: Context, isDefault: Boolean) {
 }
 
 @Composable
+fun AddQuickActionsSection(
+    onBirthdaysClicked: () -> Unit,
+    onRemindersClicked: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text("Add:", fontSize = 18.sp, color = Color.Black)
+        Row {
+            EInkButton(onClick = onBirthdaysClicked) {
+                Text("Birthday")
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            EInkButton(onClick = onRemindersClicked) {
+                Text("Reminder")
+            }
+        }
+    }
+
+    HorizontalDivider(color = Color.Black)
+}
+
+@Composable
 fun AppSelectionSection(
     alarmAppName: String,
     calendarAppName: String,
     onChooseAlarmAppClicked: () -> Unit,
-    onChooseCalendarAppClicked: () -> Unit,
-    onBirthdaysClicked: () -> Unit,
-    onRemindersClicked: () -> Unit
+    onChooseCalendarAppClicked: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -554,45 +590,106 @@ fun AppSelectionSection(
     }
 
     HorizontalDivider(color = Color.Black)
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text("Add:", fontSize = 18.sp, color = Color.Black)
-        Row {
-            EInkButton(onClick = onBirthdaysClicked) {
-                Text("Birthday")
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            EInkButton(onClick = onRemindersClicked) {
-                Text("Reminder")
-            }
-        }
-    }
-
-    HorizontalDivider(color = Color.Black)
 }
 
 @Composable
 fun HomeScreenSection(
     favoritesRepository: FavoritesRepository,
     isHomeLocked: Boolean,
+    sexyMode: Boolean,
+    sexyAlignment: String,
+    showNotesButton: Boolean,
     sliderPosition: Float,
     onSliderChange: (Float) -> Unit,
-    catIconAction: String,
-    dateThemeLight: Boolean,
-    showAppIcons: Boolean,
     use24hFormat: Boolean,
-    hideStatusBar: Boolean,
     eInkSwitchColors: androidx.compose.material3.SwitchColors
 ) {
     Spacer(modifier = Modifier.height(32.dp))
     Text("Homescreen settings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.Black)
     Spacer(modifier = Modifier.height(8.dp))
+    HorizontalDivider(color = Color.Black)
+
+    if (sexyMode) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Show Notes button", fontSize = 18.sp, color = Color.Black)
+            Switch(
+                checked = showNotesButton,
+                onCheckedChange = { favoritesRepository.saveShowNotesButton(it) },
+                colors = eInkSwitchColors
+            )
+        }
+        HorizontalDivider(color = Color.Black)
+    }
+
+    HorizontalDivider(color = Color.Black)
+
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Sexy Mode", fontSize = 18.sp, color = Color.Black)
+                Spacer(modifier = Modifier.height(8.dp))
+                EInkButton(
+                    onClick = { favoritesRepository.saveSexyMode(true) },
+                    enabled = !sexyMode,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Select")
+                }
+            }
+            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Text Mode", fontSize = 18.sp, color = Color.Black)
+                Spacer(modifier = Modifier.height(8.dp))
+                EInkButton(
+                    onClick = { favoritesRepository.saveSexyMode(false) },
+                    enabled = sexyMode,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Select")
+                }
+            }
+        }
+        
+        if (sexyMode) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Left", fontSize = 16.sp, color = Color.Black)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    EInkButton(
+                        onClick = { favoritesRepository.saveSexyAlignment("left") },
+                        enabled = sexyAlignment != "left",
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Select")
+                    }
+                }
+                Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Bottom", fontSize = 16.sp, color = Color.Black)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    EInkButton(
+                        onClick = { favoritesRepository.saveSexyAlignment("bottom") },
+                        enabled = sexyAlignment != "bottom",
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Select")
+                    }
+                }
+            }
+        }
+    }
+
     HorizontalDivider(color = Color.Black)
 
     Row(
@@ -617,8 +714,8 @@ fun HomeScreenSection(
             Slider(
                 value = sliderPosition,
                 onValueChange = onSliderChange,
-                valueRange = 1f..20f,
-                steps = 18,
+                valueRange = 1f..4f,
+                steps = 2,
                 onValueChangeFinished = {
                     favoritesRepository.saveFavoriteCount(sliderPosition.roundToInt())
                 },
@@ -631,67 +728,6 @@ fun HomeScreenSection(
                 )
             )
         }
-    }
-
-    if (isHomeLocked) {
-        HorizontalDivider(color = Color.Black)
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
-            Text("Cat Icon Action", fontSize = 18.sp, color = Color.Black)
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                EInkButton(
-                    onClick = { favoritesRepository.saveCatIconAction("double_touch") },
-                    enabled = catIconAction != "double_touch",
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Double Touch")
-                }
-                EInkButton(
-                    onClick = { favoritesRepository.saveCatIconAction("long_press") },
-                    enabled = catIconAction != "long_press",
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Long Press")
-                }
-            }
-        }
-    }
-
-    HorizontalDivider(color = Color.Black)
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text("Light Date Theme", fontSize = 18.sp, color = Color.Black)
-        Switch(
-            checked = dateThemeLight,
-            onCheckedChange = { favoritesRepository.saveDateThemeLight(it) },
-            colors = eInkSwitchColors
-        )
-    }
-
-    HorizontalDivider(color = Color.Black)
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text("Show App Icons", fontSize = 18.sp, color = Color.Black)
-        Switch(
-            checked = showAppIcons,
-            onCheckedChange = { favoritesRepository.saveShowAppIcons(it) },
-            colors = eInkSwitchColors
-        )
     }
 
     HorizontalDivider(color = Color.Black)
@@ -712,23 +748,6 @@ fun HomeScreenSection(
     }
 
     HorizontalDivider(color = Color.Black)
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text("Hide status bar", fontSize = 18.sp, color = Color.Black)
-        Switch(
-            checked = hideStatusBar,
-            onCheckedChange = { favoritesRepository.saveHideStatusBar(it) },
-            colors = eInkSwitchColors
-        )
-    }
-
-    HorizontalDivider(color = Color.Black)
 }
 
 @Composable
@@ -736,12 +755,19 @@ fun NotificationSection(
     favoritesRepository: FavoritesRepository,
     showNotificationPreviews: Boolean,
     notificationMaxCharacters: Int,
+    sexyMode: Boolean,
+    sexyAlignment: String,
     eInkSwitchColors: androidx.compose.material3.SwitchColors
 ) {
+    // Hidden in Sexy Mode as per request
+    if (sexyMode) return
+
     Spacer(modifier = Modifier.height(32.dp))
     Text("Notifications", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.Black)
     Spacer(modifier = Modifier.height(8.dp))
     HorizontalDivider(color = Color.Black)
+
+    val description = "Show notifications under favorite apps"
 
     Row(
         modifier = Modifier
@@ -752,7 +778,7 @@ fun NotificationSection(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text("Show notification previews", fontSize = 18.sp, color = Color.Black)
-            Text("Show notifications under favorite apps", fontSize = 14.sp, color = Color.Gray)
+            Text(description, fontSize = 14.sp, color = Color.Gray)
         }
         Switch(
             checked = showNotificationPreviews,
@@ -760,8 +786,8 @@ fun NotificationSection(
             colors = eInkSwitchColors
         )
     }
-
     HorizontalDivider(color = Color.Black)
+    
     var showMaxCharsMenu by remember { mutableStateOf(false) }
     val maxCharsOptions = listOf(20, 40, 60, 80, 100)
 
@@ -793,7 +819,6 @@ fun NotificationSection(
             }
         }
     }
-
     HorizontalDivider(color = Color.Black)
 }
 
@@ -801,7 +826,6 @@ fun NotificationSection(
 fun GestureSection(
     favoritesRepository: FavoritesRepository,
     gesturesEnabled: Boolean,
-    keepAllAppsButton: Boolean,
     swipeLeftAction: String,
     swipeRightAction: String,
     onChooseSwipeLeftAppClicked: () -> Unit,
@@ -825,22 +849,6 @@ fun GestureSection(
     }
 
     if (gesturesEnabled) {
-        HorizontalDivider(color = Color.Black)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text("Keep All Apps button", fontSize = 18.sp, color = Color.Black)
-            Switch(
-                checked = keepAllAppsButton,
-                onCheckedChange = { favoritesRepository.saveKeepAllAppsButton(it) },
-                colors = eInkSwitchColors
-            )
-        }
-
         HorizontalDivider(color = Color.Black)
         var showLeftSwipeMenu by remember { mutableStateOf(false) }
         var showRightSwipeMenu by remember { mutableStateOf(false) }
@@ -1000,7 +1008,7 @@ fun GeneralFontSection(
 fun AppDrawerSection(
     favoritesRepository: FavoritesRepository,
     preferredAppList: String,
-    hideLauncherFromAppView: Boolean,
+    showTop10Stars: Boolean,
     eInkSwitchColors: androidx.compose.material3.SwitchColors
 ) {
     Spacer(modifier = Modifier.height(32.dp))
@@ -1049,10 +1057,10 @@ fun AppDrawerSection(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text("Hide launcher from app view", fontSize = 18.sp, color = Color.Black)
+        Text("Show Top 10 stars", fontSize = 18.sp, color = Color.Black)
         Switch(
-            checked = hideLauncherFromAppView,
-            onCheckedChange = { favoritesRepository.saveHideLauncherFromAppView(it) },
+            checked = showTop10Stars,
+            onCheckedChange = { favoritesRepository.saveShowTop10Stars(it) },
             colors = eInkSwitchColors
         )
     }
@@ -1164,19 +1172,6 @@ fun ExperimentalSection(
     }
 
     HorizontalDivider(color = Color.Black)
-}
-
-@Composable
-fun HelpSection(onHelpClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onHelpClick() }
-            .padding(vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text("Help", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-    }
 }
 
 @Composable

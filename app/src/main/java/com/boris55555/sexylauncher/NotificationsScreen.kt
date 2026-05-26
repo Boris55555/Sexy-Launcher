@@ -299,65 +299,41 @@ fun NotificationsScreen(
                                             var handled = false
                                             
                                             if (isSmsApp || isOtherChatApp) {
-                                                // 1. Primary: Use the notification's own intent (Most reliable for unknown numbers)
-                                                val contentIntent = item.notification.contentIntent ?: item.notification.fullScreenIntent
-                                                if (contentIntent != null) {
-                                                    try {
-                                                        contentIntent.send(context, 0, null)
-                                                        handled = true
-                                                    } catch (e: Exception) {
-                                                        android.util.Log.e("SexyLauncher", "contentIntent.send() failed", e)
+                                                // Helper function to resolve contact URI to number
+                                                fun resolveContactUri(uri: String?): String? {
+                                                    if (uri == null) return null
+                                                    if (uri.startsWith("tel:")) return uri.substring(4)
+                                                    if (uri.startsWith("content://com.android.contacts/")) {
+                                                        try {
+                                                            val contactUri = Uri.parse(uri)
+                                                            val id = if (uri.contains("/lookup/")) {
+                                                                val lookupUri = android.provider.ContactsContract.Contacts.lookupContact(context.contentResolver, contactUri)
+                                                                lookupUri?.lastPathSegment
+                                                            } else {
+                                                                contactUri.lastPathSegment
+                                                            }
+                                                            
+                                                            if (id != null) {
+                                                                context.contentResolver.query(
+                                                                    android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                                                                    arrayOf(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER),
+                                                                    android.provider.ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
+                                                                    arrayOf(id),
+                                                                    null
+                                                                )?.use { cursor ->
+                                                                    if (cursor.moveToFirst()) return cursor.getString(0)
+                                                                }
+                                                            }
+                                                        } catch (e: Exception) {}
                                                     }
+                                                    return null
                                                 }
 
-                                                // 2. Fallback: Try Android 11+ Shortcut
-                                                if (!handled) {
-                                                    val shortcutId = item.notification.shortcutId
-                                                    if (!shortcutId.isNullOrBlank()) {
-                                                        try {
-                                                            val launcherApps = context.getSystemService(android.content.pm.LauncherApps::class.java)
-                                                            launcherApps.startShortcut(item.packageName, shortcutId, null, null, android.os.Process.myUserHandle())
-                                                            handled = true
-                                                        } catch (e: Exception) {
-                                                            android.util.Log.e("SexyLauncher", "Shortcut failed", e)
-                                                        }
-                                                    }
-                                                }
-                                                
-                                                // 3. Last resort for SMS: Try to find a phone number and use smsto:
-                                                if (!handled && isSmsApp) {
+                                                // 1. For SMS apps, try to find a phone number and use smsto: first
+                                                // to ensure we open the specific thread instead of just the app.
+                                                if (isSmsApp) {
                                                     var foundNumber: String? = extras.getString("android.phone.number")
                                                     
-                                                    // Helper function to resolve contact URI to number
-                                                    fun resolveContactUri(uri: String?): String? {
-                                                        if (uri == null) return null
-                                                        if (uri.startsWith("tel:")) return uri.substring(4)
-                                                        if (uri.startsWith("content://com.android.contacts/")) {
-                                                            try {
-                                                                val contactUri = Uri.parse(uri)
-                                                                val id = if (uri.contains("/lookup/")) {
-                                                                    val lookupUri = android.provider.ContactsContract.Contacts.lookupContact(context.contentResolver, contactUri)
-                                                                    lookupUri?.lastPathSegment
-                                                                } else {
-                                                                    contactUri.lastPathSegment
-                                                                }
-                                                                
-                                                                if (id != null) {
-                                                                    context.contentResolver.query(
-                                                                        android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                                                                        arrayOf(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER),
-                                                                        android.provider.ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
-                                                                        arrayOf(id),
-                                                                        null
-                                                                    )?.use { cursor ->
-                                                                        if (cursor.moveToFirst()) return cursor.getString(0)
-                                                                    }
-                                                                }
-                                                            } catch (e: Exception) {}
-                                                        }
-                                                        return null
-                                                    }
-
                                                     // Try to get number from MessagingStyle person (Android 9+)
                                                     if (foundNumber.isNullOrBlank()) {
                                                         try {
@@ -443,7 +419,6 @@ fun NotificationsScreen(
                                                     
                                                     if (!foundNumber.isNullOrBlank()) {
                                                         try {
-                                                            // Standard way for many apps to open a specific thread
                                                             val uri = Uri.parse("smsto:$foundNumber")
                                                             val smsIntent = Intent(Intent.ACTION_SENDTO, uri)
                                                             smsIntent.putExtra("address", foundNumber)
@@ -452,7 +427,6 @@ fun NotificationsScreen(
                                                             handled = true
                                                         } catch (e: Exception) {
                                                             try {
-                                                                // Alternative for older apps or different implementations
                                                                 val uri = Uri.parse("sms:$foundNumber")
                                                                 val smsIntent = Intent(Intent.ACTION_VIEW, uri)
                                                                 smsIntent.putExtra("address", foundNumber)
@@ -462,6 +436,33 @@ fun NotificationsScreen(
                                                             } catch (e2: Exception) {
                                                                 android.util.Log.e("SexyLauncher", "SMS deep link failed", e2)
                                                             }
+                                                        }
+                                                    }
+                                                }
+
+                                                // 2. Primary Fallback: Use the notification's own intent
+                                                if (!handled) {
+                                                    val contentIntent = item.notification.contentIntent ?: item.notification.fullScreenIntent
+                                                    if (contentIntent != null) {
+                                                        try {
+                                                            contentIntent.send(context, 0, null)
+                                                            handled = true
+                                                        } catch (e: Exception) {
+                                                            android.util.Log.e("SexyLauncher", "contentIntent.send() failed", e)
+                                                        }
+                                                    }
+                                                }
+
+                                                // 3. Secondary Fallback: Try Android 11+ Shortcut
+                                                if (!handled) {
+                                                    val shortcutId = item.notification.shortcutId
+                                                    if (!shortcutId.isNullOrBlank()) {
+                                                        try {
+                                                            val launcherApps = context.getSystemService(android.content.pm.LauncherApps::class.java)
+                                                            launcherApps.startShortcut(item.packageName, shortcutId, null, null, android.os.Process.myUserHandle())
+                                                            handled = true
+                                                        } catch (e: Exception) {
+                                                            android.util.Log.e("SexyLauncher", "Shortcut failed", e)
                                                         }
                                                     }
                                                 }

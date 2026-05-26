@@ -63,7 +63,14 @@ Builds:
     gradle:
       - yes
 
+  - versionName: 5.0.0
+    versionCode: 90
+    commit: v5.0.0
+    subdir: app
+    gradle:
+      - yes
+
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 4.9.7
-CurrentVersionCode: 80
+CurrentVersion: 5.0.0
+CurrentVersionCode: 90

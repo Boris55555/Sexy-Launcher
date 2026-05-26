@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,6 +34,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.AlternateEmail
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.CalendarToday
@@ -45,7 +48,10 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -65,6 +71,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -74,51 +81,67 @@ import java.util.Calendar
 import java.util.Locale
 
 @Composable
-fun DateText(favoritesRepository: FavoritesRepository) {
-    val weekStartsOnSunday by favoritesRepository.weekStartsOnSunday.collectAsState()
-    val dateThemeLight by favoritesRepository.dateThemeLight.collectAsState()
-
-    val calendar = Calendar.getInstance()
-    val englishLocale = Locale.ENGLISH
-
-    if (weekStartsOnSunday) {
-        calendar.firstDayOfWeek = Calendar.SUNDAY
-        calendar.minimalDaysInFirstWeek = 1
-    } else {
-        calendar.firstDayOfWeek = Calendar.MONDAY
-        calendar.minimalDaysInFirstWeek = 4
-    }
-
-    val dayOfWeek = SimpleDateFormat("EEEE", englishLocale).format(calendar.time).uppercase()
-    val weekOfYear = calendar.get(Calendar.WEEK_OF_YEAR)
-    val dayOfMonth = calendar.get(Calendar.DAY_OF_MONTH)
-    val monthName = SimpleDateFormat("MMMM", englishLocale).format(calendar.time)
-    val year = calendar.get(Calendar.YEAR)
-
-    val backgroundColor = if (dateThemeLight) Color.White else Color.Black
-    val textColor = if (dateThemeLight) Color.Black else Color.White
+fun StickyNote(
+    title: String? = null,
+    text: String,
+    modifier: Modifier = Modifier,
+    fontSizeAdjustment: Int = 0
+) {
+    if (text.isBlank() && title.isNullOrBlank()) return
 
     Box(
-        modifier = Modifier
-            .background(backgroundColor, RoundedCornerShape(12.dp))
-            .border(BorderStroke(2.dp, Color.Black), RoundedCornerShape(12.dp))
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        contentAlignment = Alignment.Center
+        modifier = modifier
+            .padding(8.dp)
+            .background(Color.White, shape = RoundedCornerShape(8.dp))
+            .padding(12.dp)
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+            if (!title.isNullOrBlank()) {
+                Text(
+                    text = title,
+                    fontSize = (20 + fontSizeAdjustment).sp,
+                    color = Color.Black,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                HorizontalDivider(color = Color.Black, thickness = 1.dp, modifier = Modifier.padding(bottom = 8.dp))
+            }
             Text(
-                text = "$dayOfWeek, WK $weekOfYear",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = textColor
-            )
-            Text(
-                text = "$dayOfMonth $monthName $year",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = textColor
+                text = text,
+                fontSize = (18 + fontSizeAdjustment).sp,
+                color = Color.Black,
+                fontWeight = FontWeight.Normal,
+                lineHeight = (22 + fontSizeAdjustment).sp
             )
         }
+    }
+}
+
+@Composable
+fun DateText() {
+    val date = remember { Calendar.getInstance().time }
+    val dayFormat = SimpleDateFormat("EEEE", Locale.getDefault())
+    val dateFormat = SimpleDateFormat("d. MMMM yyyy", Locale.getDefault())
+
+    val dayText = dayFormat.format(date)
+    val dateText = dateFormat.format(date)
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = dayText.uppercase(),
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.Black
+        )
+        Text(
+            text = dateText,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold, // Changed to Bold
+            color = Color.Black
+        )
     }
 }
 
@@ -246,73 +269,50 @@ fun getNotificationCount(sbn: StatusBarNotification): Int {
     if (messages != null && messages.isNotEmpty()) {
         return messages.size
     }
-    
-    // 2. Check for InboxStyle lines
-    val lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
-    if (lines != null && lines.isNotEmpty()) {
-        return lines.size
-    }
-    
-    // 3. Check for specific count extra (some apps use this)
-    val count = extras.getInt("android.number", 0)
-    if (count > 0) return count
-    
-    return 1
+
+    // 2. Check for badge icon intent or specific count extra
+    val badgeCount = extras.getInt("android.notification.count", 0)
+    if (badgeCount > 0) return badgeCount
+
+    return 1 // Default to 1 if no specific count found
 }
 
-/**
- * Checks if a notification is likely a summary (e.g., "2 new messages") rather than an individual message.
- */
 fun isLikelySummary(sbn: StatusBarNotification): Boolean {
-    val n = sbn.notification
-    val extras = n.extras
-
-    // FLAG_GROUP_SUMMARY is the official Android way to mark summaries
-    if ((n.flags and Notification.FLAG_GROUP_SUMMARY) != 0) return true
-
-    // MessagingStyle (standard for modern chat apps) is almost never a summary
-    if (extras.containsKey(Notification.EXTRA_MESSAGES)) return false
+    val extras = sbn.notification.extras
     
+    // A group summary is the most common form of "count-only" notification
+    if ((sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) return true
+    
+    // If it has multiple messages, it's NOT a summary, it's a collection
+    if (extras.containsKey(Notification.EXTRA_MESSAGES)) return false
+
+    // Look for indicators that this is a placeholder/count notification
     val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.lowercase() ?: ""
     val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.lowercase() ?: ""
-    val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.lowercase() ?: ""
-    val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.lowercase() ?: ""
-    
-    val combined = "$title $text $subText $bigText"
+    val combined = "$title $text"
 
     // Keywords that strongly suggest a summary/count notification
     val summaryKeywords = listOf(
-        "new message", "messages", "unread", "conversation", "notifications",
-        "uutta viestiä", "viestiä", "lukematonta", "keskustelua", "ilmoitusta", "viestit"
+        "new messages", "notifications", "viestiä", "ilmoitusta", 
+        "missed calls", "vastaamatonta", "uutta viestiä"
     )
-    
-    // InboxStyle (multiple lines) usually indicates a summary unless it's a specific conversation
+
+    // Check if it has a list of lines but no main text body
     if (extras.containsKey(Notification.EXTRA_TEXT_LINES)) {
         if (!extras.containsKey(Notification.EXTRA_CONVERSATION_TITLE)) return true
     }
 
-    // If there's a number and summary keywords, it's likely a summary (e.g., "2 messages")
+    // If there's a number and summary keywords, it's likely a summary (e.g., \"2 messages\")
     val hasDigit = combined.any { it.isDigit() }
     if (hasDigit && summaryKeywords.any { combined.contains(it) }) return true
-    
-    // Specific check for SMS apps where title is just the app name
-    if (sbn.packageName.contains("messaging") || sbn.packageName.contains("sms") || sbn.packageName.contains("messages")) {
-        if (title == "messages" || title == "viestit" || title == "sms") {
-            // If it's just the app name and we have other notifications, this is a summary
-            return true
-        }
-    }
 
     return false
 }
 
-/**
- * Counts notifications while trying to avoid double-counting summaries and individual items.
- */
 fun getSmartNotificationCount(notifications: List<StatusBarNotification>): Int {
     if (notifications.isEmpty()) return 0
     
-    // Group by package first to handle app-wide behavior
+    // Group by package to handle each app's summaries separately
     val packageGroups = notifications.groupBy { it.packageName }
     
     return packageGroups.values.sumOf { pkgNotifs ->
@@ -447,7 +447,10 @@ fun FavoriteAppItem(
     app: AppInfo, 
     notifications: List<StatusBarNotification>, 
     showAppIcons: Boolean,
+    modifier: Modifier = Modifier,
     showNotificationPreviews: Boolean = true,
+    sexyMode: Boolean = false,
+    sexyAlignment: String = "left",
     onLongClick: () -> Unit, 
     onClick: () -> Unit,
     fontSizeAdjustment: Int = 0
@@ -457,7 +460,7 @@ fun FavoriteAppItem(
     val missedCallsCount by NotificationListener.missedCallsCount.collectAsState()
     val unreadSmsCount by NotificationListener.unreadSmsCount.collectAsState()
 
-    val appIcon: Drawable? = if (showAppIcons) {
+    val appIcon: Drawable? = if (showAppIcons || sexyMode) {
         try {
             packageManager.getApplicationIcon(app.packageName)
         } catch (e: PackageManager.NameNotFoundException) {
@@ -507,86 +510,30 @@ fun FavoriteAppItem(
     
     val activeCallInfo by MainActivity.activeCallInfo.collectAsState()
 
+    val itemModifier = if (sexyMode) {
+        Modifier
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+    } else {
+        Modifier
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+    }
+
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height((60 + fontSizeAdjustment * 2).dp) // Reduced fixed height
-            .padding(horizontal = 8.dp),
-        verticalArrangement = Arrangement.Center
+        modifier = modifier
+            .then(if (sexyMode && sexyAlignment == "bottom") Modifier.wrapContentSize() 
+                  else if (sexyMode) Modifier.fillMaxWidth().wrapContentHeight() 
+                  else Modifier.fillMaxWidth().height((60 + fontSizeAdjustment * 2).dp))
+            .padding(horizontal = if (sexyMode) 0.dp else 8.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = if (sexyMode && sexyAlignment == "bottom") Alignment.CenterHorizontally else Alignment.Start
     ) {
-        Row(
-            modifier = Modifier
-                .wrapContentWidth()
-                .combinedClickable(onClick = onClick, onLongClick = onLongClick),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start
-        ) {
-            if (appIcon != null) {
-                Box(
-                    contentAlignment = Alignment.TopEnd
-                ) {
-                    Image(
-                        painter = rememberDrawablePainter(drawable = appIcon),
-                        contentDescription = "${app.name} icon",
-                        modifier = Modifier.size(40.dp)
-                    )
-                    if (totalCount > 0) {
-                        Box(
-                            modifier = Modifier
-                                .offset(x = 4.dp, y = (-4).dp)
-                                .size(16.dp)
-                                .background(Color.Black, shape = CircleShape)
-                                .border(1.dp, Color.White, shape = CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = if (totalCount > 9) "!" else totalCount.toString(),
-                                color = Color.White,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-            Text(
-                text = app.name,
-                fontSize = (32 + fontSizeAdjustment).sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color = Color.Black,
-                modifier = Modifier
-                    .weight(1f, fill = false)
-                    .padding(end = 0.dp) 
-            )
-            if (totalCount > 0 && appIcon == null) {
-                Box(
-                    modifier = Modifier
-                        .padding(start = 8.dp) // Use small padding to stay close but not overlap
-                        .border(BorderStroke(2.dp, Color.Black), shape = CircleShape)
-                        .background(color = Color.White, shape = CircleShape)
-                        .padding(horizontal = 4.dp, vertical = 1.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (totalCount > 99) "99+" else totalCount.toString(),
-                        color = Color.Black,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-            }
-        }
-        
-        var previewText: String? = null
-        
-        if (showNotificationPreviews) {
+        val previewText = remember(showNotificationPreviews, notifications, missedCallsCount, activeCallInfo, sexyAlignment, sexyMode) {
+            if (!showNotificationPreviews || sexyMode) return@remember null
+            
+            var text: String? = null
             if (isPhoneApp && activeCallInfo != null) {
-                previewText = activeCallInfo
+                text = activeCallInfo
             } else if (isPhoneApp && missedCallsCount > 0) {
-                // Priority: Show missed call info if it's the phone app and we have missed calls
                 try {
                     val cursor = context.contentResolver.query(
                         CallLog.Calls.CONTENT_URI,
@@ -599,54 +546,224 @@ fun FavoriteAppItem(
                         if (it.moveToFirst()) {
                             val nameIdx = it.getColumnIndex(CallLog.Calls.CACHED_NAME)
                             val numIdx = it.getColumnIndex(CallLog.Calls.NUMBER)
-                            
                             val name = if (nameIdx != -1) it.getString(nameIdx) else null
                             val number = if (numIdx != -1) it.getString(numIdx) else null
-                            
-                            val displayInfo = if (!name.isNullOrBlank()) name else number
-                            if (!displayInfo.isNullOrBlank()) {
-                                previewText = "Missed: $displayInfo"
-                            }
+                            text = if (!name.isNullOrBlank()) "Missed: $name" else "Missed: $number"
                         }
                     }
-                } catch (e: Exception) {
-                    // Fallback will be handled below
-                }
-                if (previewText == null) {
-                    previewText = "Missed call"
-                }
-            } 
+                } catch (e: Exception) {}
+                if (text == null) text = "Missed call"
+            }
             
-            // If we still don't have a preview (or it's not a phone app/no missed calls), check notifications for THIS app
-            val appNotifications = notifications.filter { it.packageName == app.packageName }
-            if (previewText == null && (totalCount > 0 || appNotifications.isNotEmpty())) {
+            if (text == null) {
+                val appNotifications = notifications.filter { it.packageName == app.packageName }
                 if (appNotifications.isNotEmpty()) {
-                    val firstNotification = appNotifications.first().notification
-                    val extras = firstNotification.extras
+                    val extras = appNotifications.first().notification.extras
                     val title = extras.getString("android.title") ?: extras.getString(Notification.EXTRA_TITLE)
-                    val text = extras.getCharSequence("android.text") ?: extras.getCharSequence(Notification.EXTRA_TEXT)
-
-                    previewText = when {
-                        !title.isNullOrBlank() && !text.isNullOrBlank() -> "$title: $text"
-                        !text.isNullOrBlank() -> text.toString()
+                    val body = extras.getCharSequence("android.text") ?: extras.getCharSequence(Notification.EXTRA_TEXT)
+                    text = when {
+                        !title.isNullOrBlank() && !body.isNullOrBlank() -> "$title: $body"
+                        !body.isNullOrBlank() -> body.toString()
                         !title.isNullOrBlank() -> title
                         else -> null
                     }
                 }
             }
+            text
         }
 
-        if (!previewText.isNullOrBlank()) {
-            Text(
-                text = previewText!!,
-                fontSize = (14 + fontSizeAdjustment).sp, // Reduced from 18.sp
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+        if (sexyMode) {
+            if (sexyAlignment == "bottom") {
+                // Bottom alignment: Just the icon and name
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.width(72.dp).combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                ) {
+                    Box(
+                        modifier = itemModifier,
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (appIcon != null) {
+                            Box(contentAlignment = Alignment.TopEnd) {
+                                Image(
+                                    painter = rememberDrawablePainter(drawable = appIcon),
+                                    contentDescription = "${app.name} icon",
+                                    modifier = Modifier.size(64.dp)
+                                )
+                                if (totalCount > 0) {
+                                    Box(
+                                        modifier = Modifier
+                                            .offset(x = 4.dp, y = (-4).dp)
+                                            .size(20.dp)
+                                            .background(Color.Black, shape = CircleShape)
+                                            .border(1.dp, Color.White, shape = CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = if (totalCount > 9) "!" else totalCount.toString(),
+                                            color = Color.White,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            if (app.packageName.isEmpty()) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Add app",
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            } else {
+                                Text(text = app.name.take(1).uppercase(), fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    val displayName = if (app.name.length > 10) app.name.take(7) + "..." else app.name
+                    Text(
+                        text = displayName,
+                        fontSize = (11 + fontSizeAdjustment).sp,
+                        maxLines = 1,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.offset(y = (-2).dp)
+                    )
+                }
+            } else {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp) 
+                        .padding(horizontal = 8.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.width(72.dp)
+                    ) {
+                        Box(
+                            modifier = itemModifier,
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (appIcon != null) {
+                                Box(contentAlignment = Alignment.TopEnd) {
+                                    Image(
+                                        painter = rememberDrawablePainter(drawable = appIcon),
+                                        contentDescription = "${app.name} icon",
+                                        modifier = Modifier.size(64.dp)
+                                    )
+                                    if (totalCount > 0) {
+                                        Box(
+                                            modifier = Modifier
+                                                .offset(x = 4.dp, y = (-4).dp)
+                                                .size(20.dp)
+                                                .background(Color.Black, shape = CircleShape)
+                                                .border(1.dp, Color.White, shape = CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = if (totalCount > 9) "!" else totalCount.toString(),
+                                                color = Color.White,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                if (app.packageName.isEmpty()) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = "Add app",
+                                        tint = Color.Black,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                } else {
+                                    Text(text = app.name.take(1).uppercase(), fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                        val displayName = if (app.name.length > 10) app.name.take(7) + "..." else app.name
+                        Text(
+                            text = displayName,
+                            fontSize = (11 + fontSizeAdjustment).sp,
+                            maxLines = 1,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.offset(y = (-2).dp)
+                        )
+                    }
+                    
+                    if (!previewText.isNullOrBlank()) {
+                        Text(
+                            text = previewText,
+                            fontSize = (14 + fontSizeAdjustment).sp,
+                            color = Color.Gray,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .padding(start = 12.dp, end = 16.dp)
+                                .weight(1f)
+                                .clickable { onClick() }
+                        )
+                    }
+                }
+            }
+        } else {
+            // Standard Layout... (keeping original logic for non-sexy mode)
+            Row(
                 modifier = Modifier
-                    .padding(top = 2.dp) // Also slightly reduced top padding
+                    .wrapContentWidth()
                     .combinedClickable(onClick = onClick, onLongClick = onLongClick),
-                color = Color.Black
-            )
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Start
+            ) {
+                if (appIcon != null) {
+                    Box(contentAlignment = Alignment.TopEnd) {
+                        Image(
+                            painter = rememberDrawablePainter(drawable = appIcon),
+                            contentDescription = "${app.name} icon",
+                            modifier = Modifier.size(40.dp)
+                        )
+                        if (totalCount > 0) {
+                            Box(
+                                modifier = Modifier.offset(x = 4.dp, y = (-4).dp).size(16.dp).background(Color.Black, shape = CircleShape).border(1.dp, Color.White, shape = CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = if (totalCount > 9) "!" else totalCount.toString(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text(
+                    text = app.name,
+                    fontSize = (32 + fontSizeAdjustment).sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = Color.Black,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (totalCount > 0 && appIcon == null) {
+                    Box(
+                        modifier = Modifier.padding(start = 8.dp).border(BorderStroke(2.dp, Color.Black), shape = CircleShape).background(color = Color.White, shape = CircleShape).padding(horizontal = 4.dp, vertical = 1.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = if (totalCount > 99) "99+" else totalCount.toString(), color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+                }
+            }
+            if (!previewText.isNullOrBlank()) {
+                Text(
+                    text = previewText,
+                    fontSize = (14 + fontSizeAdjustment).sp,
+                    color = Color.Gray,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = if (appIcon != null) 56.dp else 8.dp, bottom = 8.dp)
+                )
+            }
         }
     }
 }
@@ -657,122 +774,101 @@ fun RenameAppDialog(
     onDismiss: () -> Unit,
     onRename: (String) -> Unit,
     onUninstall: (() -> Unit)? = null,
-    showAppIcons: Boolean,
+    showAppIcons: Boolean = false,
     isHiddenFromTop10: Boolean = false,
     onToggleHideFromTop10: (() -> Unit)? = null
 ) {
     var newName by remember { mutableStateOf(appInfo.customName ?: appInfo.name) }
     val context = LocalContext.current
-    val packageManager = context.packageManager
-
-    val appIcon: Drawable? = if (showAppIcons) {
-        try {
-            packageManager.getApplicationIcon(appInfo.packageName)
-        } catch (e: PackageManager.NameNotFoundException) {
-            null
-        }
-    } else {
-        null
-    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (appIcon != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (showAppIcons) {
+                    val icon = try {
+                        context.packageManager.getApplicationIcon(appInfo.packageName)
+                    } catch (e: Exception) {
+                        null
+                    }
+                    if (icon != null) {
                         Image(
-                            painter = rememberDrawablePainter(drawable = appIcon),
-                            contentDescription = "${appInfo.name} icon",
-                            modifier = Modifier.size(40.dp)
+                            painter = rememberDrawablePainter(drawable = icon),
+                            contentDescription = null,
+                            modifier = Modifier.size(32.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                    }
-                    Text(
-                        text = "Edit ${appInfo.name}",
-                        color = Color.Black,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (onToggleHideFromTop10 != null) {
-                        IconButton(onClick = onToggleHideFromTop10) {
-                            Icon(
-                                imageVector = if (isHiddenFromTop10) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = if (isHiddenFromTop10) "Show in Top 10" else "Hide from Top 10",
-                                tint = Color.Black
-                            )
-                        }
-                    }
-                    if (onUninstall != null) {
-                        IconButton(onClick = onUninstall) {
-                            Icon(Icons.Default.Delete, contentDescription = "Uninstall", tint = Color.Black)
-                        }
+                        Spacer(modifier = Modifier.width(12.dp))
                     }
                 }
+                Text("Rename App", color = Color.Black)
             }
         },
         text = {
-            TextField(
-                value = newName,
-                onValueChange = { newName = it },
-                singleLine = true,
-                modifier = Modifier.border(BorderStroke(1.dp, Color.Black)),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { onRename(newName) }),
-                colors = TextFieldDefaults.colors(
-                    focusedTextColor = Color.Black,
-                    unfocusedTextColor = Color.Black,
-                    cursorColor = Color.Black,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    disabledIndicatorColor = Color.Transparent,
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    disabledContainerColor = Color.White
+            Column {
+                TextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    singleLine = true,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
+                        focusedIndicatorColor = Color.Black,
+                        unfocusedIndicatorColor = Color.Black
+                    ),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { onRename(newName) }),
+                    modifier = Modifier.fillMaxWidth()
                 )
-            )
-        },
-        confirmButton = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                Button(
-                    onClick = onDismiss,
-                    shape = RectangleShape,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        contentColor = Color.Black
-                    ),
-                    border = BorderStroke(1.dp, Color.Black)
-                ) {
-                    Text("Cancel")
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(
-                    onClick = { onRename(newName) },
-                    shape = RectangleShape,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Black,
-                        contentColor = Color.White
-                    ),
-                    border = BorderStroke(1.dp, Color.Black)
-                ) {
-                    Text("Rename")
+                
+                if (onToggleHideFromTop10 != null) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onToggleHideFromTop10() }
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (isHiddenFromTop10) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = null,
+                            tint = Color.Black
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = if (isHiddenFromTop10) "Show in Top 10" else "Hide from Top 10",
+                            color = Color.Black
+                        )
+                    }
                 }
             }
         },
-        dismissButton = {},
+        confirmButton = {
+            EInkButton(onClick = { onRename(newName) }) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            Row {
+                if (onUninstall != null) {
+                    EInkButton(
+                        onClick = onUninstall
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = "Uninstall", tint = Color.Black)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Uninstall")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                EInkButton(
+                    onClick = onDismiss
+                ) {
+                    Text("Cancel")
+                }
+            }
+        },
         containerColor = Color.White
     )
 }

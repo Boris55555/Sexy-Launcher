@@ -2,12 +2,16 @@ package com.boris55555.sexylauncher
 
 import android.app.Activity
 import android.app.AlarmManager
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.Uri
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
@@ -18,6 +22,7 @@ import android.telecom.TelecomManager
 import android.telephony.SignalStrength
 import android.telephony.TelephonyCallback
 import android.telephony.TelephonyManager
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -39,45 +44,35 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessAlarm
-import androidx.compose.material.icons.filled.Battery0Bar
-import androidx.compose.material.icons.filled.Battery2Bar
-import androidx.compose.material.icons.filled.Battery4Bar
-import androidx.compose.material.icons.filled.Battery6Bar
-import androidx.compose.material.icons.filled.BatteryFull
-import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.BluetoothConnected
-import androidx.compose.material.icons.filled.BluetoothDisabled
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.NetworkCheck
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.HistoryEdu
 import androidx.compose.material.icons.filled.Pets
-import androidx.compose.material.icons.filled.SignalCellular0Bar
-import androidx.compose.material.icons.filled.SignalCellular4Bar
-import androidx.compose.material.icons.filled.SignalCellularNull
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.boris55555.sexylauncher.birthdays.BirthdaysRepository
@@ -90,7 +85,6 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import java.util.Calendar
 import java.util.Locale
-import kotlin.math.roundToInt
 
 @Composable
 fun HomeScreen(
@@ -153,10 +147,15 @@ fun MainHomeScreen(
     val gesturesEnabled by favoritesRepository.gesturesEnabled.collectAsState()
     val swipeLeftAction by favoritesRepository.swipeLeftAction.collectAsState()
     val swipeRightAction by favoritesRepository.swipeRightAction.collectAsState()
-    val catIconAction by favoritesRepository.catIconAction.collectAsState()
-    val keepAllAppsButton by favoritesRepository.keepAllAppsButton.collectAsState()
+    val keepAllAppsButton = true // Always on
     val showAppIcons by favoritesRepository.showAppIcons.collectAsState()
     val showNotificationPreviews by favoritesRepository.showNotificationPreviews.collectAsState()
+    val sexyMode by favoritesRepository.sexyMode.collectAsState()
+    val sexyAlignment by favoritesRepository.sexyAlignment.collectAsState()
+    val enableCameraShortcut = true // Always on
+    val showNotesButton by favoritesRepository.showNotesButton.collectAsState()
+    val homeNote by favoritesRepository.homeNote.collectAsState()
+    val homeNoteTitle by favoritesRepository.homeNoteTitle.collectAsState()
     val fontSizeHome by favoritesRepository.fontSizeHome.collectAsState()
     val use24hFormat by favoritesRepository.use24hFormat.collectAsState()
 
@@ -315,6 +314,77 @@ fun MainHomeScreen(
         }
     }
     var favoritesArea by remember { mutableStateOf<Rect?>(null) }
+    var showEditNoteDialog by remember { mutableStateOf(false) }
+
+    if (showEditNoteDialog) {
+        var tempTitle by remember { mutableStateOf(homeNoteTitle) }
+        var tempContent by remember { mutableStateOf(homeNote) }
+        AlertDialog(
+            onDismissRequest = { showEditNoteDialog = false },
+            title = { Text("Edit Home Note", color = Color.Black) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = tempTitle,
+                        onValueChange = { tempTitle = it },
+                        label = { Text("Title") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Black,
+                            unfocusedBorderColor = Color.Black,
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = tempContent,
+                        onValueChange = { tempContent = it },
+                        label = { Text("Content") },
+                        modifier = Modifier.fillMaxWidth().height(150.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Black,
+                            unfocusedBorderColor = Color.Black,
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    EInkButton(onClick = {
+                        tempTitle = ""
+                        tempContent = ""
+                        favoritesRepository.saveHomeNoteTitle("")
+                        favoritesRepository.saveHomeNote("")
+                        showEditNoteDialog = false
+                    }) {
+                        Text("Clear")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    EInkButton(onClick = { showEditNoteDialog = false }) {
+                        Text("Cancel")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    EInkButton(onClick = {
+                        favoritesRepository.saveHomeNoteTitle(tempTitle)
+                        favoritesRepository.saveHomeNote(tempContent)
+                        showEditNoteDialog = false
+                    }) {
+                        Text("Save")
+                    }
+                }
+            },
+            dismissButton = null,
+            containerColor = Color.White
+        )
+    }
 
     fun handleSwipe(action: String) {
         when (action) {
@@ -349,13 +419,12 @@ fun MainHomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp)
                 .padding(top = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val hideStatusBar by favoritesRepository.hideStatusBar.collectAsState()
+            val hideStatusBar = true // Always on
 
-            Box(modifier = Modifier.fillMaxWidth()) {
+            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 if (hideStatusBar) {
                     Column(
                         modifier = Modifier
@@ -456,7 +525,7 @@ fun MainHomeScreen(
                             }
                         }
                 ) {
-                    DateText(favoritesRepository)
+                    DateText()
                 }
 
                 Box(
@@ -497,7 +566,10 @@ fun MainHomeScreen(
             val todaysBirthdays = birthdays.filter { it.date.month == today.month && it.date.dayOfMonth == today.dayOfMonth }
 
             // Container for notifications and birthdays to stabilize layout
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 // Fixed-size box for the notification indicator
                 Box(
                     modifier = Modifier
@@ -536,149 +608,443 @@ fun MainHomeScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.weight(0.3f))
+            // Central Note Area for Sexy Mode (Bottom Alignment only)
+            if (sexyMode && sexyAlignment == "bottom") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(2.5f)
+                        .padding(horizontal = 48.dp, vertical = 0.dp), // Reduced vertical padding
+                    contentAlignment = Alignment.TopCenter // Changed from Center to TopCenter
+                ) {
+                    if (showNotesButton && (homeNote.isNotBlank() || homeNoteTitle.isNotBlank())) {
+                        StickyNote(
+                            title = homeNoteTitle,
+                            text = homeNote,
+                            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                            fontSizeAdjustment = fontSizeAdjustment
+                        )
+                    }
+                }
+            } else if (!sexyMode) {
+                Spacer(modifier = Modifier.weight(0.3f))
+            } else {
+                // Sexy Left mode: Use a smaller spacer to push everything to the center
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 48.dp), // Enough space for MiniPlayer
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Page indicators
-                if (pageCount > 1) {
-                    Column(
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        repeat(pageCount) { pageIndex ->
-                            val indicatorModifier = if (currentPage == pageIndex) {
-                                Modifier.background(Color.Black, shape = CircleShape)
-                            } else {
-                                Modifier.border(BorderStroke(1.dp, Color.Black), shape = CircleShape)
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .padding(vertical = 4.dp)
-                                    .size(18.dp)
-                                    .then(indicatorModifier)
-                                    .clickable { onCurrentPageChanged(pageIndex) }
+            if (sexyMode && sexyAlignment == "bottom") {
+                // Sexy Mode Bottom: Favorites in a row at the bottom, MiniPlayer above
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 0.dp), 
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // MiniPlayer above favorites in Bottom mode
+                    if (mediaController != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .wrapContentHeight()
+                                .padding(bottom = 16.dp)
+                        ) {
+                            MiniPlayer(
+                                mediaMetadata = mediaMetadata,
+                                playbackState = playbackState,
+                                mediaController = mediaController,
+                                onClose = { 
+                                    mediaController?.transportControls?.stop()
+                                    mediaController = null 
+                                }
                             )
                         }
                     }
-                } else {
-                    Spacer(modifier = Modifier.width(50.dp))
-                }
 
-                // Favorites list
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(
-                            start = 16.dp,
-                            end = if (!gesturesEnabled || keepAllAppsButton) 32.dp else 0.dp
-                        )
-                        .onGloballyPositioned { favoritesArea = it.boundsInRoot() },
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    val pageStart = currentPage * 4
-                    val pageEnd = minOf((currentPage + 1) * 4, favoriteCount)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .onGloballyPositioned { favoritesArea = it.boundsInRoot() },
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        val pageStart = currentPage * 4
+                        val pageEnd = minOf((currentPage + 1) * 4, favoriteCount)
 
-                    for (i in pageStart until pageEnd) {
-                        val app = favoriteApps.getOrNull(i)
-                        if (app != null) {
+                        for (i in pageStart until pageEnd) {
+                            val app = favoriteApps.getOrNull(i)
                             FavoriteAppItem(
-                                app = app, 
+                                app = app ?: AppInfo("", "", isSystemApp = false), // Handle null app info for "Add" box
                                 notifications = notifications,
                                 showAppIcons = showAppIcons,
-                                showNotificationPreviews = showNotificationPreviews,
-                                onLongClick = { 
-                                    if (!isHomeLocked) {
-                                        onEditFavorite(i)
-                                    } 
-                                }, 
-                                onClick = { 
-                                    val isPhoneApp = app.packageName == "com.mudita.dial" || 
-                                                     app.packageName.contains("dialer") || 
-                                                     app.packageName.contains("telecom")
+                                showNotificationPreviews = false, // Always off in Bottom mode
+                                sexyMode = true,
+                                sexyAlignment = "bottom",
+                                onLongClick = { if (!isHomeLocked) onEditFavorite(i) },
+                                onClick = {
+                                    if (app != null) {
+                                        // Standard launch logic...
+                                        val isPhoneApp = app.packageName == "com.mudita.dial" || 
+                                                         app.packageName.contains("dialer") || 
+                                                         app.packageName.contains("telecom")
 
-                                    val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-                                    val isCallActive = telephonyManager.callState != TelephonyManager.CALL_STATE_IDLE
+                                        val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+                                        val isCallActive = telephonyManager.callState != TelephonyManager.CALL_STATE_IDLE
 
-                                    if (isPhoneApp && isCallActive) {
-                                        // If it's the phone app and a call is active, try to bring the in-call UI to front
-                                        val intent = Intent(Intent.ACTION_MAIN)
-                                        intent.addCategory(Intent.CATEGORY_LAUNCHER)
-                                        intent.`package` = app.packageName
-                                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                                        
-                                        // Also try TelecomManager if API level allows
-                                        val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
-                                        try {
-                                            // showInCallScreen(false) brings the in-call screen to the foreground
-                                            telecomManager.showInCallScreen(false)
-                                        } catch (e: SecurityException) {
-                                            context.startActivity(intent)
-                                        } catch (e: Exception) {
-                                            context.startActivity(intent)
-                                        }
-                                    } else {
-                                        val appNotifications = notifications.filter { it.packageName == app.packageName }
-                                        val callNotification = appNotifications.find { sbn ->
-                                            getNotificationCategory(sbn, context) == NotificationCategory.CALLS &&
-                                            (sbn.notification.flags and android.app.Notification.FLAG_ONGOING_EVENT) != 0
-                                        }
-
-                                        if (callNotification != null && callNotification.notification.contentIntent != null) {
-                                            try {
-                                                callNotification.notification.contentIntent.send()
-                                            } catch (e: Exception) {
-                                                val launchIntent = packageManager.getLaunchIntentForPackage(app.packageName)
-                                                if (launchIntent != null) {
-                                                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                    context.startActivity(launchIntent)
+                                        if (isPhoneApp && isCallActive) {
+                                            val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+                                            try { 
+                                                if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
+                                                    telecomManager.showInCallScreen(false) 
+                                                } else {
+                                                    throw SecurityException("Missing permission")
                                                 }
+                                            } catch (e: Exception) {
+                                                val intent = Intent(Intent.ACTION_MAIN).apply {
+                                                    addCategory(Intent.CATEGORY_LAUNCHER)
+                                                    `package` = app.packageName
+                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                                                }
+                                                context.startActivity(intent)
                                             }
                                         } else {
                                             val launchIntent = packageManager.getLaunchIntentForPackage(app.packageName)
-                                            if (launchIntent != null) {
-                                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                context.startActivity(launchIntent)
+                                            launchIntent?.let {
+                                                it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                context.startActivity(it)
                                             }
                                         }
+                                    } else {
+                                        if (!isHomeLocked) onEditFavorite(i)
                                     }
                                 },
                                 fontSizeAdjustment = fontSizeAdjustment
                             )
-                        } else {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center,
-                                modifier = Modifier
-                                    .padding(8.dp)
-                                    .clickable { if (!isHomeLocked) onEditFavorite(i) }
-                            ) {
-                                Text(
-                                    text = "[Press here + ]",
-                                    fontSize = (32 + fontSizeAdjustment).sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Black
+                        }
+                    }
+                }
+            } else {
+                // Standard or Sexy Mode Left
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(if (sexyMode) Modifier.weight(3f) else Modifier.padding(bottom = 48.dp)), 
+                    verticalAlignment = Alignment.Top // Align to top for better consistency
+                ) {
+                    if (sexyMode) {
+                        // Sexy Mode: Scrollable favorites on the far left, square boxes
+                        Column(
+                            modifier = Modifier
+                                .width(80.dp) // Fixed width for favorites column
+                                .padding(start = 4.dp)
+                                .onGloballyPositioned { favoritesArea = it.boundsInRoot() },
+                            verticalArrangement = Arrangement.Top,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Up arrow if not on the first page
+                            if (currentPage > 0) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropUp,
+                                    contentDescription = "More favorites above",
+                                    tint = Color.Black,
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clickable { onCurrentPageChanged(currentPage - 1) }
                                 )
+                            } else {
+                                Spacer(modifier = Modifier.size(24.dp))
+                            }
+
+                            val pageStart = currentPage * 4
+                            val pageEnd = minOf((currentPage + 1) * 4, favoriteCount)
+
+                            for (i in pageStart until pageEnd) {
+                                val app = favoriteApps.getOrNull(i)
+                                if (app != null) {
+                                    FavoriteAppItem(
+                                        app = app, 
+                                        notifications = notifications,
+                                        showAppIcons = showAppIcons,
+                                        showNotificationPreviews = false, // Sticky note replaces previews
+                                        sexyMode = sexyMode,
+                                        sexyAlignment = sexyAlignment,
+                                        onLongClick = { 
+                                            if (!isHomeLocked) {
+                                                onEditFavorite(i)
+                                            } 
+                                        }, 
+                                        onClick = { 
+                                            val isPhoneApp = app.packageName == "com.mudita.dial" || 
+                                                             app.packageName.contains("dialer") || 
+                                                             app.packageName.contains("telecom")
+
+                                            val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+                                            val isCallActive = telephonyManager.callState != TelephonyManager.CALL_STATE_IDLE
+
+                                            if (isPhoneApp && isCallActive) {
+                                                // If it's the phone app and a call is active, try to bring the in-call UI to front
+                                                val intent = Intent(Intent.ACTION_MAIN)
+                                                intent.addCategory(Intent.CATEGORY_LAUNCHER)
+                                                intent.`package` = app.packageName
+                                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                                                
+                                                // Also try TelecomManager if API level allows
+                                                val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+                                                try {
+                                                    // showInCallScreen(false) brings the in-call screen to the foreground
+                                                    telecomManager.showInCallScreen(false)
+                                                } catch (e: SecurityException) {
+                                                    context.startActivity(intent)
+                                                } catch (e: Exception) {
+                                                    context.startActivity(intent)
+                                                }
+                                            } else {
+                                                val appNotifications = notifications.filter { it.packageName == app.packageName }
+                                                val callNotification = appNotifications.find { sbn ->
+                                                    getNotificationCategory(sbn, context) == NotificationCategory.CALLS &&
+                                                    (sbn.notification.flags and android.app.Notification.FLAG_ONGOING_EVENT) != 0
+                                                }
+
+                                                if (callNotification != null && callNotification.notification.contentIntent != null) {
+                                                    try {
+                                                        callNotification.notification.contentIntent.send()
+                                                    } catch (e: Exception) {
+                                                        val launchIntent = packageManager.getLaunchIntentForPackage(app.packageName)
+                                                        if (launchIntent != null) {
+                                                            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                            context.startActivity(launchIntent)
+                                                        }
+                                                    }
+                                                } else {
+                                                    val launchIntent = packageManager.getLaunchIntentForPackage(app.packageName)
+                                                    if (launchIntent != null) {
+                                                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                        context.startActivity(launchIntent)
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        fontSizeAdjustment = fontSizeAdjustment
+                                    )
+                                } else {
+                                    // Add app box in Sexy Mode
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(80.dp)
+                                            .padding(horizontal = 8.dp)
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.width(72.dp)
+                                        ) {
+                                            Box(
+                                            modifier = Modifier
+                                                .size(64.dp)
+                                                .clickable { if (!isHomeLocked) onEditFavorite(i) },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Add,
+                                                contentDescription = "Add app",
+                                                tint = Color.Black,
+                                                modifier = Modifier.size(32.dp)
+                                            )
+                                        }
+                                            // Empty space where the label would be
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Down arrow if not on the last page
+                            if (currentPage < pageCount - 1) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "More favorites below",
+                                    tint = Color.Black,
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clickable { onCurrentPageChanged(currentPage + 1) }
+                                )
+                            } else {
+                                Spacer(modifier = Modifier.size(24.dp))
+                            }
+                        }
+                        
+                        // Sticky Note beside Favorites in Left Mode
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 16.dp, end = 48.dp, top = 8.dp), // Moved up from 24.dp
+                            contentAlignment = Alignment.TopCenter
+                        ) {
+                            if (showNotesButton && (homeNote.isNotBlank() || homeNoteTitle.isNotBlank())) {
+                                StickyNote(
+                                    title = homeNoteTitle,
+                                    text = homeNote,
+                                    modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                                    fontSizeAdjustment = fontSizeAdjustment
+                                )
+                            }
+                        }
+                    } else {
+                        // Standard Layout
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .padding(bottom = 48.dp), // Enough space for MiniPlayer
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Page indicators
+                            if (pageCount > 1) {
+                                Column(
+                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp),
+                                    verticalArrangement = Arrangement.Center,
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    repeat(pageCount) { pageIndex ->
+                                        val indicatorModifier = if (currentPage == pageIndex) {
+                                            Modifier.background(Color.Black, shape = CircleShape)
+                                        } else {
+                                            Modifier.border(BorderStroke(1.dp, Color.Black), shape = CircleShape)
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(vertical = 4.dp)
+                                                .size(18.dp)
+                                                .then(indicatorModifier)
+                                                .clickable { onCurrentPageChanged(pageIndex) }
+                                        )
+                                    }
+                                }
+                            } else {
+                                Spacer(modifier = Modifier.width(50.dp))
+                            }
+
+                            // Favorites list
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(
+                                        start = 16.dp,
+                                        end = if (!gesturesEnabled || keepAllAppsButton) 32.dp else 0.dp
+                                    )
+                                    .onGloballyPositioned { favoritesArea = it.boundsInRoot() },
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.Start
+                            ) {
+                                val pageStart = currentPage * 4
+                                val pageEnd = minOf((currentPage + 1) * 4, favoriteCount)
+
+                                for (i in pageStart until pageEnd) {
+                                    val app = favoriteApps.getOrNull(i)
+                                    if (app != null) {
+                                        FavoriteAppItem(
+                                            app = app, 
+                                            notifications = notifications,
+                                            showAppIcons = showAppIcons,
+                                            showNotificationPreviews = showNotificationPreviews,
+                                            sexyMode = sexyMode,
+                                            onLongClick = { 
+                                                if (!isHomeLocked) {
+                                                    onEditFavorite(i)
+                                                } 
+                                            }, 
+                                            onClick = { 
+                                                val isPhoneApp = app.packageName == "com.mudita.dial" || 
+                                                                 app.packageName.contains("dialer") || 
+                                                                 app.packageName.contains("telecom")
+
+                                                val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+                                                val isCallActive = telephonyManager.callState != TelephonyManager.CALL_STATE_IDLE
+
+                                                if (isPhoneApp && isCallActive) {
+                                                    // If it's the phone app and a call is active, try to bring the in-call UI to front
+                                                    val intent = Intent(Intent.ACTION_MAIN)
+                                                    intent.addCategory(Intent.CATEGORY_LAUNCHER)
+                                                    intent.`package` = app.packageName
+                                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                                                    
+                                                    // Also try TelecomManager if API level allows
+                                                    val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+                                                    try {
+                                                        // showInCallScreen(false) brings the in-call screen to the foreground
+                                                        telecomManager.showInCallScreen(false)
+                                                    } catch (e: SecurityException) {
+                                                        context.startActivity(intent)
+                                                    } catch (e: Exception) {
+                                                        context.startActivity(intent)
+                                                    }
+                                                } else {
+                                                    val appNotifications = notifications.filter { it.packageName == app.packageName }
+                                                    val callNotification = appNotifications.find { sbn ->
+                                                        getNotificationCategory(sbn, context) == NotificationCategory.CALLS &&
+                                                        (sbn.notification.flags and android.app.Notification.FLAG_ONGOING_EVENT) != 0
+                                                    }
+
+                                                    if (callNotification != null && callNotification.notification.contentIntent != null) {
+                                                        try {
+                                                            callNotification.notification.contentIntent.send()
+                                                        } catch (e: Exception) {
+                                                            val launchIntent = packageManager.getLaunchIntentForPackage(app.packageName)
+                                                            if (launchIntent != null) {
+                                                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                                context.startActivity(launchIntent)
+                                                            }
+                                                        }
+                                                    } else {
+                                                        val launchIntent = packageManager.getLaunchIntentForPackage(app.packageName)
+                                                        if (launchIntent != null) {
+                                                            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                            context.startActivity(launchIntent)
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            fontSizeAdjustment = fontSizeAdjustment
+                                        )
+                                    } else {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center,
+                                            modifier = Modifier
+                                                .padding(8.dp)
+                                                .clickable { if (!isHomeLocked) onEditFavorite(i) }
+                                        ) {
+                                            Text(
+                                                text = "[Press here + ]",
+                                                fontSize = (32 + fontSizeAdjustment).sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.Black
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
-            Spacer(modifier = Modifier.weight(0.8f))
+            if (sexyMode) {
+                Spacer(modifier = Modifier.height(8.dp))
+            } else {
+                Spacer(modifier = Modifier.weight(0.8f))
+            }
         }
 
         if (!gesturesEnabled || keepAllAppsButton) {
+            // All Apps Button (Fixed Position relative to screen center)
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .padding(bottom = 80.dp) // Pushed the button up
+                    .offset(y = (-32).dp) // Absolute shift to align with power button
                     .size(width = 32.dp, height = 100.dp)
                     .background(Color.White)
                     .border(
@@ -694,35 +1060,93 @@ fun MainHomeScreen(
                     tint = Color.Black
                 )
             }
-        }
 
-        if (mediaController == null && isHomeLocked) {
-            Icon(
-                imageVector = Icons.Default.Pets,
-                contentDescription = "Settings",
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp)
-                    .size(24.dp)
-                    .pointerInput(catIconAction) {
-                        detectTapGestures(
-                            onDoubleTap = {
-                                if (catIconAction == "double_touch") {
-                                    onShowSettingsClicked()
-                                }
-                            },
-                            onLongPress = {
-                                if (catIconAction == "long_press") {
-                                    onShowSettingsClicked()
+                // Camera Shortcut (Fixed Position relative to All Apps)
+            if (enableCameraShortcut) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .offset(y = 59.dp) // -32 (All Apps) + 50 (half All Apps) + 16 (gap) + 25 (half Camera) = 59
+                        .size(width = 32.dp, height = 50.dp)
+                        .background(Color.White)
+                        .border(
+                            BorderStroke(2.dp, Color.Black),
+                            RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50)
+                        )
+                        .clip(RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50))
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                            val cameraIntents = listOf(
+                                Intent(android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA),
+                                Intent("android.media.action.STILL_IMAGE_CAMERA"),
+                                Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)
+                            )
+                            
+                            var started = false
+                            for (intent in cameraIntents) {
+                                try {
+                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    context.startActivity(intent)
+                                    started = true
+                                    break
+                                } catch (_: Exception) {}
+                            }
+                            
+                            if (!started) {
+                                // Try common camera package names as last resort
+                                val packages = listOf("com.mudita.camera", "com.android.camera", "com.android.camera2", "com.google.android.GoogleCamera")
+                                for (pkg in packages) {
+                                    try {
+                                        val intent = packageManager.getLaunchIntentForPackage(pkg)
+                                        if (intent != null) {
+                                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            context.startActivity(intent)
+                                            started = true
+                                            break
+                                        }
+                                    } catch (_: Exception) {}
                                 }
                             }
+                        }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = "Open Camera",
+                        tint = Color.Black,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // Add Note Shortcut (+)
+                if (sexyMode && showNotesButton) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .offset(y = 117.dp) // 59 (Camera) + 25 (half Camera) + 8 (gap) + 25 (half Plus) = 117
+                            .size(width = 32.dp, height = 50.dp)
+                            .background(Color.White)
+                            .border(
+                                BorderStroke(2.dp, Color.Black),
+                                RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50)
+                            )
+                            .clip(RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50))
+                            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                                showEditNoteDialog = true
+                            }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.HistoryEdu,
+                            contentDescription = "Add Note",
+                            tint = Color.Black,
+                            modifier = Modifier.size(20.dp)
                         )
-                    },
-                tint = Color.Black
-            )
+                    }
+                }
+            }
         }
 
-        if (mediaController != null) {
+        if (mediaController != null && !(sexyMode && sexyAlignment == "bottom")) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -860,5 +1284,3 @@ fun BatteryIcon(state: BatteryState?) {
         }
     }
 }
-
-
