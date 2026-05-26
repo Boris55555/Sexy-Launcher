@@ -1,6 +1,6 @@
 # Sexy Launcher
 
-A minimalist, e-ink friendly launcher designed specifically for the Mudita Kompakt and other Android-based e-ink devices. Focus on your essentials with a high-contrast, distraction-free interface.
+A minimalist, e-ink friendly launcher designed specifically for the Mudita Kompakt. Focus on your essentials with a high-contrast, distraction-free interface.
 
 ## Key Features in Version 5.0
 
