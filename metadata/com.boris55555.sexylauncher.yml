@@ -19,10 +19,6 @@ Description: |-
 
 RepoType: git
 Repo: https://github.com/Boris55555/Sexy-Launcher.git
-Binaries: https://github.com/Boris55555/Sexy-Launcher/releases/download/v%v/app-release.apk
-
-AllowedAPKSigningKeys:
-  - e56407c43ac3c9b12eaa6ba9d043154dcad281469229855d1fc18804baae5c27
 
 Builds:
   - versionName: 4.9.2
@@ -80,6 +76,10 @@ Builds:
     subdir: app
     gradle:
       - yes
+
+AllowedAPKSigningKeys:
+  - e56407c43ac3c9b12eaa6ba9d043154dcad281469229855d1fc18804baae5c27
+Binaries: https://github.com/Boris55555/Sexy-Launcher/releases/download/v%v/app-release.apk
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
