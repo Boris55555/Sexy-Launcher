@@ -20,6 +20,9 @@ Description: |-
 RepoType: git
 Repo: https://github.com/Boris55555/Sexy-Launcher.git
 
+CurrentVersion: 5.0.1
+CurrentVersionCode: 91
+
 Builds:
   - versionName: 4.9.2
     versionCode: 75
@@ -83,5 +86,3 @@ Binaries: https://github.com/Boris55555/Sexy-Launcher/releases/download/v%v/app-
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 5.0.1
-CurrentVersionCode: 91
