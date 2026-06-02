@@ -24,41 +24,6 @@ CurrentVersion: 5.0.1
 CurrentVersionCode: 91
 
 Builds:
-  - versionName: 4.9.2
-    versionCode: 75
-    commit: v4.9.2
-    subdir: app
-    gradle:
-      - yes
-
-  - versionName: 4.9.3
-    versionCode: 76
-    commit: v4.9.3
-    subdir: app
-    gradle:
-      - yes
-
-  - versionName: 4.9.4
-    versionCode: 77
-    commit: v4.9.4
-    subdir: app
-    gradle:
-      - yes
-
-  - versionName: 4.9.5
-    versionCode: 78
-    commit: v4.9.5
-    subdir: app
-    gradle:
-      - yes
-
-  - versionName: 4.9.6
-    versionCode: 79
-    commit: v4.9.6
-    subdir: app
-    gradle:
-      - yes
-
   - versionName: 4.9.7
     versionCode: 80
     commit: v4.9.7
