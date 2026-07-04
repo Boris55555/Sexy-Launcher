@@ -1,8 +1,0 @@
-A minimalist, e-ink friendly launcher designed specifically for the Mudita
-Kompakt and other e-ink devices.
-
-Key features:
-* Mudita Integration: Full support for system apps from Mudita Kompakt.
-* E-Ink Optimized: High-contrast design with hollow-dot status icons.
-* Focus-Oriented Navigation: Minimalist app drawer and favorite apps.
-* Privacy First: No personal data ever leaves your device.
