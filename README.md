@@ -33,7 +33,16 @@ A minimalist, e-ink friendly launcher designed specifically for the Mudita Kompa
 2.  Install it on your Mudita Kompakt.
 3.  Set Sexy Launcher as your default home application in the device settings.
 
-**Note on F-Droid:** The F-Droid version has been discontinued. Maintaining a build in the official F-Droid repository proved to be too complex and time-consuming due to their strict build requirements. Please use the GitHub releases for the latest updates.
+### Important Note: F-Droid Discontinuation
+
+Official support for the F-Droid repository has been discontinued. After several months of attempts, we have decided that the overhead required to maintain the build in their official repository is too high. 
+
+Reasons for this decision:
+*   **Reproducible Build Complexity**: Meeting F-Droid's strict requirements for bit-for-bit identical binaries proved extremely difficult with current Android build tools and dependencies.
+*   **Maintenance Overhead**: The time required to manage F-Droid specific metadata and build scripts was taking significant time away from actual feature development.
+*   **Build Environment Strictness**: Frequent build failures due to environment mismatches on F-Droid servers.
+
+We recommend all users to **download updates directly from GitHub Releases** to ensure you always have the latest features and bug fixes.
 
 ## Usage
 
